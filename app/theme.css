@@ -1,0 +1,81 @@
+/* Outings design tokens. See docs/design/DESIGN_SYSTEM.md.
+   Import from globals.css AFTER tailwindcss:  @import "./theme.css";
+   Light theme only. */
+
+@theme {
+  /* Brand */
+  --color-cream: #FBF6F1;
+  --color-surface: #FFFFFF;
+  --color-ink: #14213D;
+  --color-ink-muted: #5B6478;
+  --color-coral: #E8604C;      /* decorative / large display only (3.4:1 on cream) */
+  --color-coral-600: #C8402D;  /* primary button fill, white text 4.96:1 */
+  --color-coral-700: #B13624;  /* links and coral text on cream, 5.6:1 */
+  --color-coral-800: #8F2A1B;  /* text on blush */
+  --color-blush: #F9E3DC;
+  --color-blush-50: #FDF1EC;
+  --color-line: #EADFD3;
+  --color-line-strong: #D9CCBE;
+  --color-track: #E8DED3;
+  --color-amber-bg: #FFF3D9;
+  --color-amber-line: #F0D9A0;
+  --color-amber-ink: #5A3700;
+
+  /* Status: text colour on matching -bg, all >= 4.5:1. Always pair with a text label. */
+  --color-authorized: #1F5FA8;
+  --color-authorized-bg: #E3EEFA;
+  --color-captured: #1E6B45;
+  --color-captured-bg: #E1F3E8;
+  --color-void-pending: #8A5300;
+  --color-void-pending-bg: #FFF1D6;
+  --color-refunded: #5B3FA0;
+  --color-refunded-bg: #EEE8FA;
+  --color-cancelled: #4A5568;
+  --color-cancelled-bg: #ECEEF1;
+  --color-fixture: #A12D6B;
+  --color-fixture-bg: #FBE6F1;
+  --color-danger: #A3261B;
+  --color-danger-bg: #FDE8E5;
+
+  /* Type */
+  --font-display: "Fraunces Variable", Georgia, serif;
+  --font-sans: "Inter Variable", system-ui, sans-serif;
+
+  --text-caption: 0.75rem;
+  --text-caption--line-height: 1rem;
+  --text-small: 0.875rem;
+  --text-small--line-height: 1.25rem;
+  --text-body: 1rem;
+  --text-body--line-height: 1.5rem;
+  --text-lead: 1.1875rem;
+  --text-lead--line-height: 1.75rem;
+  --text-h3: 1.375rem;
+  --text-h3--line-height: 1.75rem;
+  --text-h2: 2rem;
+  --text-h2--line-height: 2.375rem;
+  --text-h1: 2.75rem;
+  --text-h1--line-height: 3rem;
+  --text-hero: 3.75rem;
+  --text-hero--line-height: 3.9375rem;
+
+  /* Radii */
+  --radius-chip: 0.75rem;
+  --radius-tile: 1.25rem;
+  --radius-card: 1.25rem;
+  --radius-card-lg: 1.5rem;
+  --radius-pill: 999px;
+
+  /* Shadows */
+  --shadow-card: 0 1px 2px rgb(20 33 61 / 0.04), 0 4px 16px rgb(20 33 61 / 0.05);
+  --shadow-pop: 0 8px 32px rgb(20 33 61 / 0.12);
+
+  /* Breakpoints (mobile-first; 375 is the design floor) */
+  --breakpoint-sm: 40rem;
+  --breakpoint-md: 48rem;
+  --breakpoint-lg: 64rem;
+  --breakpoint-xl: 80rem;
+}
+
+:root {
+  --focus-ring: 0 0 0 3px #FBF6F1, 0 0 0 5px #14213D;
+}
