@@ -123,8 +123,14 @@ export const outings = pgTable(
     budgetUnit: budgetUnit("budget_unit").notNull().default("TOTAL"),
     budgetRound: integer("budget_round").notNull().default(1),
     budgetRevealedAt: ts("budget_revealed_at"),
+    /** Stored aggregate-only reveal (RevealAggregate) + AI summary with provenance. No names. */
+    budgetReveal: jsonb("budget_reveal"),
     /** Organizer-chosen proposal budget (TOTAL, minor units). Not a payment authorization. */
     proposedBudgetMinor: integer("proposed_budget_minor"),
+    /** AI-ranked catalogue proposal (validated against the catalogue) + provenance. */
+    proposal: jsonb("proposal"),
+    /** Offering the organizer selected (preview only; terms are fixed when collection opens). */
+    selectedOfferingId: uuid("selected_offering_id"),
     merchantId: uuid("merchant_id").references(() => merchants.id),
     currentQuoteId: uuid("current_quote_id"),
     minPayers: integer("min_payers"),

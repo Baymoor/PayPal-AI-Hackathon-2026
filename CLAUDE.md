@@ -2,7 +2,7 @@
 
 # Outings — agent notes
 
-- Product spec: docs/CLAUDE_BUILD_BRIEF.md is authoritative for money/consent/deadline rules. docs/HANDOFF_TO_CODEX.md is the live status.
+- Product spec: docs/PRODUCT_SPEC.md (condensed from the owner's CLAUDE_BUILD_BRIEF.md) is authoritative; docs/CONTRACTS.md defines module ownership and APIs for money/consent/deadline rules. docs/HANDOFF_TO_CODEX.md is the live status.
 - Money is integer minor units only (lib/domain/money.ts). Never use floats for amounts.
 - Settlement/eligibility rules live in lib/domain/policy.ts (pure, tested). AI never decides money.
 - Never label FIXTURE payments/AI as real PayPal sandbox or real model output.

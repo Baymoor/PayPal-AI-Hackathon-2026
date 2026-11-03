@@ -8,6 +8,13 @@
       "when": 1793749985026,
       "tag": "0000_init",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1793750270727,
+      "tag": "0001_outing_planning_fields",
+      "breakpoints": true
     }
   ]
 }
