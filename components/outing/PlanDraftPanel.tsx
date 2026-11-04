@@ -1,9 +1,10 @@
 "use client";
 /**
  * "Ask AI to draft the plan": fetches a validated draft (POST /api/outings/:id/plan-draft) and pre-fills the
- * organizer's proposal screen. The offering and sponsorship are applied through the organizer's own preview
- * actions (both reversible before collection); times and minimum payers only pre-fill the local form. Nothing
- * is booked, consented to or charged: "Open commitments" stays the only way forward.
+ * organizer's proposal screen. The AI never overrides a choice the organizer already made: an offering or a
+ * sponsored guest is applied (through the organizer's own reversible preview actions) only when none is chosen
+ * yet; otherwise a different suggestion is shown as a note. Times and minimum payers only pre-fill the local
+ * form. Nothing is booked, consented to or charged: "Open commitments" stays the only way forward.
  */
 import { Check, Info, Sparkles, TriangleAlert } from "lucide-react";
 import type { PlanDraftField, PlanDraftResponse } from "@/lib/ai/types";
@@ -56,8 +57,12 @@ async function applyDraft(view: OutingView, actions: OutingActions, res: PlanDra
   const notApplied: string[] = [];
   let offeringApplied = false;
   if (d.offeringId) {
-    if (d.offeringId === view.proposal?.selectedOfferingId) offeringApplied = true;
-    else {
+    const selected = view.proposal?.selectedOfferingId ?? null;
+    if (d.offeringId === selected) offeringApplied = true;
+    else if (selected) {
+      // Never override the organizer's own choice.
+      notApplied.push(`AI suggested ${d.offeringName ?? "another offering"}; your current selection was kept. Change it yourself if you agree.`);
+    } else {
       try {
         await actions.select(d.offeringId);
         offeringApplied = true;
@@ -71,10 +76,16 @@ async function applyDraft(view: OutingView, actions: OutingActions, res: PlanDra
     const current = view.roster.people.find((p) => p.payerType === "SPONSORED")?.participantId ?? null;
     const target = d.sponsor.participantId;
     if (current === target) sponsorApplied = true;
-    else {
+    else if (current) {
+      // Never remove or replace a sponsorship the organizer set; only suggest.
+      notApplied.push(
+        target
+          ? `AI suggested covering ${d.sponsor.displayName ?? "another guest"}; your current sponsored guest was kept.`
+          : "AI suggested no sponsored guest; your current sponsored guest was kept.",
+      );
+    } else if (target) {
       try {
-        if (current) await actions.patchParticipant(current, { payerType: "PAYER" });
-        if (target) await actions.patchParticipant(target, { payerType: "SPONSORED" });
+        await actions.patchParticipant(target, { payerType: "SPONSORED" });
         sponsorApplied = true;
       } catch (e) {
         notApplied.push(`Sponsored guest: ${describeError(e).message}`);

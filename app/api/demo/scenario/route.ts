@@ -31,6 +31,8 @@ export const POST = handle(async (req: Request) => {
 
 export const GET = handle(async (req: Request) => {
   if (!config().demoFixturesEnabled) throw notFound();
+  // Polled by the /demo panel every few seconds: generous, but bounded.
+  rateLimit(req, "demo:scenario-status", { capacity: 60, refillPerMinute: 60 });
   const parsed = z.string().uuid().safeParse(new URL(req.url).searchParams.get("outingId"));
   if (!parsed.success) throw notFound("Unknown demo outing");
   const status = await demoScenarioStatus(getDb(), parsed.data);

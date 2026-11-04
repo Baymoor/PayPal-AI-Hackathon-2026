@@ -25,7 +25,7 @@ Typical values: `1` behind a single platform load balancer (Render, Fly.io, Hero
 
 ## Security headers and HSTS
 
-`next.config.ts` and `proxy.ts` set the headers listed in [SECURITY_AND_LIMITATIONS.md](SECURITY_AND_LIMITATIONS.md#http-security-headers). `Strict-Transport-Security` (2 years, `includeSubDomains`) is sent only when `NODE_ENV=production` **and** `APP_BASE_URL` starts with `https://`, so set `APP_BASE_URL` to the public https URL. Because it covers subdomains and browsers cache it, only enable it on a host that will stay https. If TLS is terminated by a platform that already adds HSTS, the duplicate is harmless.
+`next.config.ts` and `proxy.ts` set the headers listed in [SECURITY_AND_LIMITATIONS.md](SECURITY_AND_LIMITATIONS.md#http-security-headers). `Strict-Transport-Security` (2 years, `includeSubDomains`) is sent only when `NODE_ENV=production` **and** `APP_BASE_URL` starts with `https://`, so set `APP_BASE_URL` to the public https URL. It is evaluated both at build time (`next.config.ts`) and at runtime (`proxy.ts`), so images built without `APP_BASE_URL` (e.g. the Dockerfile) still send HSTS when the runtime env is https. Because it covers subdomains and browsers cache it, only enable it on a host that will stay https. If TLS is terminated by a platform that already adds HSTS, the duplicate is harmless.
 
 ## Payee (`merchants.paypal_merchant_id`)
 
