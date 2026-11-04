@@ -391,8 +391,8 @@ export class FixtureProvider implements PaymentProvider {
   async getAuthorization(authorizationId: string): Promise<ProviderResult<{ authorization: AuthorizationView }>> {
     const a = await readRow<FixtureAuthorization>(this.db, authorizationId, "AUTHORIZATION");
     if (!a) return fail("INVALID", "RESOURCE_NOT_FOUND", "authorization not found", 404);
-    // Like PayPal's GET authorization: captures are not embedded (use getOrder for those).
-    return { ok: true, authorization: this.authView(a, this.clock(), []) };
+    // Captures are attached (the PayPal adapter does the same by also reading the order).
+    return { ok: true, authorization: this.authView(a, this.clock(), await this.capturesOf(this.db, a)) };
   }
 
   async captureAuthorization(input: {

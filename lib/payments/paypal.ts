@@ -588,7 +588,30 @@ export class PaypalProvider implements PaymentProvider {
     return this.parsed(() => ({ order: parseOrder(r.body) }), r.status);
   }
 
+  /**
+   * GET the authorization, then attach its captures. PayPal's authorization
+   * resource does not embed captures, but reconciliation needs them, so the
+   * parent order is read too (order id from supplementary_data / `up` link).
+   * If the captures cannot be read while some may exist, the result is
+   * UNKNOWN (fail closed) rather than an authorization with an empty list.
+   */
   async getAuthorization(authorizationId: string): Promise<ProviderResult<{ authorization: AuthorizationView }>> {
+    const parsed = await this.readAuthorization(authorizationId);
+    if (!parsed.ok) return parsed;
+    const auth = parsed.authorization;
+    const noCapturesPossible = auth.status === "CREATED" || auth.status === "VOIDED" || auth.status === "DENIED" || auth.status === "EXPIRED";
+    if (!auth.orderId) {
+      if (noCapturesPossible) return parsed;
+      return failure("UNKNOWN", "CAPTURES_UNRESOLVABLE", "Authorization may have captures but its order id is unknown");
+    }
+    const order = await this.getOrder(auth.orderId);
+    if (!order.ok) return noCapturesPossible && order.kind !== "UNKNOWN" ? parsed : order;
+    const match = order.order.authorizations.find((a) => a.authorizationId === auth.authorizationId);
+    return { ok: true, authorization: { ...auth, captures: match?.captures ?? [] } };
+  }
+
+  /** GET /v2/payments/authorizations/{id} only (no captures attached). */
+  private async readAuthorization(authorizationId: string): Promise<ProviderResult<{ authorization: AuthorizationView }>> {
     const r = await this.call("GET", `/v2/payments/authorizations/${encodeURIComponent(authorizationId)}`);
     if (!r.ok) return r;
     return this.parsed(() => ({ authorization: parseAuthorization(r.body) }), r.status);
@@ -631,7 +654,7 @@ export class PaypalProvider implements PaymentProvider {
     }
     if (r.kind === "UNKNOWN" || r.httpStatus === undefined || r.httpStatus < 400 || r.httpStatus >= 500) return r;
     // Any definitive refusal: read the authorization back (PAYPAL.md §6). Already voided / expired = no hold = success.
-    const back = await this.getAuthorization(input.authorizationId);
+    const back = await this.readAuthorization(input.authorizationId);
     if (back.ok) {
       const s = back.authorization.status;
       if (s === "VOIDED" || s === "EXPIRED" || s === "DENIED") return { ok: true, providerStatus: back.authorization.providerStatus };
