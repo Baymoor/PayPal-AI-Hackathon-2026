@@ -31,6 +31,9 @@ Legend: **REAL_SANDBOX** = exercised against PayPal sandbox · **REAL_AI** = exe
 | UX/a11y polish + /how-it-works explainer | DONE | axe: 0 violations on consumer screens (one third-party AG Charts landmark label remains) |
 | One-click demo scenarios (settle-soon, holdout, capture-failure) | DONE (FIXTURE) | `/demo`; `POST /api/demo/scenario`, `POST /api/demo/tick`; compensation e2e |
 | Real-AI verification script | READY, NOT RUN | `npx tsx scripts/ai-smoke.ts` with OUTINGS_ANTHROPIC_API_KEY |
+| AG Studio depth: Money flow custom widget, Money page, Studio KPIs, saved views, grid → drill-down links | DONE | trial mode |
+| `/setup` diagnostics (merchant-only) | DONE | tests PayPal OAuth / Claude without exposing secrets |
+| Raw demo footage | DELIVERED TO OWNER (not in repo) | 6 Playwright-recorded clips from the production build + shot list, FIXTURE labels visible |
 | PayPal sandbox proof (auth → $10 under-capture → void → refund) | NOT VERIFIED | run `npx tsx scripts/paypal-smoke.ts` locally with sandbox credentials |
 | Deployment + scheduler | DOCUMENTED, NOT DEPLOYED | `docs/DEPLOYMENT.md`, `render.yaml` |
 
@@ -64,7 +67,9 @@ npm run typecheck && npm test
 npm run test:e2e   # Playwright against a production build (resets DATABASE_URL db)
 ```
 
-Last results (cloud session, 4 Nov 2026): `npx tsc --noEmit` clean · `npx eslint .` 0 problems · `npx vitest run` 19 files / **267 passed** · `npm run test:e2e` **5/5 passed** (karaoke settle, holdout cancel, organizer cancel, demo hub, capture-failure compensation) · `next build` passes.
+Last results (cloud session, 4 Nov 2026): `npx tsc --noEmit` clean · `npx eslint .` 0 problems · `npx vitest run` 23 files / **311 passed** · `npm run test:e2e` **5/5 passed** (karaoke settle, holdout cancel, organizer cancel, demo hub, capture-failure compensation) · `next build` passes.
+
+First local run with real keys: sign in at `/merchant/login`, open **`/setup`** — it shows which env vars are set (names only) and has buttons to test PayPal sandbox OAuth and a real Claude call.
 
 ## 4. Environment variable names
 
