@@ -1,0 +1,156 @@
+"use client";
+import { RefreshCw } from "lucide-react";
+import { useState } from "react";
+import type { OutingView } from "@/lib/contracts/views";
+import { formatMoney } from "@/lib/domain/money";
+import { AiSourceBadge } from "@/components/ui/Badge";
+import { Button } from "@/components/ui/Button";
+import { Card, Eyebrow } from "@/components/ui/Card";
+import { StatusBanner } from "@/components/ui/StatusBanner";
+import { VoteGrid } from "@/components/ui/VoteTile";
+import { cn } from "@/components/ui/cn";
+import type { OutingActions } from "./api";
+import { ActionErrorBanner, useAction } from "./useAction";
+
+/** Aggregate-only distribution as an accessible bar chart (role=img with a full text alternative). */
+export function DistributionChart({ view }: { view: OutingView }) {
+  const agg = view.budget.aggregate;
+  if (!agg) return null;
+  const amounts = Array.from(new Set([...view.budget.options, ...agg.buckets.map((b) => b.amountMinor)])).sort((a, b) => a - b);
+  const countFor = (m: number) => agg.buckets.find((b) => b.amountMinor === m)?.count ?? 0;
+  const max = Math.max(1, ...amounts.map(countFor));
+  const modal = Math.max(...amounts.map(countFor));
+  const alt =
+    "Budget suggestions by amount: " +
+    amounts.map((m) => `${formatMoney(m)}: ${countFor(m)} ${countFor(m) === 1 ? "vote" : "votes"}`).join(", ") +
+    ".";
+  return (
+    <figure className="space-y-3">
+      <figcaption className="font-semibold">Budget suggestions (number of votes)</figcaption>
+      <div role="img" aria-label={alt} className="flex h-[200px] items-end justify-between gap-2 sm:gap-4">
+        {amounts.map((m) => {
+          const c = countFor(m);
+          const isModal = c === modal && c > 0;
+          return (
+            <div key={m} className="flex h-full min-w-0 flex-1 flex-col justify-end text-center">
+              <span className="mb-1 text-small font-bold tabular-nums">
+                {c} {c === 1 ? "vote" : "votes"}
+              </span>
+              <div
+                className={cn("w-full rounded-t-chip", isModal ? "bg-coral-600" : "bg-[#EBCFC6]")}
+                style={{ height: `${c === 0 ? 3 : (c / max) * 150}px` }}
+              />
+              <span className="mt-2 font-display text-[18px] font-semibold tabular-nums">{formatMoney(m)}</span>
+            </div>
+          );
+        })}
+      </div>
+    </figure>
+  );
+}
+
+export function RevealPanel({ view, actions }: { view: OutingView; actions: OutingActions }) {
+  const { budget } = view;
+  const agg = budget.aggregate;
+  const org = view.organizer?.can;
+  const { pending, error, run } = useAction();
+  const suggested = budget.aiSummary?.suggestedTotalMinor ?? agg?.medianMinor ?? null;
+  const [override, setOverride] = useState<number | null>(null);
+  const [pick, setPick] = useState(false);
+  const target = override ?? suggested;
+
+  if (!agg) return <StatusBanner tone="info">The reveal isn&apos;t available yet.</StatusBanner>;
+
+  return (
+    <div className="grid gap-6 lg:grid-cols-[1.25fr_1fr]">
+      <div className="space-y-6">
+        <Card className="space-y-6">
+          <DistributionChart view={view} />
+          <dl className="grid grid-cols-3 gap-3 border-t border-line pt-4 text-center">
+            <div>
+              <dt className="text-caption font-semibold uppercase tracking-[0.14em] text-ink-muted">Range</dt>
+              <dd className="font-display text-[22px] tabular-nums">
+                {formatMoney(agg.minMinor)}–{formatMoney(agg.maxMinor)}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-caption font-semibold uppercase tracking-[0.14em] text-ink-muted">Median</dt>
+              <dd className="font-display text-[22px] tabular-nums">{formatMoney(agg.medianMinor)}</dd>
+            </div>
+            <div>
+              <dt className="text-caption font-semibold uppercase tracking-[0.14em] text-ink-muted">Voted</dt>
+              <dd className="font-display text-[22px] tabular-nums">
+                {agg.voteCount} of {agg.invitedCount}
+              </dd>
+            </div>
+          </dl>
+        </Card>
+        <p className="text-small text-ink-muted">Votes are shown as totals only. Nobody&apos;s name is attached to an amount.</p>
+      </div>
+
+      <div className="space-y-6">
+        {budget.aiSummary && (
+          <Card className="space-y-2">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <Eyebrow>Summary</Eyebrow>
+              <AiSourceBadge source={budget.aiSummary.source} />
+            </div>
+            <h2 className="text-h3">{budget.aiSummary.headline}</h2>
+            <p>{budget.aiSummary.summary}</p>
+          </Card>
+        )}
+
+        <Card tone="navy" className="space-y-1">
+          <Eyebrow className="!text-cream/80">Proposed group budget</Eyebrow>
+          <p className="font-display text-[56px] leading-[56px] font-semibold tabular-nums">
+            {formatMoney(budget.proposedBudgetMinor ?? target ?? 0)}
+          </p>
+          <p className="text-cream/90">A starting point, not a merchant quote.</p>
+        </Card>
+
+        {org && (
+          <div className="space-y-3">
+            <ActionErrorBanner error={error} />
+            {org.agreeBudget && target !== null && (
+              <Button
+                block
+                arrow
+                loading={pending === "agree"}
+                loadingLabel="Saving…"
+                onClick={() => run("agree", async () => { await actions.agreeBudget(target); await actions.refresh(); })}
+              >
+                Agree on {formatMoney(target)} budget
+              </Button>
+            )}
+            {org.agreeBudget && (
+              <div>
+                <Button variant="link" aria-expanded={pick} onClick={() => setPick((p) => !p)}>
+                  {pick ? "Hide other amounts" : "Choose a different amount"}
+                </Button>
+                {pick && (
+                  <div className="mt-2">
+                    <VoteGrid legend="Agreed total budget" options={budget.options} value={override} onChange={setOverride} />
+                  </div>
+                )}
+              </div>
+            )}
+            {org.newRound && (
+              <Button
+                block
+                variant="secondary"
+                loading={pending === "round"}
+                loadingLabel="Starting…"
+                onClick={() => run("round", async () => { await actions.newRound(); await actions.refresh(); })}
+              >
+                <RefreshCw className="size-5" aria-hidden />
+                Run another round
+              </Button>
+            )}
+          </div>
+        )}
+        {!org && <StatusBanner tone="info">The organizer will agree a budget next. Nothing is charged by this.</StatusBanner>}
+        <p className="text-small text-ink-muted">Suggest a total budget. This does not authorize a payment.</p>
+      </div>
+    </div>
+  );
+}

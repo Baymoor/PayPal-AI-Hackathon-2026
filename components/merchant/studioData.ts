@@ -1,7 +1,7 @@
 import type { AgDataSourcesDefinition } from "ag-studio";
 import type { MerchantBookingRow } from "@/lib/contracts/views";
 import { CLEANUP_LABEL, OUTING_STATUS_LABEL } from "./labels";
-import { formatInstant } from "./format";
+import { formatInstant, MERCHANT_TIMEZONE } from "./format";
 
 /** One flat row per outing, in major currency units for Studio's currency format. */
 export interface StudioRow {
@@ -13,6 +13,8 @@ export interface StudioRow {
   closingLabel: string;
   requiredAccepted: number;
   requiredInvited: number;
+  requiredLabel: string;
+  payersLabel: string;
   missingRequired: number;
   payersAuthorized: number;
   minPayers: number;
@@ -33,6 +35,8 @@ export function toStudioRow(r: MerchantBookingRow): StudioRow {
     closingLabel: formatInstant(r.deadlineAt),
     requiredAccepted: r.requiredAccepted,
     requiredInvited: r.requiredInvited,
+    requiredLabel: `${r.requiredAccepted} / ${r.requiredInvited}`,
+    payersLabel: `${r.payersAuthorized} / ${r.minPayers ?? "n/a"}`,
     missingRequired: r.missingRequired,
     payersAuthorized: r.payersAuthorized,
     minPayers: r.minPayers ?? 0,
@@ -49,6 +53,7 @@ export const f = (name: keyof StudioRow) => `${TABLE}.${name}`;
 
 /** Pass rows for ONE currency only (Studio has no currency conversion). */
 export function buildStudioData(rows: MerchantBookingRow[], currency: string): AgDataSourcesDefinition {
+  const dtf = new Intl.DateTimeFormat("en-US", { timeZone: MERCHANT_TIMEZONE, weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit", timeZoneName: "short" });
   const money = { format: new Intl.NumberFormat("en-US", { style: "currency", currency }) };
   return {
     description:
@@ -66,10 +71,12 @@ export function buildStudioData(rows: MerchantBookingRow[], currency: string): A
           { id: "title", name: "Outing", format: "textFormat" },
           { id: "mode", name: "Mode", format: "textFormat", description: "Sandbox = real PayPal sandbox; Fixture = synthetic demo data" },
           { id: "status", name: "Status", format: "textFormat" },
-          { id: "closingAt", name: "Closing time", format: "dateTimeFormat" },
+          { id: "closingAt", name: "Closing time", format: "dateTimeFormat", formatOptions: { format: dtf } },
           { id: "closingLabel", name: "Closes (merchant time)", format: "textFormat" },
           { id: "requiredAccepted", name: "Required accepted", format: "integerFormat" },
           { id: "requiredInvited", name: "Required invited", format: "integerFormat" },
+          { id: "requiredLabel", name: "Required accepted / invited", format: "textFormat" },
+          { id: "payersLabel", name: "Payers authorized / min", format: "textFormat" },
           { id: "missingRequired", name: "Missing required", format: "integerFormat" },
           { id: "payersAuthorized", name: "Payers authorized", format: "integerFormat" },
           { id: "minPayers", name: "Min payers", format: "integerFormat" },

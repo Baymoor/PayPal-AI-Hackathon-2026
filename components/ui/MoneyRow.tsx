@@ -27,7 +27,7 @@ export function MoneyRow({
       </dt>
       <dd
         className={cn(
-          "text-right tabular-nums",
+          "text-right tabular-nums [&_span]:font-sans",
           emphasis ? "font-display text-[26px] leading-8 font-semibold" : "font-display text-[20px] leading-7 font-semibold",
           valueClassName,
         )}
