@@ -66,7 +66,7 @@ export default async function FixtureApprovalPage({
   const open = attempt.status === "APPROVAL_PENDING";
 
   return (
-    <main className="mx-auto flex w-full max-w-xl flex-1 flex-col gap-6 px-4 py-10">
+    <main id="main" className="mx-auto flex w-full max-w-xl flex-1 flex-col gap-6 px-4 py-10">
       <div
         role="note"
         className="fixture-stripes rounded-2xl border-2 border-dashed border-fixture bg-fixture-bg p-4 text-fixture"

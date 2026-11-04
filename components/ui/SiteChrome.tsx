@@ -28,7 +28,7 @@ export function SiteHeader({
 }) {
   return (
     <header className="border-b border-line/70">
-      <div className="mx-auto flex w-full max-w-[1180px] items-center justify-between gap-3 px-5 py-2 sm:px-6">
+      <div className="mx-auto flex w-full max-w-[1180px] flex-wrap items-center justify-between gap-x-3 px-5 py-2 sm:px-6 md:flex-nowrap">
         <div className="flex items-center gap-2">
           {back && (
             <Link
@@ -44,12 +44,15 @@ export function SiteHeader({
           <Logo />
         </div>
         {nav && (
-          <nav aria-label="Main" className="hidden items-center gap-8 md:flex">
-            <Link href="/#how" className="inline-flex min-h-[44px] items-center font-medium hover:text-coral-700">
+          <nav aria-label="Main" className="order-last flex w-full items-center gap-x-6 overflow-x-auto md:order-none md:w-auto md:gap-8">
+            <Link href="/how-it-works" className="inline-flex min-h-[44px] items-center whitespace-nowrap font-medium hover:text-coral-700">
               How it works
             </Link>
-            <Link href="/demo" className="inline-flex min-h-[44px] items-center font-medium hover:text-coral-700">
+            <Link href="/demo" className="inline-flex min-h-[44px] items-center whitespace-nowrap font-medium hover:text-coral-700">
               Try the demo
+            </Link>
+            <Link href="/merchant" className="inline-flex min-h-[44px] items-center whitespace-nowrap font-medium hover:text-coral-700">
+              Merchant view
             </Link>
           </nav>
         )}
@@ -63,8 +66,20 @@ export function SiteHeader({
 }
 
 export function SiteFooter() {
+  const link = "inline-flex min-h-[44px] items-center font-semibold text-coral-700 underline underline-offset-4 hover:text-coral-800";
   return (
     <footer className="mt-auto px-5 pb-8 pt-10 sm:px-6">
+      <nav aria-label="Footer" className="mx-auto mb-3 flex max-w-[1180px] flex-wrap justify-center gap-x-6 text-small">
+        <Link href="/how-it-works" className={link}>
+          How it works
+        </Link>
+        <Link href="/demo" className={link}>
+          Try the demo
+        </Link>
+        <Link href="/merchant" className={link}>
+          Merchant dashboard
+        </Link>
+      </nav>
       <div className="mx-auto flex max-w-[1180px] items-center gap-4 text-small text-ink-muted">
         <span aria-hidden className="h-px flex-1 bg-line-strong" />
         <p className="max-w-xl text-center">

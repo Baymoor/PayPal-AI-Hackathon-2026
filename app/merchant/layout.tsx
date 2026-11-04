@@ -13,7 +13,7 @@ export default function MerchantLayout({ children }: { children: React.ReactNode
   return (
     <div className="m-root">
       <MerchantHeader />
-      <main>{children}</main>
+      <main id="main">{children}</main>
     </div>
   );
 }

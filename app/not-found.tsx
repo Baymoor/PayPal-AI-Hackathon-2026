@@ -7,9 +7,10 @@ export default function NotFound() {
   return (
     <>
       <SiteHeader />
-      <main className="mx-auto w-full max-w-[560px] flex-1 px-5 py-12">
+      <main id="main" className="mx-auto w-full max-w-[560px] flex-1 px-5 py-12">
         <EmptyState
           icon={<Compass className="size-6" />}
+          headingLevel={1}
           title="We can’t find that page"
           action={<LinkButton href="/">Back to home</LinkButton>}
         >

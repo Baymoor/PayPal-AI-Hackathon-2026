@@ -29,7 +29,9 @@ export function EmptyState({
   title,
   children,
   action,
+  headingLevel = 2,
 }: {
+  headingLevel?: 1 | 2;
   icon: React.ReactNode;
   title: string;
   children?: React.ReactNode;
@@ -38,7 +40,7 @@ export function EmptyState({
   return (
     <Card className="flex flex-col items-center gap-3 py-10 text-center">
       <IconTile className="size-14">{icon}</IconTile>
-      <h2 className="text-h3">{title}</h2>
+      {headingLevel === 1 ? <h1 className="text-h2">{title}</h1> : <h2 className="text-h3">{title}</h2>}
       {children && <p className="max-w-sm text-ink-muted">{children}</p>}
       {action}
     </Card>
