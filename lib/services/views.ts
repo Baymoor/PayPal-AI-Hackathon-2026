@@ -458,6 +458,10 @@ export async function buildOutingView(
             openCollection:
               outing.status === "PROPOSED" && !!selectedOffering && selectedOffering.active && selectedOffering.pricingModel === "FIXED_TOTAL",
             cancel: pre || windowOpen,
+            draftPlan:
+              outing.status === "PROPOSED" &&
+              cfg.aiMode !== "DISABLED" &&
+              (!!outing.selectedOfferingId || (proposalStored?.ranked.length ?? 0) > 0),
           },
         }
       : null,

@@ -196,6 +196,8 @@ export interface OutingView {
       editRoster: boolean; // sponsor / required toggles (before collection)
       openCollection: boolean;
       cancel: boolean;
+      /** Ask the AI to pre-fill the open-commitments form (PROPOSED, AI configured). Absent in older views = false. */
+      draftPlan?: boolean;
     };
   } | null;
   settlement: {

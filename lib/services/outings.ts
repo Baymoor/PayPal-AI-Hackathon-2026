@@ -47,15 +47,22 @@ import {
 } from "../domain/types";
 import { getOutingsAi } from "../ai";
 import {
+  PlanDraftSchema,
   ProposalSchema,
   RevealSummarySchema,
   type AiResult,
   type AiSource,
   type BriefExtraction,
   type OutingsAi,
+  type PlanCatalogueItem,
+  type PlanDraftInput,
+  type PlanDraftResponse,
+  type PlanRosterEntry,
   type Proposal,
   type RevealAggregate,
 } from "../ai/types";
+import { validatePlanDraft } from "../ai/validate";
+import { takeToken, type RateLimitRule } from "../rate-limit";
 import {
   catalogueCategories,
   checkAvailability,
@@ -947,6 +954,125 @@ export async function openCollection(
     });
     return { quoteId, termsHash, capMinor: terms.capMinor, version };
   });
+}
+
+/* -------------------------------------------------------------------------- */
+/* AI plan draft (advisory: pre-fills the organizer's form, never persisted)  */
+/* -------------------------------------------------------------------------- */
+
+/** Per-outing budget for AI plan drafts (on top of the per-client AI limit in the route). */
+export const PLAN_DRAFT_RATE_LIMIT: RateLimitRule = { capacity: 5, refillPerMinute: 2 };
+
+/**
+ * Ask the AI to draft the organizer's "open commitments" form. Read-only:
+ * nothing is selected, sponsored or persisted as terms; the organizer reviews
+ * every field and opens commitments explicitly. The AI sees the brief
+ * extraction, the agreed TOTAL, public catalogue data with availability and
+ * roster NAMES with payer/sponsor flags; never votes, ids or private amounts.
+ * Every value is validated deterministically (`validatePlanDraft`); invalid
+ * fields are dropped with a note, never adjusted.
+ */
+export async function draftPlan(db: Db, input: { outingId: string; organizerId: string; now?: Date }): Promise<PlanDraftResponse> {
+  const now = input.now ?? new Date();
+  const actor: ParticipantActor = { outingId: input.outingId, participantId: input.organizerId };
+  const { outing, roster } = await db.transaction(async (tx) => {
+    const { outing } = await begin(tx, actor, { organizer: true });
+    requireStatus(outing, ["PROPOSED"], "The AI can draft the plan after the budget is agreed and before commitments open");
+    return { outing, roster: (await loadRoster(tx, outing.id)).filter(isActiveParticipant) };
+  });
+
+  if (!takeToken(`plan-draft:${outing.id}`, PLAN_DRAFT_RATE_LIMIT, now.getTime())) {
+    throw new ServiceError("RATE_LIMITED", 429, "The AI has drafted several plans for this outing just now. Please wait a minute and try again.");
+  }
+
+  // Candidates: the stored ranking (plus the selection), still active in OUR catalogue.
+  const ids = storedProposal(outing)?.ranked.map((r) => r.offeringId) ?? [];
+  if (outing.selectedOfferingId && !ids.includes(outing.selectedOfferingId)) ids.unshift(outing.selectedOfferingId);
+  const active = new Map((await listActiveOfferings(db)).map((e) => [e.offering.id, e]));
+  const ranked = [...new Set(ids)].flatMap((id) => (active.has(id) ? [active.get(id)!] : []));
+  if (ranked.length === 0) throw conflict("NO_CANDIDATES", "There are no catalogue options to plan with. Try another budget round.");
+  // Wall times are expressed in one merchant timezone: the selected (else top) candidate's.
+  const timezone = (ranked.find((e) => e.offering.id === outing.selectedOfferingId) ?? ranked[0]).merchant.timezone;
+  const entries = ranked.filter((e) => e.merchant.timezone === timezone);
+  const catalogue: PlanCatalogueItem[] = toCatalogueForAi(entries).map((c, i) => {
+    const a = entries[i].offering.availability;
+    return {
+      ...c,
+      active: entries[i].offering.active,
+      availability: { weekdays: Array.isArray(a?.weekdays) ? [...a.weekdays] : [], startHours: Array.isArray(a?.startHours) ? [...a.startHours] : [] },
+    };
+  });
+  const aiRoster: PlanRosterEntry[] = roster.map((p) => ({
+    name: p.displayName,
+    isOrganizer: p.role === "ORGANIZER",
+    payer: p.payerType === "PAYER",
+    sponsored: p.payerType === "SPONSORED",
+  }));
+  const aiInput: PlanDraftInput = {
+    extraction: storedExtraction(outing)?.extraction ?? fallbackExtraction(outing),
+    agreedBudgetMinor: outing.proposedBudgetMinor,
+    catalogue,
+    selectedOfferingId: outing.selectedOfferingId,
+    roster: aiRoster,
+    now,
+    timezone,
+  };
+
+  const call = await callAi((ai) => ai.draftPlan(aiInput));
+  if (!call.ok) {
+    await recordAiRun(db, { outingId: outing.id, purpose: "PLAN_DRAFT", call });
+    throw new ServiceError("AI_UNAVAILABLE", 503, "The AI couldn't draft a plan just now. Nothing changed; you can fill in the form yourself.");
+  }
+  const parsed = PlanDraftSchema.safeParse(call.result.output);
+  if (!parsed.success) {
+    await recordAiRun(db, {
+      outingId: outing.id,
+      purpose: "PLAN_DRAFT",
+      call: { ok: false, source: call.result.source, error: "AI output did not match the plan draft schema" },
+    });
+    throw new ServiceError("AI_OUTPUT_INVALID", 502, "The AI's draft couldn't be read. Nothing changed; you can fill in the form yourself.");
+  }
+
+  const v = validatePlanDraft(parsed.data, {
+    now,
+    timezone,
+    catalogue,
+    roster: aiRoster,
+    quoteValidityAfterDeadlineMs: QUOTE_VALIDITY_AFTER_DEADLINE_MS,
+  });
+  const dropped = [...v.dropped];
+  let sponsor: PlanDraftResponse["draft"]["sponsor"] = null;
+  if (v.sponsor) {
+    const person = v.sponsor.name === null ? null : roster.filter((p) => p.displayName === v.sponsor!.name);
+    if (person === null) sponsor = { participantId: null, displayName: null };
+    else if (person.length === 1) sponsor = { participantId: person[0].id, displayName: person[0].displayName };
+    else dropped.push({ field: "sponsor", reason: "The suggested sponsored guest could not be matched to exactly one invited person." });
+  }
+  const response: PlanDraftResponse = {
+    draft: {
+      offeringId: v.offeringId,
+      offeringName: catalogue.find((c) => c.offeringId === v.offeringId)?.name ?? null,
+      timezone,
+      activityStartLocal: v.activityStartLocal,
+      activityAt: v.activityAt,
+      deadlineLocal: v.deadlineLocal,
+      deadlineAt: v.deadlineAt,
+      minPayers: v.minPayers,
+      sponsor,
+      rationale: v.rationale,
+      cautions: v.cautions,
+    },
+    dropped,
+    source: call.result.source,
+    model: call.result.model,
+  };
+  await recordAiRun(db, {
+    outingId: outing.id,
+    purpose: "PLAN_DRAFT",
+    call,
+    output: { raw: parsed.data, draft: response.draft, dropped, warnings: call.result.warnings.slice(0, 10) },
+  });
+  return response;
 }
 
 /* -------------------------------------------------------------------------- */

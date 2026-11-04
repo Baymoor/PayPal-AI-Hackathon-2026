@@ -10,11 +10,24 @@ import type {
   CatalogueItemForAi,
   DashboardQuery,
   OutingsAi,
+  PlanCatalogueItem,
+  PlanDraft,
+  PlanDraftInput,
+  PlanRosterEntry,
   Proposal,
   RevealAggregate,
   RevealSummary,
 } from "./types";
-import { validateBrief, validateDashboardQuery, validateProposal, validateReveal } from "./validate";
+import {
+  AiOutputError,
+  formatLocalWallTime,
+  validateBrief,
+  validateDashboardQuery,
+  validateProposal,
+  validateReveal,
+} from "./validate";
+import { formatMoney } from "../domain/money";
+import { zonedParts, zonedTimeToUtc } from "../services/catalogue";
 
 const BANNER = "FIXTURE output: deterministic keyword heuristics, not a model.";
 
@@ -68,6 +81,67 @@ function budget(text: string): BriefExtraction["budget"] {
   const tot = /\btotal\b|altogether|all[- ]in|in all|overall/i.test(ctx);
   const unit: BriefExtraction["budget"]["unit"] = per && !tot ? "PER_PERSON" : tot && !per ? "TOTAL" : "UNKNOWN";
   return { amountMinor: amount > 0 ? amount : null, unit };
+}
+
+
+/* ----------------------------- plan draft rules ----------------------------- */
+
+const HOUR_MS = 60 * 60 * 1000;
+/** Earliest activity the fixture planner suggests (leaves room for a deadline ~2 h before it). */
+const PLAN_MIN_LEAD_MS = 4 * HOUR_MS;
+const PLAN_DEADLINE_BEFORE_ACTIVITY_MS = 2 * HOUR_MS;
+const PLAN_MAX_DEADLINE_MS = 24 * HOUR_MS;
+const WEEKDAY_CODE: Record<string, number> = { SUN: 0, MON: 1, TUE: 2, WED: 3, THU: 4, FRI: 5, SAT: 6 };
+const WEEKDAY_LONG = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+type PartOfDay = NonNullable<BriefExtraction["dateWindow"]["partOfDay"]>;
+const PART_OF_DAY: Record<PartOfDay, { from: number; to: number; preferred: number; label: string }> = {
+  MORNING: { from: 8, to: 11, preferred: 10, label: "morning" },
+  AFTERNOON: { from: 12, to: 16, preferred: 14, label: "afternoon" },
+  EVENING: { from: 17, to: 20, preferred: 19, label: "evening" },
+  NIGHT: { from: 21, to: 23, preferred: 21, label: "night" },
+};
+
+/** Start hour closest to the preferred one (ties -> earlier), preferring hours inside the part of day. */
+function pickHour(startHours: readonly number[], part: (typeof PART_OF_DAY)[PartOfDay]): { hour: number; inWindow: boolean } | null {
+  const hours = [...new Set(startHours.filter((h) => Number.isInteger(h) && h >= 0 && h <= 23))].sort((a, b) => a - b);
+  if (hours.length === 0) return null;
+  const inside = hours.filter((h) => h >= part.from && h <= part.to);
+  const pool = inside.length ? inside : hours;
+  const hour = pool.reduce((best, h) => (Math.abs(h - part.preferred) < Math.abs(best - part.preferred) ? h : best), pool[0]);
+  return { hour, inWindow: inside.length > 0 };
+}
+
+/** Next `hour`:00 (merchant wall time) on an available (and, if given, wanted) weekday, at least PLAN_MIN_LEAD_MS away. */
+function nextSlot(now: Date, tz: string, weekdays: readonly number[], hour: number, wantDay: number | null): Date | null {
+  const p = zonedParts(now, tz);
+  for (let d = 0; d < 15; d++) {
+    const cal = new Date(Date.UTC(p.year, p.month - 1, p.day + d));
+    const wd = cal.getUTCDay();
+    if (!weekdays.includes(wd) || (wantDay !== null && wd !== wantDay)) continue;
+    const local = { year: cal.getUTCFullYear(), month: cal.getUTCMonth() + 1, day: cal.getUTCDate(), hour, minute: 0 };
+    const at = zonedTimeToUtc(local, tz);
+    const back = zonedParts(at, tz);
+    if (back.day !== local.day || back.hour !== hour || back.minute !== 0) continue; // wall time skipped by a DST change
+    if (at.getTime() - now.getTime() < PLAN_MIN_LEAD_MS) continue;
+    return at;
+  }
+  return null;
+}
+
+/** Round down to the start of the local hour in `tz`. */
+function floorToLocalHour(at: Date, tz: string): Date {
+  const p = zonedParts(at, tz);
+  return new Date(at.getTime() - p.minute * 60_000 - p.second * 1000 - at.getUTCMilliseconds());
+}
+
+/** Full-name match first, then a unique first-name match ("Maya" -> "Maya Jensen"). */
+function findInvitee(invitees: readonly PlanRosterEntry[], name: string): PlanRosterEntry | null {
+  const norm = (s: string) => s.replace(/\s+/g, " ").trim().toLowerCase();
+  const want = norm(name);
+  const exact = invitees.filter((p) => norm(p.name) === want);
+  if (exact.length === 1) return exact[0];
+  const first = invitees.filter((p) => norm(p.name).split(" ")[0] === want.split(" ")[0]);
+  return first.length === 1 ? first[0] : null;
 }
 
 export class FixtureOutingsAi implements OutingsAi {
@@ -281,5 +355,89 @@ export class FixtureOutingsAi implements OutingsAi {
     };
     const v = validateDashboardQuery(raw);
     return this.wrap(v.output, v.warnings);
+  }
+  /**
+   * Deterministic plan: the selected (else top-ranked) fixed-total offering
+   * that fits everyone; the next slot matching the brief's weekday and part
+   * of day within its availability; deadline = min(activity - 2 h, now + 24 h)
+   * rounded down to the hour; minPayers = everyone paying; sponsor = the
+   * guest of honour when the brief says the group covers their share.
+   * Output is still validated by the service like any model output.
+   */
+  async draftPlan(input: PlanDraftInput): Promise<AiResult<PlanDraft>> {
+    const { extraction: ex, now, timezone: tz, roster } = input;
+    const rationale: string[] = [];
+    const cautions: string[] = [];
+    const fits = (c: PlanCatalogueItem) => c.active && c.pricingModel === "FIXED_TOTAL" && c.capacity >= roster.length;
+    const selected = input.catalogue.find((c) => c.offeringId === input.selectedOfferingId) ?? null;
+    const offering = selected && fits(selected) ? selected : input.catalogue.find(fits) ?? selected ?? input.catalogue[0] ?? null;
+    if (!offering) throw new AiOutputError("Fixture planner: no catalogue offering to plan with");
+    rationale.push(
+      offering === selected
+        ? `Fixture planner: keeps your choice, ${offering.name}.`
+        : `Fixture planner: ${offering.name} is the top-ranked fixed-total option that fits everyone invited.`,
+    );
+    if (offering.pricingModel === "FIXED_TOTAL" && input.agreedBudgetMinor !== null && offering.currency === "USD") {
+      if (offering.priceMinor > input.agreedBudgetMinor) {
+        cautions.push(`Fixture planner: the ${formatMoney(offering.priceMinor)} fixed total is above the agreed ${formatMoney(input.agreedBudgetMinor)} budget.`);
+      }
+    }
+
+    // Activity slot.
+    const part = PART_OF_DAY[ex.dateWindow.partOfDay ?? "EVENING"];
+    if (!ex.dateWindow.partOfDay) cautions.push("Fixture planner: the brief doesn't say a time of day, so an evening slot is suggested.");
+    const picked = pickHour(offering.availability.startHours, part);
+    if (picked && !picked.inWindow) {
+      cautions.push(`Fixture planner: ${offering.name} has no ${part.label} start times, so ${String(picked.hour).padStart(2, "0")}:00 is suggested.`);
+    }
+    const wantDay = ex.dateWindow.dayOfWeek ? WEEKDAY_CODE[ex.dateWindow.dayOfWeek] ?? null : null;
+    let activity = picked ? nextSlot(now, tz, offering.availability.weekdays, picked.hour, wantDay) : null;
+    if (!activity && picked && wantDay !== null) {
+      activity = nextSlot(now, tz, offering.availability.weekdays, picked.hour, null);
+      if (activity) cautions.push(`Fixture planner: no ${WEEKDAY_LONG[wantDay]} slot is available soon enough, so the next open day is suggested.`);
+    }
+    let deadline: Date | null = null;
+    if (activity) {
+      const local = formatLocalWallTime(activity, tz);
+      const day = WEEKDAY_LONG[zonedParts(activity, tz).weekday];
+      rationale.push(`Fixture planner: ${day} ${local.slice(11)} is the next ${offering.name} start time matching the brief.`);
+      deadline = floorToLocalHour(
+        new Date(Math.min(activity.getTime() - PLAN_DEADLINE_BEFORE_ACTIVITY_MS, now.getTime() + PLAN_MAX_DEADLINE_MS)),
+        tz,
+      );
+      rationale.push("Fixture planner: commitments close 2 hours before the activity or within 24 hours, whichever is sooner.");
+    } else {
+      cautions.push(`Fixture planner: no ${offering.name} start time was found in the next two weeks; pick a time yourself.`);
+    }
+
+    // Sponsored guest.
+    const invitees = roster.filter((p) => !p.isOrganizer);
+    const current = roster.find((p) => p.sponsored) ?? null;
+    const honour = ex.guestOfHonour;
+    let sponsor: PlanRosterEntry | null = null;
+    if (honour.name && honour.coverTheirShare) {
+      sponsor = findInvitee(invitees, honour.name);
+      if (sponsor) rationale.push(`Fixture planner: the brief says the group covers ${sponsor.name}'s share.`);
+      else {
+        cautions.push(`Fixture planner: the brief covers ${honour.name}'s share, but nobody by that name is invited yet.`);
+        sponsor = current;
+      }
+    } else if (current) {
+      sponsor = current;
+      rationale.push(`Fixture planner: keeps ${current.name}'s share covered, as you set it.`);
+    } else if (honour.name) {
+      cautions.push(`Fixture planner: ${honour.name} is the guest of honour, but the brief doesn't say the group covers their share.`);
+    }
+
+    const raw: PlanDraft = {
+      offeringId: offering.offeringId,
+      activityStartLocal: activity ? formatLocalWallTime(activity, tz) : "",
+      deadlineLocal: deadline ? formatLocalWallTime(deadline, tz) : "",
+      minPayers: roster.length - (sponsor ? 1 : 0),
+      sponsoredParticipantName: sponsor?.name ?? null,
+      rationale: rationale.slice(0, 4).map((r) => r.slice(0, 140)),
+      cautions: cautions.slice(0, 3).map((r) => r.slice(0, 140)),
+    };
+    return this.wrap(raw, ["Fixture planner: deterministic slot, deadline and sponsor rules."]);
   }
 }

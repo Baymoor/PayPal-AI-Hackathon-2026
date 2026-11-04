@@ -148,6 +148,118 @@ export const DashboardQuerySchema = z.object({
 });
 export type DashboardQuery = z.infer<typeof DashboardQuerySchema>;
 
+/* ------------------------------- Plan draft --------------------------------- */
+
+/** "YYYY-MM-DDTHH:mm" wall-clock time (24 h, no seconds, no offset). */
+export const LOCAL_WALL_TIME_RE = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/;
+
+const localWallTime = z
+  .string()
+  .max(40)
+  .describe('Wall-clock time in the merchant timezone, exactly "YYYY-MM-DDTHH:mm" (24 h). Empty string if no valid time exists.');
+
+/**
+ * The AI's suggested plan for the organizer's "Open commitments" form. Only
+ * SHAPE is enforced here (so one bad field cannot discard the whole draft);
+ * every value is untrusted until `validatePlanDraft` checks it against our
+ * catalogue, availability, roster and the deadline policy. The wall-time
+ * format is checked there, per field.
+ */
+export const PlanDraftSchema = z.object({
+  offeringId: z.string().min(1).max(100).describe("Copied exactly from the catalogue."),
+  activityStartLocal: localWallTime,
+  deadlineLocal: localWallTime,
+  minPayers: z.number().int(),
+  sponsoredParticipantName: z.string().max(80).nullable(),
+  rationale: z.array(z.string().min(1).max(140)).max(4),
+  cautions: z.array(z.string().min(1).max(140)).max(3),
+});
+export type PlanDraft = z.infer<typeof PlanDraftSchema>;
+
+/** Weekly start-time model, evaluated in the merchant timezone (weekdays: 0 = Sunday … 6 = Saturday). */
+export interface AvailabilityWindow {
+  weekdays: number[];
+  startHours: number[];
+}
+
+/** A catalogue candidate plus what the planner needs: public price, capacity and availability only. */
+export interface PlanCatalogueItem extends CatalogueItemForAi {
+  active: boolean;
+  availability: AvailabilityWindow;
+}
+
+/** Roster entry for the planner: display name and flags only. Never ids, votes or money. */
+export interface PlanRosterEntry {
+  name: string;
+  isOrganizer: boolean;
+  /** Currently a paying participant. */
+  payer: boolean;
+  /** Currently the sponsored guest (attends at $0). */
+  sponsored: boolean;
+}
+
+export interface PlanDraftInput {
+  extraction: BriefExtraction;
+  /** Agreed TOTAL budget in minor units (a starting point, not a quote). */
+  agreedBudgetMinor: number | null;
+  /** Candidates in ranked order, best first. */
+  catalogue: PlanCatalogueItem[];
+  selectedOfferingId: string | null;
+  /** Active (not declined) participants only. */
+  roster: PlanRosterEntry[];
+  now: Date;
+  /** Merchant IANA timezone; every *Local string is a wall time in this zone. */
+  timezone: string;
+}
+
+/** Form fields a draft can pre-fill; a dropped field is left for the organizer. */
+export const PLAN_DRAFT_FIELDS = ["offeringId", "activityStart", "deadline", "minPayers", "sponsor"] as const;
+export type PlanDraftField = (typeof PLAN_DRAFT_FIELDS)[number];
+
+export interface PlanDraftDrop {
+  field: PlanDraftField;
+  reason: string;
+}
+
+/** Output of `validatePlanDraft`: every non-null field passed the deterministic checks. */
+export interface ValidatedPlanDraft {
+  offeringId: string | null;
+  activityStartLocal: string | null;
+  /** ISO-8601 UTC instant of `activityStartLocal`. */
+  activityAt: string | null;
+  deadlineLocal: string | null;
+  /** ISO-8601 UTC instant of `deadlineLocal`. */
+  deadlineAt: string | null;
+  minPayers: number | null;
+  /** null = no sponsorship suggestion (dropped); `{ name: null }` = suggest nobody is sponsored. */
+  sponsor: { name: string | null } | null;
+  rationale: string[];
+  cautions: string[];
+  dropped: PlanDraftDrop[];
+}
+
+/** `POST /api/outings/:id/plan-draft` response. Pre-fills the organizer's form only; nothing is persisted as terms. */
+export interface PlanDraftResponse {
+  draft: {
+    offeringId: string | null;
+    offeringName: string | null;
+    /** Merchant timezone the *Local strings are expressed in. */
+    timezone: string;
+    activityStartLocal: string | null;
+    activityAt: string | null;
+    deadlineLocal: string | null;
+    deadlineAt: string | null;
+    minPayers: number | null;
+    /** null = no suggestion; participantId null = suggest nobody is sponsored. */
+    sponsor: { participantId: string | null; displayName: string | null } | null;
+    rationale: string[];
+    cautions: string[];
+  };
+  dropped: PlanDraftDrop[];
+  source: AiSource;
+  model: string | null;
+}
+
 /* --------------------------------- Port ------------------------------------- */
 
 export interface OutingsAi {
@@ -161,4 +273,10 @@ export interface OutingsAi {
   }): Promise<AiResult<Proposal>>;
   summarizeReveal(input: { aggregate: RevealAggregate; extraction: BriefExtraction | null }): Promise<AiResult<RevealSummary>>;
   dashboardQuery(input: { question: string; now: Date }): Promise<AiResult<DashboardQuery>>;
+  /**
+   * Suggest a complete plan for the organizer's form. Returns a SHAPE-valid
+   * draft only: callers must run `validatePlanDraft` with authoritative data
+   * before showing or using any value.
+   */
+  draftPlan(input: PlanDraftInput): Promise<AiResult<PlanDraft>>;
 }

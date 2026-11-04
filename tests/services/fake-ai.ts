@@ -9,9 +9,12 @@ import type {
   BriefExtraction,
   DashboardQuery,
   OutingsAi,
+  PlanDraft,
+  PlanDraftInput,
   Proposal,
   RevealSummary,
 } from "@/lib/ai/types";
+import { FixtureOutingsAi } from "@/lib/ai/fixture";
 
 const wrap = <T>(output: T): AiResult<T> => ({ source: "FIXTURE", model: null, output, warnings: ["test fake AI"] });
 
@@ -60,6 +63,11 @@ export class FakeAi implements OutingsAi {
       focus: "READINESS",
       explanation: "Outings closing today with missing required participants.",
     });
+  }
+  /** Delegates to the deterministic fixture planner (tests override it to inject hostile drafts). */
+  async draftPlan(input: PlanDraftInput): Promise<AiResult<PlanDraft>> {
+    this.calls.push({ method: "draftPlan", input });
+    return wrap((await new FixtureOutingsAi().draftPlan(input)).output);
   }
 }
 

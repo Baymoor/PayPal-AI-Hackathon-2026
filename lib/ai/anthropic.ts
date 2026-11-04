@@ -11,16 +11,19 @@ import { config } from "../env";
 import {
   BRIEF_SYSTEM,
   DASHBOARD_SYSTEM,
+  PLAN_SYSTEM,
   PROPOSAL_SYSTEM,
   REVEAL_SYSTEM,
   briefUserMessage,
   dashboardUserMessage,
+  planUserMessage,
   proposalUserMessage,
   revealUserMessage,
 } from "./prompts";
 import {
   BriefExtractionSchema,
   DashboardQuerySchema,
+  PlanDraftSchema,
   ProposalSchema,
   RevealSummarySchema,
   type AiResult,
@@ -28,6 +31,8 @@ import {
   type CatalogueItemForAi,
   type DashboardQuery,
   type OutingsAi,
+  type PlanDraft,
+  type PlanDraftInput,
   type Proposal,
   type RevealAggregate,
   type RevealSummary,
@@ -185,5 +190,15 @@ export class AnthropicOutingsAi implements OutingsAi {
     const raw = await this.call(DASHBOARD_SYSTEM, dashboardUserMessage(input), DashboardQuerySchema);
     const v = validateDashboardQuery(raw);
     return this.wrap(v.output, v.warnings);
+  }
+
+  /**
+   * Shape-validated draft only (zod, same structured-output path as above).
+   * The service runs `validatePlanDraft` against the database before any
+   * value reaches the organizer; nothing here is applied automatically.
+   */
+  async draftPlan(input: PlanDraftInput): Promise<AiResult<PlanDraft>> {
+    const raw = await this.call(PLAN_SYSTEM, planUserMessage(input), PlanDraftSchema);
+    return this.wrap(raw, []);
   }
 }

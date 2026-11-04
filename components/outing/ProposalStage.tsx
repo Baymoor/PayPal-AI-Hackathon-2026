@@ -1,5 +1,5 @@
 "use client";
-import { CalendarClock, Check, Cake, Info, TriangleAlert, Users } from "lucide-react";
+import { CalendarClock, Check, Cake, Info, Sparkles, TriangleAlert, Users } from "lucide-react";
 import { useId, useState } from "react";
 import type { CatalogueCandidateView, OutingView } from "@/lib/contracts/views";
 import { formatMoney } from "@/lib/domain/money";
@@ -14,6 +14,7 @@ import { cn } from "@/components/ui/cn";
 import type { OutingActions } from "./api";
 import { formatDeadline, isoToZonedLocal, zonedLocalToIso } from "./format";
 import { InvitePanel } from "./InvitePanel";
+import { AI_REVIEW_COPY, AiPrefillFrame, PlanDraftPanel, type AppliedPlanDraft } from "./PlanDraftPanel";
 import { ScreenHeader } from "./Shell";
 import { ActionErrorBanner, useAction } from "./useAction";
 
@@ -29,12 +30,15 @@ function CandidateCard({
   onSelect,
   disabled,
   name,
+  aiSuggested = false,
 }: {
   c: CatalogueCandidateView;
   selected: boolean;
   onSelect: () => void;
   disabled: boolean;
   name: string;
+  /** Selected because the organizer applied an AI plan draft. */
+  aiSuggested?: boolean;
 }) {
   const fit = c.fit ? FIT[c.fit] : null;
   return (
@@ -95,13 +99,23 @@ function CandidateCard({
             ))}
           </span>
         )}
-        {selected && <span className="mt-3 block text-small font-bold text-coral-700">Selected</span>}
+        {selected && (
+          <span className="mt-3 flex flex-wrap items-center gap-2 text-small font-bold text-coral-700">
+            Selected
+            {aiSuggested && (
+              <span className="inline-flex items-center gap-1.5 rounded-pill border-[1.5px] border-dashed border-coral-600 bg-blush-50 px-3 py-0.5 text-[13px] text-coral-800">
+                <Sparkles className="size-3.5" aria-hidden />
+                AI suggestion · review
+              </span>
+            )}
+          </span>
+        )}
       </span>
     </label>
   );
 }
 
-function SponsorCard({ view, actions }: { view: OutingView; actions: OutingActions }) {
+function SponsorCard({ view, actions, aiSuggested = false }: { view: OutingView; actions: OutingActions; aiSuggested?: boolean }) {
   const guests = view.roster.people.filter((p) => p.role !== "ORGANIZER");
   const sponsored = view.roster.people.find((p) => p.payerType === "SPONSORED");
   // Default to the guest of honour the brief named ("cover Maya's share"), if they are invited.
@@ -156,19 +170,21 @@ function SponsorCard({ view, actions }: { view: OutingView; actions: OutingActio
               ))}
             </select>
           </div>
-          <Toggle
-            label={`Cover ${first}'s share`}
-            checked={!!sponsored}
-            disabled={!canEdit || pending !== null || !chosen}
-            stateText={sponsored ? `On. ${first} pays $0.` : "Off. Everyone attending pays an equal share."}
-            onChange={(next) =>
-              run("sponsor", async () => {
-                const id = sponsored?.participantId ?? chosen;
-                await actions.patchParticipant(id, { payerType: next ? "SPONSORED" : "PAYER" });
-                await actions.refresh();
-              })
-            }
-          />
+          <AiPrefillFrame active={aiSuggested}>
+            <Toggle
+              label={`Cover ${first}'s share`}
+              checked={!!sponsored}
+              disabled={!canEdit || pending !== null || !chosen}
+              stateText={sponsored ? `On. ${first} pays $0.` : "Off. Everyone attending pays an equal share."}
+              onChange={(next) =>
+                run("sponsor", async () => {
+                  const id = sponsored?.participantId ?? chosen;
+                  await actions.patchParticipant(id, { payerType: next ? "SPONSORED" : "PAYER" });
+                  await actions.refresh();
+                })
+              }
+            />
+          </AiPrefillFrame>
           <ActionErrorBanner error={error} />
         </>
       )}
@@ -252,17 +268,37 @@ export function suggestTimes(view: OutingView): { deadline: string; activity: st
   return { deadline: isoToZonedLocal(new Date(deadline).toISOString(), tz), activity: isoToZonedLocal(new Date(activity).toISOString(), tz) };
 }
 
-function OpenForm({ view, actions, candidate }: { view: OutingView; actions: OutingActions; candidate: CatalogueCandidateView | undefined }) {
+function OpenForm({
+  view,
+  actions,
+  candidate,
+  prefill,
+}: {
+  view: OutingView;
+  actions: OutingActions;
+  candidate: CatalogueCandidateView | undefined;
+  /** Values from an applied AI plan draft (already validated by the server); the organizer can change any of them. */
+  prefill?: AppliedPlanDraft["prefill"];
+}) {
   const tz = view.outing.displayTimezone;
   const serverNow = Date.parse(view.outing.serverNow);
   const { pending, error, run } = useAction();
   const [dflt] = useState(() => suggestTimes(view));
-  const [deadline, setDeadline] = useState(view.outing.deadlineAt ? isoToZonedLocal(view.outing.deadlineAt, tz) : dflt.deadline);
-  const [activity, setActivity] = useState(view.outing.activityAt ? isoToZonedLocal(view.outing.activityAt, tz) : dflt.activity);
+  const [deadline, setDeadline] = useState(
+    prefill?.deadline ?? (view.outing.deadlineAt ? isoToZonedLocal(view.outing.deadlineAt, tz) : dflt.deadline),
+  );
+  const [activity, setActivity] = useState(
+    prefill?.activity ?? (view.outing.activityAt ? isoToZonedLocal(view.outing.activityAt, tz) : dflt.activity),
+  );
   // Follows the number of paying guests (sponsoring someone lowers it) until the organizer edits it.
   const payers = view.roster.invitedPayers;
-  const [minPayersEdit, setMinPayers] = useState<string | null>(null);
+  const [minPayersEdit, setMinPayers] = useState<string | null>(prefill?.minPayers != null ? String(prefill.minPayers) : null);
   const minPayers = minPayersEdit ?? String(view.roster.minPayers ?? Math.max(1, payers));
+  // Highlight a pre-filled value only while it is still the AI's suggestion.
+  const aiDeadline = !!prefill?.deadline && deadline === prefill.deadline;
+  const aiActivity = !!prefill?.activity && activity === prefill.activity;
+  const aiMinPayers = prefill?.minPayers != null && minPayers === String(prefill.minPayers);
+  const fromAi = aiDeadline || aiActivity || aiMinPayers;
 
   const deadlineIso = zonedLocalToIso(deadline, tz);
   const activityIso = zonedLocalToIso(activity, tz);
@@ -289,18 +325,24 @@ function OpenForm({ view, actions, candidate }: { view: OutingView; actions: Out
         Times are in {tz}. The deadline is enforced by our server clock, at most 48 hours from now and before the activity.
       </p>
       <div className="grid gap-4">
-        <TextField label="Commit by" type="datetime-local" value={deadline} onChange={(e) => setDeadline(e.target.value)} />
-        <TextField label="Activity time" type="datetime-local" value={activity} onChange={(e) => setActivity(e.target.value)} />
-        <TextField
-          label="Minimum payers"
-          type="number"
-          min={1}
-          max={Math.max(1, payers)}
-          inputMode="numeric"
-          value={minPayers}
-          onChange={(e) => setMinPayers(e.target.value)}
-          hint="Sets each person’s maximum. More payers lower the final share."
-        />
+        <AiPrefillFrame active={aiDeadline}>
+          <TextField label="Commit by" type="datetime-local" value={deadline} onChange={(e) => setDeadline(e.target.value)} />
+        </AiPrefillFrame>
+        <AiPrefillFrame active={aiActivity}>
+          <TextField label="Activity time" type="datetime-local" value={activity} onChange={(e) => setActivity(e.target.value)} />
+        </AiPrefillFrame>
+        <AiPrefillFrame active={aiMinPayers}>
+          <TextField
+            label="Minimum payers"
+            type="number"
+            min={1}
+            max={Math.max(1, payers)}
+            inputMode="numeric"
+            value={minPayers}
+            onChange={(e) => setMinPayers(e.target.value)}
+            hint="Sets each person’s maximum. More payers lower the final share."
+          />
+        </AiPrefillFrame>
       </div>
       {cap !== null && !problem && (
         <p className="text-small font-semibold" aria-live="polite">
@@ -315,6 +357,12 @@ function OpenForm({ view, actions, candidate }: { view: OutingView; actions: Out
       {problem && (
         <p role="alert" className="text-small font-semibold text-danger">
           {problem}
+        </p>
+      )}
+      {fromAi && (
+        <p className="flex items-start gap-2 rounded-[18px] bg-blush-50 p-3 text-small font-semibold text-coral-800">
+          <Sparkles className="mt-0.5 size-4 shrink-0" aria-hidden />
+          {AI_REVIEW_COPY}
         </p>
       )}
       <ActionErrorBanner error={error} />
@@ -340,11 +388,20 @@ function OpenForm({ view, actions, candidate }: { view: OutingView; actions: Out
   );
 }
 
+/** The sponsorship on screen is still exactly what the applied AI draft suggested. */
+function aiSponsorStill(view: OutingView, plan: AppliedPlanDraft | null): boolean {
+  const s = plan?.sponsorApplied ? plan.response.draft.sponsor : null;
+  if (!s) return false;
+  const current = view.roster.people.find((p) => p.payerType === "SPONSORED")?.participantId ?? null;
+  return current === s.participantId;
+}
+
 export function ProposalStage({ view, actions }: { view: OutingView; actions: OutingActions }) {
   const { pending, error, run } = useAction();
   const proposal = view.proposal;
   const radioName = useId();
   const [optimistic, setOptimistic] = useState<string | null>(null);
+  const [aiPlan, setAiPlan] = useState<AppliedPlanDraft | null>(null);
   const selectedId = optimistic ?? proposal?.selectedOfferingId ?? null;
   const selected = proposal?.candidates.find((c) => c.offeringId === selectedId);
   const proposed = view.budget.proposedBudgetMinor;
@@ -366,6 +423,7 @@ export function ProposalStage({ view, actions }: { view: OutingView; actions: Ou
   return (
     <div className="space-y-6">
       <ScreenHeader view={view} title="Pick a merchant-confirmed quote" lead="Suggestions are not bookings or payment approvals." />
+      {view.organizer.can.draftPlan && <PlanDraftPanel view={view} actions={actions} applied={aiPlan} onApplied={setAiPlan} />}
       <div className="grid gap-6 lg:grid-cols-[1.3fr_1fr]">
         <div className="space-y-6">
           <section aria-labelledby="cands" className="space-y-3">
@@ -391,6 +449,7 @@ export function ProposalStage({ view, actions }: { view: OutingView; actions: Ou
                     c={c}
                     name={radioName}
                     selected={selectedId === c.offeringId}
+                    aiSuggested={!!aiPlan?.offeringApplied && aiPlan.response.draft.offeringId === c.offeringId}
                     disabled={!view.organizer!.can.selectOffering || pending === "select"}
                     onSelect={() => {
                       setOptimistic(c.offeringId);
@@ -415,10 +474,16 @@ export function ProposalStage({ view, actions }: { view: OutingView; actions: Ou
               <p className="text-cream/90">A starting point, not a merchant quote.</p>
             </Card>
           )}
-          <SponsorCard view={view} actions={actions} />
+          <SponsorCard view={view} actions={actions} aiSuggested={aiSponsorStill(view, aiPlan)} />
           <RosterToggles view={view} actions={actions} />
           <SplitPreview view={view} candidate={selected} />
-          <OpenForm view={view} actions={actions} candidate={selected} />
+          <OpenForm
+            key={aiPlan ? `ai-${aiPlan.nonce}` : "manual"}
+            view={view}
+            actions={actions}
+            candidate={selected}
+            prefill={aiPlan?.prefill}
+          />
         </div>
       </div>
     </div>
