@@ -6,8 +6,8 @@
  * filters from the other widgets apply) and renders one card per OPEN outing.
  */
 import { useEffect, useMemo, useState } from "react";
-import type { AgDefaultWidgetDefinition, AgWidgetData, AgWidgetDataFormat, AgWidgetFieldReference, AgWidgetParams } from "ag-studio";
-import { createWidgets, type AgRegistry, type AgWidgetDefinition } from "ag-studio-react";
+import type { AgWidgetData, AgWidgetDataFormat, AgWidgetFieldReference, AgWidgetParams } from "ag-studio";
+import type { AgWidgetDefinition } from "ag-studio-react";
 import { AlertTriangle, CheckCircle2, XCircle } from "lucide-react";
 import { VERDICT_LABEL, READINESS_RULE_TEXT, assessReadiness, type Verdict } from "./readiness";
 import { formatCountdown } from "./format";
@@ -32,6 +32,8 @@ interface ReadinessWidgetState
 
 export interface DashboardContext {
   openOuting?: (outingId: string) => void;
+  /** ISO currency of every row Studio holds (single currency per dashboard). */
+  currency?: string;
 }
 
 const ICON: Record<Verdict, typeof CheckCircle2> = { READY: CheckCircle2, AT_RISK: AlertTriangle, WILL_CANCEL: XCircle };
@@ -65,7 +67,6 @@ function BookingReadiness(p: AgWidgetParams<ReadinessWidgetState>) {
       return;
     }
     const ac = new AbortController();
-    p.widgetApi.setDisplayState("loading");
     p.widgetApi
       .getData({ fields }, { signal: ac.signal })
       .then((r) => {
@@ -77,7 +78,7 @@ function BookingReadiness(p: AgWidgetParams<ReadinessWidgetState>) {
       });
     return () => ac.abort();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sig, p.widgetApi]);
+  }, [sig, p]);
 
   const items = useMemo(() => {
     const get = (r: Record<string, unknown>, k: (typeof slots)[number]) => {
@@ -196,12 +197,3 @@ export const readinessDef = {
   defaultSize: { width: 10, height: 16 },
   minSize: { width: 8, height: 10 },
 } satisfies AgWidgetDefinition<"booking-readiness", ReadinessWidgetState>;
-
-export interface OutingsRegistry extends AgRegistry {
-  widgets: readonly [...AgDefaultWidgetDefinition[], typeof readinessDef];
-}
-
-export const outingsWidgets = createWidgets<OutingsRegistry>({
-  additionalTypes: [readinessDef],
-  menu: [{ label: "Outings", widgetIds: ["booking-readiness"] }],
-});

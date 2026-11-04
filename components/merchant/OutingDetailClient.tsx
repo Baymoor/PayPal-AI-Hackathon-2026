@@ -10,7 +10,7 @@ import type { MerchantOperationRow, MerchantOutingDetail, MerchantParticipantRow
 import { ApiError, fetchOutingDetail, retryOperation } from "./api";
 import { makeFixtureBookings, makeFixtureDetail } from "./__fixtures__/bookings";
 import { outingsGridTheme } from "./gridTheme";
-import { formatInstant, formatMoney, redactRef } from "./format";
+import { formatInstant, formatMoney, merchantTz, redactRef } from "./format";
 import {
   ATTENDANCE_LABEL, CLEANUP_LABEL, OP_KIND_LABEL, OP_STATUS_LABEL, OUTING_STATUS_LABEL, PAYMENT_STATUS_LABEL,
   cleanupTone, opStatusTone, outingTone, paymentTone,
@@ -88,6 +88,7 @@ export default function OutingDetailClient({ outingId, fixtures }: { outingId: s
 
   const currency = detail?.booking.currency ?? "USD";
   const money = useCallback((v: number | null | undefined) => formatMoney(v, currency), [currency]);
+  const tz = merchantTz(detail?.booking);
 
   const participantCols = useMemo<ColDef<MerchantParticipantRow>[]>(() => [
     { field: "displayName", headerName: "Participant", pinned: "left", minWidth: 150 },
@@ -115,7 +116,7 @@ export default function OutingDetailClient({ outingId, fixtures }: { outingId: s
     { field: "attempts", headerName: "Attempts", type: "rightAligned", minWidth: 100 },
     { field: "providerStatus", headerName: "Provider status", valueFormatter: (p) => p.value ?? "–", minWidth: 130 },
     { field: "lastError", headerName: "Last error", valueFormatter: (p) => p.value ?? "–", flex: 1, minWidth: 220, tooltipField: "lastError" },
-    { field: "updatedAt", headerName: "Updated", valueFormatter: (p) => formatInstant(p.value), minWidth: 170 },
+    { field: "updatedAt", headerName: "Updated", valueFormatter: (p) => formatInstant(p.value, tz), minWidth: 170 },
     {
       headerName: "Action",
       pinned: "right",
@@ -130,7 +131,7 @@ export default function OutingDetailClient({ outingId, fixtures }: { outingId: s
           <span className="m-footnote">No action</span>
         ),
     },
-  ], [money]);
+  ], [money, tz]);
 
   if (error) {
     return (
@@ -158,7 +159,7 @@ export default function OutingDetailClient({ outingId, fixtures }: { outingId: s
       <div className="m-title-row">
         <div>
           <h1 className="m-h1">{b.title}</h1>
-          <p className="m-sub">{b.offeringName ?? "No offering selected"} · activity {formatInstant(b.activityAt)}</p>
+          <p className="m-sub">{b.offeringName ?? "No offering selected"} · activity {formatInstant(b.activityAt, tz)}</p>
         </div>
         <span className="m-spacer" />
         <Badge tone={outingTone(b.status)}>{OUTING_STATUS_LABEL[b.status]}</Badge>
@@ -170,7 +171,7 @@ export default function OutingDetailClient({ outingId, fixtures }: { outingId: s
 
       <section className="m-card" aria-label="Booking summary" style={{ marginBottom: 16 }}>
         <dl className="m-summary" style={{ margin: 0 }}>
-          <div className="m-stat"><dt>Closing time</dt><dd className="m-sm">{formatInstant(b.deadlineAt)}</dd></div>
+          <div className="m-stat"><dt>Closing time</dt><dd className="m-sm">{formatInstant(b.deadlineAt, tz)}</dd></div>
           <div className="m-stat"><dt>Required accepted</dt><dd>{b.requiredAccepted} / {b.requiredInvited}</dd></div>
           <div className="m-stat"><dt>Payers authorized</dt><dd>{b.payersAuthorized}{b.minPayers !== null ? ` / ${b.minPayers} min` : ""}</dd></div>
           <div className="m-stat"><dt>Authorized holds (not revenue)</dt><dd>{money(b.authorizedTotalMinor)}</dd></div>
@@ -190,8 +191,8 @@ export default function OutingDetailClient({ outingId, fixtures }: { outingId: s
               <dt>Total ({q.pricingModel === "FIXED_TOTAL" ? "fixed" : "per attendee"})</dt><dd>{money(q.totalMinor)}</dd>
               <dt>Per-payer cap</dt><dd>{money(q.capMinor)}</dd>
               <dt>Min payers / capacity</dt><dd>{q.minPayers} / {q.capacity}</dd>
-              <dt>Commit deadline</dt><dd>{formatInstant(q.deadlineAt)}</dd>
-              <dt>Activity</dt><dd>{formatInstant(q.activityAt)}</dd>
+              <dt>Commit deadline</dt><dd>{formatInstant(q.deadlineAt, tz)}</dd>
+              <dt>Activity</dt><dd>{formatInstant(q.activityAt, tz)}</dd>
               <dt>Terms hash</dt><dd><code>{q.termsHash.slice(0, 12)}…</code></dd>
               <dt>Availability</dt><dd>{q.availabilitySource === "FIXTURE" ? "Demo catalogue (fixture)" : "Merchant API"}</dd>
               <dt>Sponsored</dt><dd>{q.sponsoredNames.length ? q.sponsoredNames.join(", ") : "None"}</dd>
@@ -207,7 +208,7 @@ export default function OutingDetailClient({ outingId, fixtures }: { outingId: s
           ) : (
             <ol className="m-timeline">
               {[...detail.timeline].sort((a, c) => a.at.localeCompare(c.at)).map((t, i) => (
-                <li key={i}><time dateTime={t.at}>{formatInstant(t.at)}</time><strong>{t.type}</strong> <span className="m-footnote">by {t.actor}</span></li>
+                <li key={i}><time dateTime={t.at}>{formatInstant(t.at, tz)}</time><strong>{t.type}</strong> <span className="m-footnote">by {t.actor}</span></li>
               ))}
             </ol>
           )}

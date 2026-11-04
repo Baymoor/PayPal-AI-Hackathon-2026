@@ -159,3 +159,39 @@ dialog.m-dialog::backdrop { background: rgb(20 33 61 / .5); }
 @media (prefers-reduced-motion: reduce) { .m-root * { animation: none !important; transition: none !important; } }
 
 .ag-cell .m-btn-sm { min-height: 26px; padding: 0 10px; line-height: 24px; }
+
+/* Money flow widget (rendered inside Studio) */
+.mf-root { padding: 0 4px 8px; font-family: "Inter Variable", system-ui, sans-serif; color: #14213D; height: 100%; overflow: auto; display: flex; flex-direction: column; gap: 10px; }
+.mf-total { background: #FBF6F1; border: 1px solid #EADFD3; border-radius: 14px; padding: 10px 12px; }
+.mf-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.mf-item { border: 1px solid #EADFD3; border-radius: 14px; padding: 10px 12px; background: #fff; }
+.mf-item[data-selected="true"] { border-color: #14213D; box-shadow: 0 0 0 2px #14213D inset; }
+.mf-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 6px; }
+.mf-title { background: none; border: 0; padding: 0; font: inherit; font-weight: 700; color: #14213D; cursor: pointer; text-align: left; flex: 1; min-width: 120px; }
+.mf-title:hover { text-decoration: underline; }
+.mf-sum { font-size: 12px; font-weight: 700; font-variant-numeric: tabular-nums; color: #5B6478; margin-left: auto; }
+.mf-bar { display: flex; height: 24px; border-radius: 8px; overflow: hidden; background: #E8DED3; gap: 2px; }
+.mf-bar-empty { align-items: center; justify-content: center; font-size: 12px; color: #5B6478; }
+.mf-seg { color: #fff; font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center; min-width: 4px; white-space: nowrap; overflow: hidden; font-variant-numeric: tabular-nums; }
+.mf-seg[data-tone="captured"], .mf-dot[data-tone="captured"] { background: #1E6B45; }
+.mf-seg[data-tone="pending"], .mf-dot[data-tone="pending"] { background: #8A5300; }
+.mf-seg[data-tone="refunded"], .mf-dot[data-tone="refunded"] { background: #5B3FA0; }
+.mf-seg[data-tone="authorized"], .mf-dot[data-tone="authorized"] { background: #1F5FA8; }
+.mf-figs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin: 8px 0 0; }
+.mf-figs dt { font-size: 11px; color: #5B6478; font-weight: 600; display: flex; align-items: center; gap: 5px; margin: 0; }
+.mf-figs dd { margin: 0; font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.mf-figs [data-zero="true"] dd { color: #5B6478; font-weight: 500; }
+.mf-dot { width: 9px; height: 9px; border-radius: 3px; display: inline-block; flex: none; }
+.mf-note { margin: 6px 0 0; font-size: 12px; color: #8A5300; }
+.mf-rule { margin: 0; font-size: 11px; color: #5B6478; }
+.mf-empty { color: #5B6478; padding: 16px 4px; }
+@media (max-width: 1100px) { .mf-figs { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+/* Studio toolbar: page tabs + saved views */
+.m-studio-bar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin: 4px 0 12px; }
+.m-tabs { display: inline-flex; background: var(--m-surface); border: 1px solid var(--m-line-strong); border-radius: 999px; padding: 3px; gap: 2px; }
+.m-tabs button { border: 0; background: transparent; padding: 7px 18px; border-radius: 999px; font: inherit; font-weight: 600; color: var(--m-ink-muted); cursor: pointer; min-height: 40px; }
+.m-tabs button[aria-selected="true"] { background: var(--m-ink); color: #fff; }
+.m-view { display: inline-flex; align-items: center; gap: 8px; }
+.m-view select { min-height: 40px; border-radius: 999px; border: 1px solid var(--m-line-strong); background: var(--m-surface); color: var(--m-ink); font: inherit; font-weight: 600; padding: 0 14px; }
+.m-view-note { color: var(--m-ink-muted); font-size: 12px; }

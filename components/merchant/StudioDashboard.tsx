@@ -2,10 +2,11 @@
 
 /**
  * The real AG Studio instance (heavy: loaded only via next/dynamic ssr:false from DashboardClient).
- * Widgets: bookings-by-status chart, money-by-stage chart (cross-filtered), custom Booking
- * Readiness widget, and the AG Grid booking table.
+ * Page "Bookings": KPI value widgets, status + money charts, custom Booking Readiness widget, booking grid.
+ * Page "Money": KPI value widgets, custom Money flow widget, captured-vs-refunded and holds charts.
+ * Everything on a page cross-filters; the KPIs are Studio widgets so they follow the filters.
  */
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { enableStudioDevValidations, type AgDataSourcesDefinition, type AgStudioApi } from "ag-studio";
 import { AgStudioAiModule } from "ag-studio";
 import { AgStudio, AgStudioProvider } from "ag-studio-react";
@@ -14,7 +15,7 @@ import type { MerchantBookingRow } from "@/lib/contracts/views";
 import type { DashboardQuery } from "@/lib/ai/types";
 import { buildStudioData, f } from "./studioData";
 import { outingsStudioTheme } from "./studioTheme";
-import { outingsWidgets, type OutingsRegistry } from "./ReadinessWidget";
+import { outingsWidgets, type OutingsRegistry } from "./outingsWidgets";
 import { createAiSetup } from "./studioAi";
 
 if (process.env.NODE_ENV !== "production") enableStudioDevValidations();
@@ -38,18 +39,40 @@ const SORT_COLUMN: Partial<Record<NonNullable<DashboardQuery["sort"]>["field"], 
   cleanup: f("recovery"),
 };
 
-function buildReport(sort: DashboardQuery["sort"], currency: string): AgReportState<OutingsRegistry> {
+export type StudioPage = "bookings" | "money";
+
+const kpi = (
+  field: { id: string; aggregation: "sum" },
+  title: string,
+  subtitle: string,
+): { type: "value"; dataMapping: { value: [typeof field] }; format: { title: { enabled: true; text: string }; subtitle: { enabled: true; text: string }; crossFilter: "filter" } } => ({
+  type: "value",
+  dataMapping: { value: [field] },
+  format: { title: { enabled: true, text: title }, subtitle: { enabled: true, text: subtitle }, crossFilter: "filter" },
+});
+
+function buildReport(sort: DashboardQuery["sort"], currency: string, page: StudioPage): AgReportState<OutingsRegistry> {
   const col = sort ? SORT_COLUMN[sort.field] : undefined;
+  const legendBottom = { theme: { common: { legend: { enabled: true, position: "bottom" as const } } } };
   return {
-    selectedPageId: "overview",
+    selectedPageId: page,
     pages: [
       {
-        id: "overview",
+        id: "bookings",
         widgets: {
+          "kpi-open": kpi(sum(f("isOpen")), "Open outings", "Collecting commitments now"),
+          "kpi-closing": kpi(sum(f("closesTodayOpen")), "Closing today", "Open outings with a deadline today"),
+          "kpi-captured": kpi(sum(f("capturedConfirmed")), "Captured (confirmed)", "Money collected. Holds are not counted"),
+          "kpi-refunds": kpi(sum(f("refundPending")), "Refunds pending", "Captured payments waiting to be refunded"),
           "status-chart": {
             type: "column-chart-grouped",
             dataMapping: { categoryKey: [{ id: f("status") }], valueKey: [{ id: f("title"), aggregation: "count" }] },
-            format: { title: { enabled: true, text: "Bookings by status" }, crossFilter: "filter", style: { theme: { common: { legend: { enabled: false } } } } },
+            format: {
+              title: { enabled: true, text: "Bookings by status" },
+              subtitle: { enabled: true, text: "Click a bar to filter the page" },
+              crossFilter: "filter",
+              style: { theme: { common: { legend: { enabled: false } } } },
+            },
           },
           "money-chart": {
             type: "column-chart-grouped",
@@ -57,7 +80,12 @@ function buildReport(sort: DashboardQuery["sort"], currency: string): AgReportSt
               categoryKey: [{ id: f("status") }],
               valueKey: [sum(f("authorized")), sum(f("captured")), sum(f("refunded"))],
             },
-            format: { title: { enabled: true, text: `Money by stage (${currency})`, wrapping: true }, crossFilter: "filter", style: { theme: { common: { legend: { enabled: true, position: "bottom" } } } } },
+            format: {
+              title: { enabled: true, text: `Money by stage (${currency})`, wrapping: true },
+              subtitle: { enabled: true, text: "Authorized holds are not revenue" },
+              crossFilter: "filter",
+              style: legendBottom,
+            },
           },
           readiness: {
             type: "booking-readiness",
@@ -72,7 +100,11 @@ function buildReport(sort: DashboardQuery["sort"], currency: string): AgReportSt
               minPayers: [sum(f("minPayers"))],
               deadline: [{ id: f("closingAt"), aggregation: "min" }],
             },
-            format: { title: { enabled: true, text: "Booking readiness (open outings)" }, crossFilter: "filter" },
+            format: {
+              title: { enabled: true, text: "Booking readiness" },
+              subtitle: { enabled: true, text: "Open outings, closest deadline first" },
+              crossFilter: "filter",
+            },
           },
           bookings: {
             type: "grid",
@@ -92,14 +124,80 @@ function buildReport(sort: DashboardQuery["sort"], currency: string): AgReportSt
               ],
             },
             ...(col ? { sort: [{ field: { id: col }, direction: sort!.direction }] } : {}),
-            format: { title: { enabled: true, text: "Bookings" }, crossFilter: "filter", style: { grandTotalRow: { enabled: false }, columnAutoSize: true } },
+            format: {
+              title: { enabled: true, text: "Bookings" },
+              subtitle: { enabled: true, text: "One row per outing. Real sandbox rows and fixtures are labelled" },
+              crossFilter: "filter",
+              style: { grandTotalRow: { enabled: false }, columnAutoSize: true },
+            },
           },
         },
         widgetLayout: {
-          "status-chart": at(0, 0, 6, 20),
-          "money-chart": at(6, 0, 10, 20),
-          readiness: at(16, 0, 8, 20),
-          bookings: at(0, 20, 24, 24),
+          "kpi-open": at(0, 0, 6, 5),
+          "kpi-closing": at(6, 0, 6, 5),
+          "kpi-captured": at(12, 0, 6, 5),
+          "kpi-refunds": at(18, 0, 6, 5),
+          "status-chart": at(0, 5, 6, 19),
+          "money-chart": at(6, 5, 10, 19),
+          readiness: at(16, 5, 8, 19),
+          bookings: at(0, 24, 24, 22),
+        },
+      },
+      {
+        id: "money",
+        widgets: {
+          "m-kpi-captured": kpi(sum(f("capturedConfirmed")), "Captured (confirmed)", "Collected on confirmed bookings"),
+          "m-kpi-refunds": kpi(sum(f("refundPending")), "Refunds pending", "Number of refunds in flight"),
+          "m-kpi-awaiting": kpi(sum(f("refundDue")), "Awaiting refund", "Captured, not yet refunded"),
+          "m-kpi-holds": kpi(sum(f("authorized")), "Holds outstanding", "Authorized, not captured. Not revenue"),
+          "money-flow": {
+            type: "money-flow",
+            dataMapping: {
+              outing: [{ id: f("title") }],
+              status: [{ id: f("status") }],
+              mode: [{ id: f("mode") }],
+              hold: [sum(f("holdMinor"))],
+              captured: [sum(f("capturedMinor"))],
+              refunded: [sum(f("refundedMinor"))],
+              refundDue: [sum(f("refundDueMinor"))],
+              voidPending: [sum(f("voidPending"))],
+              refundPending: [sum(f("refundPending"))],
+            },
+            format: {
+              title: { enabled: true, text: "Money flow" },
+              subtitle: { enabled: true, text: "Where each authorized dollar went, per outing. Click an outing to filter" },
+              crossFilter: "filter",
+            },
+          },
+          "captured-vs-refunded": {
+            type: "column-chart-grouped",
+            dataMapping: { categoryKey: [{ id: f("status") }], valueKey: [sum(f("captured")), sum(f("refunded"))] },
+            format: {
+              title: { enabled: true, text: `Captured vs refunded (${currency})`, wrapping: true },
+              subtitle: { enabled: true, text: "By outing status. Refunded money was captured first" },
+              crossFilter: "filter",
+              style: legendBottom,
+            },
+          },
+          "holds-by-status": {
+            type: "bar-chart-grouped",
+            dataMapping: { categoryKey: [{ id: f("status") }], valueKey: [sum(f("authorized"))] },
+            format: {
+              title: { enabled: true, text: `Holds outstanding (${currency})`, wrapping: true },
+              subtitle: { enabled: true, text: "Uncaptured authorizations by outing status" },
+              crossFilter: "filter",
+              style: { theme: { common: { legend: { enabled: false } } } },
+            },
+          },
+        },
+        widgetLayout: {
+          "m-kpi-captured": at(0, 0, 6, 5),
+          "m-kpi-refunds": at(6, 0, 6, 5),
+          "m-kpi-awaiting": at(12, 0, 6, 5),
+          "m-kpi-holds": at(18, 0, 6, 5),
+          "money-flow": at(0, 5, 15, 41),
+          "captured-vs-refunded": at(15, 5, 9, 20),
+          "holds-by-status": at(15, 25, 9, 21),
         },
       },
     ],
@@ -111,6 +209,7 @@ export interface StudioDashboardProps {
   currency: string;
   sort: DashboardQuery["sort"];
   focus: DashboardQuery["focus"];
+  page: StudioPage;
   licenseKey?: string;
   aiEnabled: boolean;
   /** "edit" opens Studio with only the AI assistant panel (see panels below). */
@@ -120,30 +219,41 @@ export interface StudioDashboardProps {
   onError?: (message: string) => void;
 }
 
-export default function StudioDashboard({ rows, currency, sort, focus, licenseKey, aiEnabled, mode, onOpenOuting, onApi, onError }: StudioDashboardProps) {
+export default function StudioDashboard({ rows, currency, sort, focus, page, licenseKey, aiEnabled, mode, onOpenOuting, onApi, onError }: StudioDashboardProps) {
   const apiRef = useRef<AgStudioApi | null>(null);
   // Source definitions do not depend on the widget registry; the cast only reconciles generics.
   const data = useMemo(() => buildStudioData(rows, currency) as unknown as AgDataSourcesDefinition<OutingsRegistry>, [rows, currency]);
-  const initial = useMemo(() => buildReport(sort, currency), [sort, currency]);
-  const context = useMemo(() => ({ openOuting: onOpenOuting }), [onOpenOuting]);
+  // initialState is read once at creation (remount via key); later page switches go through api.setState.
+  const [initialPage] = useState(page);
+  const initial = useMemo(() => buildReport(sort, currency, initialPage), [sort, currency, initialPage]);
+  const context = useMemo(() => ({ openOuting: onOpenOuting, currency }), [onOpenOuting, currency]);
   const ai = useMemo(() => (aiEnabled ? createAiSetup() : undefined), [aiEnabled]);
 
   const wrapRef = useRef<HTMLDivElement>(null);
 
-  // DashboardQuery.focus: ring the matching widget. Studio does not expose widget ids in the DOM,
-  // so we rely on layout creation order (status, money, readiness, bookings).
+  // Switch Studio page (host-driven navigation: pages have no titles in report state).
   useEffect(() => {
-    if (!focus) return;
-    const idx = { STATUS_CHART: 0, MONEY_CHART: 1, READINESS: 2, BOOKINGS_TABLE: 3 }[focus];
+    const api = apiRef.current;
+    if (!api) return;
+    const state = api.getState();
+    if (state.selectedPageId !== page) api.setState({ ...state, selectedPageId: page });
+  }, [page]);
+
+  // DashboardQuery.focus: ring the matching widget (bookings page). Studio does not expose widget ids
+  // in the DOM, so match on the widget title text.
+  useEffect(() => {
+    if (!focus || page !== "bookings") return;
+    const title = { STATUS_CHART: "Bookings by status", MONEY_CHART: "Money by stage", READINESS: "Booking readiness", BOOKINGS_TABLE: "One row per outing" }[focus];
     const t = setTimeout(() => {
-      const el = wrapRef.current?.querySelectorAll<HTMLElement>(".ag-studio-layout-widget")[idx];
+      const els = [...(wrapRef.current?.querySelectorAll<HTMLElement>(".ag-studio-layout-widget") ?? [])];
+      const el = els.find((e) => (e.textContent ?? "").includes(title));
       if (!el) return;
       el.style.outline = "3px solid #C8402D";
       el.style.outlineOffset = "2px";
       el.style.borderRadius = "16px";
     }, 900);
     return () => clearTimeout(t);
-  }, [focus]);
+  }, [focus, page]);
 
   return (
     <div ref={wrapRef} style={{ height: "100%", width: "100%" }}>

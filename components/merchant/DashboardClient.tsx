@@ -8,7 +8,9 @@ import type { MerchantBookingRow } from "@/lib/contracts/views";
 import { ApiError, fetchBookings } from "./api";
 import { makeFixtureBookings } from "./__fixtures__/bookings";
 import { applyDashboardQuery } from "./query";
-import { Kpis } from "./Kpis";
+import { SAVED_VIEWS, applySavedView, type SavedViewId } from "./savedViews";
+import type { StudioPage } from "./StudioDashboard";
+import type { AgStudioApi } from "ag-studio";
 import { AskBox, type AppliedQuery } from "./AskBox";
 import { Badge } from "./Badge";
 import { labelRows, usePaymentMode } from "./modes";
@@ -50,6 +52,10 @@ export default function DashboardClient({ licenseKey, fixtures, aiEnabled }: Das
   const [assistant, setAssistant] = useState(false);
   const [loadedAt, setLoadedAt] = useState<Date | null>(null);
   const askRef = useRef<HTMLDivElement>(null);
+  const [page, setPage] = useState<StudioPage>("bookings");
+  const [viewId, setViewId] = useState<SavedViewId | "">("");
+  const apiRef = useRef<AgStudioApi | null>(null);
+  const viewRef = useRef<SavedViewId | "">("");
 
   const load = useCallback(async () => {
     setRefreshing(true);
@@ -172,7 +178,38 @@ export default function DashboardClient({ licenseKey, fixtures, aiEnabled }: Das
       )}
 
       <div ref={askRef} style={{ scrollMarginTop: 12 }}><AskBox applied={applied} onApply={onApply} onClear={() => setApplied(null)} fixtures={fixtures} /></div>
-      {rows && <Kpis rows={visible} currency={currency} mixed={activeSegment === "BOTH"} />}
+      {rows && visible.length > 0 && (
+        <div className="m-studio-bar">
+          <div className="m-tabs" role="tablist" aria-label="Dashboard pages">
+            {([["bookings", "Bookings"], ["money", "Money"]] as [StudioPage, string][]).map(([id, label]) => (
+              <button key={id} type="button" role="tab" aria-selected={page === id} onClick={() => setPage(id)}>{label}</button>
+            ))}
+          </div>
+          <label className="m-view">
+            <span className="m-sr">Saved views</span>
+            <select
+              aria-label="Saved views"
+              value={viewId}
+              onChange={(e) => {
+                const v = e.target.value as SavedViewId | "";
+                viewRef.current = v;
+                setViewId(v);
+                if (apiRef.current) applySavedView(apiRef.current, v || null);
+              }}
+            >
+              <option value="">Saved views: all bookings</option>
+              {SAVED_VIEWS.map((v) => <option key={v.id} value={v.id}>{v.label}</option>)}
+            </select>
+          </label>
+          {viewId && (
+            <span className="m-view-note">
+              {SAVED_VIEWS.find((v) => v.id === viewId)?.rule}{" "}
+              <button type="button" className="m-btn m-btn-sm" onClick={() => { viewRef.current = ""; setViewId(""); if (apiRef.current) applySavedView(apiRef.current, null); }}>Clear view</button>
+            </span>
+          )}
+          <span className="m-view-note">Numbers on both pages follow the same filters; click any bar, outing or row to cross-filter.</span>
+        </div>
+      )}
 
       <div id="studio-frame" className="m-studio-frame" aria-busy={!rows}>
         {!rows && !error && <div className="m-skel" role="status">Loading bookings...</div>}
@@ -193,6 +230,11 @@ export default function DashboardClient({ licenseKey, fixtures, aiEnabled }: Das
             currency={currency}
             sort={applied?.query.sort ?? null}
             focus={applied?.query.focus ?? null}
+            page={page}
+            onApi={(api) => {
+              apiRef.current = api;
+              if (viewRef.current) applySavedView(api, viewRef.current);
+            }}
             licenseKey={licenseKey}
             aiEnabled={aiEnabled}
             mode={assistant ? "edit" : "view"}
