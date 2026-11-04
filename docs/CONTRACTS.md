@@ -74,3 +74,13 @@ System: `POST /api/cron/tick` (`Authorization: Bearer $CRON_SECRET`) runs due jo
 ## Pages
 
 `/` landing · `/new` brief (step 1) · `/o/[id]` participant hub (stage-driven: budget poker, reveal, proposal/sponsor/open for organizer, invitation/commit, waiting, result) · `/o/[id]/pay/fixture?attempt=` simulated approval (FIXTURE only, loudly labelled) · `/demo` persona switcher + reset (demo only) · `/merchant` AG Studio dashboard · `/merchant/outings/[id]` drill-down · `/merchant/login`.
+
+## Added shared modules (coordinator)
+
+- `lib/http.ts`: `ServiceError`, `handle()`, `json()`, `readJson(req, zodSchema)`, `errorResponse()`, `assertSameOrigin(req)`.
+- `lib/services/access.ts`: `requireParticipant(db, req, outingId)`, `requireOrganizer`, `requireMerchant(req)`, `requireMerchantOuting`, `assertUuid`.
+- `lib/payments/index.ts` (Opus A) MUST export `getPaymentProvider(name?: PaymentProviderName): PaymentProvider` — default from `config().paymentMode`; attempts store their provider name and the engine resolves the provider per attempt.
+- `lib/ai/index.ts` (AI WP) MUST export `getOutingsAi(): OutingsAi` (ANTHROPIC if key, else FIXTURE if demo, else throws `AiUnavailableError`).
+- `fixture_provider_objects` table: persistent state for the FIXTURE payment simulator (shared by web + worker).
+- Race rule (payments ↔ settlement): any code that records an authorization must lock the outing row (`SELECT … FOR UPDATE`) in the same transaction; if a settlement snapshot already exists and the attempt is not among its allocations, it must immediately plan a VOID. The settlement decision transaction also locks the outing row and reads attempts inside it.
+- Early cancellation: enqueue `SETTLE_DEADLINE` with payload `{ early: true, reason: "REQUIRED_DECLINED" | "ORGANIZER_CANCELLED" }` and dedupe key `settle-early:<outingId>`. `ORGANIZER_CANCELLED` cancels unconditionally; `REQUIRED_DECLINED` goes through `decideSettlement({ early: true })`.

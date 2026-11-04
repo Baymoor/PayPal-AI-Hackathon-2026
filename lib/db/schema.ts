@@ -446,6 +446,23 @@ export const aiRuns = pgTable("ai_runs", {
   createdAt: createdAt(),
 });
 
+/**
+ * Persistent state of the FIXTURE payment simulator (orders, authorizations,
+ * captures, refunds). Only used when paymentMode === "FIXTURE"; never mixed
+ * with real PayPal data. Kept in Postgres so the web app and the worker share it.
+ */
+export const fixtureProviderObjects = pgTable(
+  "fixture_provider_objects",
+  {
+    id: text("id").primaryKey(),
+    kind: text("kind").notNull(), // ORDER | AUTHORIZATION | CAPTURE | REFUND | REQUEST
+    data: jsonb("data").notNull(),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [index("fixture_provider_objects_kind_idx").on(t.kind)],
+);
+
 export type Merchant = typeof merchants.$inferSelect;
 export type Offering = typeof offerings.$inferSelect;
 export type Outing = typeof outings.$inferSelect;

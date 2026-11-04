@@ -9,6 +9,7 @@ import { migrate } from "drizzle-orm/node-postgres/migrator";
 import { createDb, type Db } from "@/lib/db/client";
 
 const TABLES = [
+  "fixture_provider_objects",
   "ai_runs",
   "audit_events",
   "jobs",

@@ -153,6 +153,9 @@ export interface PaymentProvider {
     noteToPayer?: string;
   }): Promise<ProviderResult<{ refund: RefundView }>>;
 
+  /** Read a refund back from the provider (refunds can stay PENDING). */
+  getRefund(refundId: string): Promise<ProviderResult<{ refund: RefundView }>>;
+
   /** Verify a webhook delivery's authenticity. FIXTURE never verifies external webhooks. */
   verifyWebhook(input: { headers: Headers; rawBody: string }): Promise<ProviderResult<{ verified: boolean }>>;
 }

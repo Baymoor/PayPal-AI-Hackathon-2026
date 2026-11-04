@@ -15,6 +15,13 @@
       "when": 1793750270727,
       "tag": "0001_outing_planning_fields",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1793750522973,
+      "tag": "0002_fixture_provider",
+      "breakpoints": true
     }
   ]
 }
