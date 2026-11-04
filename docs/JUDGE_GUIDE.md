@@ -117,7 +117,7 @@ Read [HANDOFF_TO_CODEX.md](HANDOFF_TO_CODEX.md) for the authoritative status mat
 - **Automated tests** cover the domain rules, the settlement engine and the PayPal adapter (the adapter against a mocked `fetch` only).
 - **Not yet verified against PayPal:** nothing has been exercised against the PayPal sandbox from the build environment. Under-capture ($20 authorization, $10 capture) and remainder release, redirect-return parameters, webhook signature verification, and the `PayPal-Mock-Response` header are all unverified. The list is in [research/PAYPAL.md](research/PAYPAL.md) section 14. TODO: update this section after running the smoke script.
 - **Not yet verified against Anthropic:** no runtime key was available while building; tests use a mocked SDK. TODO: record a real call.
-- **Verified in the build environment (FIXTURE modes only):** 344 Vitest tests in 28 files, Playwright specs (karaoke settle, holdout cancel, organizer cancel, demo hub, capture-failure compensation), eslint and `tsc` clean, `next build` passes. Two independent audits are done and their fixes have regression tests in `tests/audit` and `tests/audit2`.
+- **Verified in the build environment (FIXTURE modes only):** 346 Vitest tests in 28 files, Playwright specs (karaoke settle, holdout cancel, organizer cancel, demo hub, capture-failure compensation), eslint and `tsc` clean, `next build` passes. Two independent audits are done and their fixes have regression tests in `tests/audit` and `tests/audit2`.
 - **Not verified:** the real PayPal sandbox and real Claude (`scripts/ai-smoke.ts` has not been run). TODO: hosted URL, demo video URL and AG Studio trial expiry are not recorded.
 
 ## 7. Where the hard parts are in the code

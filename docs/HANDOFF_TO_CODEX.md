@@ -29,7 +29,7 @@ Legend: **REAL_SANDBOX** = exercised against PayPal sandbox · **REAL_AI** = exe
 | Second audit: privacy/access/consent + brief test-coverage map (Fable) | DONE | 2 medium defects fixed (merchant session expiry, no cancel after deadline); every brief §11 scenario mapped to a test (tests/audit2) |
 | End-to-end browser flow, production build, Playwright e2e | DONE (FIXTURE modes) | `npm run test:e2e`: karaoke settle, required-holdout cancel, organizer cancel, demo hub — 4/4 |
 | UX/a11y polish + /how-it-works explainer | DONE | axe: 0 violations on consumer screens (one third-party AG Charts landmark label remains) |
-| One-click demo scenarios (settle-soon, holdout, capture-failure) | DONE (FIXTURE) | `/demo`; `POST /api/demo/scenario`, `POST /api/demo/tick`; compensation e2e |
+| One-click demo scenarios (settle-soon, holdout, capture-failure, big-group) | DONE (FIXTURE) | `/demo`; `POST /api/demo/scenario`, `POST /api/demo/tick`; compensation e2e |
 | Real-AI verification script | READY, NOT RUN | `npx tsx scripts/ai-smoke.ts` with OUTINGS_ANTHROPIC_API_KEY |
 | AG Studio depth: Money flow custom widget, Money page, Studio KPIs, saved views, grid → drill-down links | DONE | trial mode |
 | `/setup` diagnostics (merchant-only) | DONE | tests PayPal OAuth / Claude without exposing secrets |
@@ -70,7 +70,7 @@ npm run typecheck && npm test
 E2E_DATABASE_URL=postgres://outings:outings@localhost:5432/outings_e2e npm run test:e2e   # Playwright against a production build (wipes that db)
 ```
 
-Last results (cloud session, 4 Nov 2026): `npx tsc --noEmit` clean · `npx eslint .` 0 problems · `npx vitest run` 28 files / **344 passed** · `npm run test:e2e` **5/5 passed** (karaoke settle, holdout cancel, organizer cancel, demo hub, capture-failure compensation) · `next build` passes.
+Last results (cloud session, 4 Nov 2026): `npx tsc --noEmit` clean · `npx eslint .` 0 problems · `npx vitest run` 28 files / **346 passed** · `npm run test:e2e` **6/6 passed** (karaoke settle, holdout cancel, organizer cancel, demo hub, capture-failure compensation, big-group \$10-from-\$20 under-capture) · `next build` passes.
 
 First local run with real keys: sign in at `/merchant/login`, open **`/setup`** — it shows which env vars are set (names only) and has buttons to test PayPal sandbox OAuth and a real Claude call.
 

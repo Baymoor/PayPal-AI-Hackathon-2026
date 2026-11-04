@@ -17,7 +17,7 @@ The default `TEST_DATABASE_URL` is `postgres://outings:outings@localhost:5432/ou
 
 ## Current results
 
-Last verified run (build environment, FIXTURE modes only): **344 Vitest tests in 28 files pass**; eslint and `tsc` clean; `next build` passes; Playwright specs exist for the karaoke settle, holdout cancel, organizer cancel, demo hub and capture-failure compensation. Not verified: the real PayPal sandbox (`scripts/paypal-smoke.ts`) and real Claude (`scripts/ai-smoke.ts`), neither of which the build environment could run.
+Last verified run (build environment, FIXTURE modes only): **346 Vitest tests in 28 files pass**; eslint and `tsc` clean; `next build` passes; Playwright specs exist for the karaoke settle, holdout cancel, organizer cancel, demo hub and capture-failure compensation. Not verified: the real PayPal sandbox (`scripts/paypal-smoke.ts`) and real Claude (`scripts/ai-smoke.ts`), neither of which the build environment could run.
 
 Newer test files: `tests/services/demo-scenarios.test.ts` (one-click scenarios through the real services and worker), `tests/services/rate-limit.test.ts` (`TRUSTED_PROXY_HOPS` and client-IP keying), `tests/services/merchant-format.test.ts` (merchant timezone in rows and formatting), `tests/payments/payee.test.ts` (PayPal payee from the merchant row, payee mismatch is voided), `tests/audit2/*` (access and terms/time audit regressions), `tests/e2e/compensation.spec.ts`.
 
