@@ -70,7 +70,7 @@ npm run typecheck && npm test
 E2E_DATABASE_URL=postgres://outings:outings@localhost:5432/outings_e2e npm run test:e2e   # Playwright against a production build (wipes that db)
 ```
 
-Last results (cloud session, 4 Nov 2026): `npx tsc --noEmit` clean · `npx eslint .` 0 problems · `npx vitest run` 28 files / **346 passed** · `npm run test:e2e` **6/6 passed** (karaoke settle, holdout cancel, organizer cancel, demo hub, capture-failure compensation, big-group \$10-from-\$20 under-capture) · `next build` passes.
+Last results (cloud session, 4 Nov 2026): `npx tsc --noEmit` clean · `npx eslint .` 0 problems · `npx vitest run` 28 files / **346 passed** · `npm run test:e2e` **6/6 passed** (karaoke settle, holdout cancel, organizer cancel, demo hub, capture-failure compensation, big-group $10-from-$20 under-capture) · `next build` passes.
 
 First local run with real keys: sign in at `/merchant/login`, open **`/setup`** — it shows which env vars are set (names only) and has buttons to test PayPal sandbox OAuth and a real Claude call.
 
