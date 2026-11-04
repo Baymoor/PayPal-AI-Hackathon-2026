@@ -78,9 +78,10 @@ test("big group: ten payers, $10 each captured from $20 holds", async ({ page })
 
 async function expectKaiCharged(page: Page, outingId: string): Promise<void> {
   await expect(page.getByRole("heading", { name: "You’re going." })).toBeVisible();
-  await expect(page.locator("dl > div").filter({ hasText: "Your maximum" })).toContainText("$20");
-  await expect(page.locator("dl > div").filter({ hasText: "Your final share" })).toContainText("$10");
-  await expect(page.locator("dl > div").filter({ hasText: /^Captured/ })).toContainText("$10");
+  const row = (label: string) => page.locator("dl > div").filter({ hasText: new RegExp(`^${label}`) });
+  await expect(row("Your maximum")).toContainText("$20");
+  await expect(row("Your final share")).toContainText("$10");
+  await expect(row("Captured")).toContainText("$10");
   const v = await viewOf(page, outingId);
   expect(v.me.payment).toMatchObject({ status: "CAPTURED", provider: "FIXTURE", authorizedMinor: 2_000, capturedMinor: 1_000 });
   expect(v.me.payment!.capturedMinor).toBeLessThanOrEqual(v.me.payment!.authorizedMinor);
