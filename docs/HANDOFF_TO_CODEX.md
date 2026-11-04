@@ -34,6 +34,7 @@ Legend: **REAL_SANDBOX** = exercised against PayPal sandbox · **REAL_AI** = exe
 | AG Studio depth: Money flow custom widget, Money page, Studio KPIs, saved views, grid → drill-down links | DONE | trial mode |
 | `/setup` diagnostics (merchant-only) | DONE | tests PayPal OAuth / Claude without exposing secrets |
 | AI plan draft (organizer) | IMPLEMENTED — REAL_AI not verified | `POST /api/outings/:id/plan-draft`; every field validated (`validatePlanDraft`), invalid fields dropped with notes; organizer confirms |
+| Third audit: code added after audit 2 (demo scenarios, /setup, AI plan draft, headers, hardening) (Fable) | DONE | 1 medium (scenario button rewrote the shared catalogue) + 1 low (HSTS at runtime) fixed with tests (tests/audit3); AI draft no longer overrides organizer choices |
 | Security headers (nonce CSP, HSTS in prod, frame/sniff/permissions) | DONE | `proxy.ts`, `lib/security/headers.ts`; 0 CSP violations across pages in a production build |
 | Raw demo footage | DELIVERED TO OWNER (not in repo) | 6 Playwright-recorded clips from the production build + shot list, FIXTURE labels visible |
 | PayPal sandbox proof (auth → $10 under-capture → void → refund) | NOT VERIFIED | run `npx tsx scripts/paypal-smoke.ts` locally with sandbox credentials |
@@ -69,7 +70,7 @@ npm run typecheck && npm test
 E2E_DATABASE_URL=postgres://outings:outings@localhost:5432/outings_e2e npm run test:e2e   # Playwright against a production build (wipes that db)
 ```
 
-Last results (cloud session, 4 Nov 2026): `npx tsc --noEmit` clean · `npx eslint .` 0 problems · `npx vitest run` 26 files / **338 passed** · `npm run test:e2e` **5/5 passed** (karaoke settle, holdout cancel, organizer cancel, demo hub, capture-failure compensation) · `next build` passes.
+Last results (cloud session, 4 Nov 2026): `npx tsc --noEmit` clean · `npx eslint .` 0 problems · `npx vitest run` 28 files / **344 passed** · `npm run test:e2e` **5/5 passed** (karaoke settle, holdout cancel, organizer cancel, demo hub, capture-failure compensation) · `next build` passes.
 
 First local run with real keys: sign in at `/merchant/login`, open **`/setup`** — it shows which env vars are set (names only) and has buttons to test PayPal sandbox OAuth and a real Claude call.
 
