@@ -245,6 +245,8 @@ export interface DemoScenarioStatus {
   deadlineAt: string | null;
   serverNow: string;
   payers: { total: number; committed: number };
+  /** Per-participant live state (fixture people only): payers who hold a verified, on-time authorization. */
+  personas: { participantId: string; committed: boolean }[];
   operations: OperationCounts;
   capturedMinor: number;
   refundedMinor: number;
@@ -306,6 +308,7 @@ export async function demoScenarioStatus(db: Db, outingId: string, now: Date = n
     deadlineAt: outing.deadlineAt?.toISOString() ?? null,
     serverNow: now.toISOString(),
     payers: { total: payerIds.size, committed: committed.size },
+    personas: people.map((p) => ({ participantId: p.id, committed: committed.has(p.id) })),
     operations,
     capturedMinor: attempts.reduce((sum, a) => sum + a.capturedMinor, 0),
     refundedMinor: attempts.reduce((sum, a) => sum + a.refundedMinor, 0),

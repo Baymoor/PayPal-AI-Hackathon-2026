@@ -18,6 +18,7 @@ interface MoneyFlowState
   extends AgWidgetData<
     {
       outing: AgWidgetFieldReference[];
+      outingId: AgWidgetFieldReference[];
       status: AgWidgetFieldReference[];
       mode: AgWidgetFieldReference[];
       hold: AgWidgetFieldReference[];
@@ -32,10 +33,11 @@ interface MoneyFlowState
   type: "money-flow";
 }
 
-const SLOTS = ["outing", "status", "mode", "hold", "captured", "refunded", "refundDue", "voidPending", "refundPending"] as const;
+const SLOTS = ["outing", "outingId", "status", "mode", "hold", "captured", "refunded", "refundDue", "voidPending", "refundPending"] as const;
 type Slot = (typeof SLOTS)[number];
 
 interface Item {
+  id: string;
   title: string;
   status: string;
   mode: string;
@@ -121,6 +123,7 @@ function MoneyFlow(p: AgWidgetParams<MoneyFlowState>) {
     };
     const num = (r: Record<string, unknown>, k: Slot) => Math.round(Number(get(r, k) ?? 0));
     const list: Item[] = rows.map((r) => ({
+      id: String(get(r, "outingId")),
       title: String(get(r, "outing")),
       status: String(get(r, "status")),
       mode: String(get(r, "mode")),
@@ -128,7 +131,7 @@ function MoneyFlow(p: AgWidgetParams<MoneyFlowState>) {
       voidPending: num(r, "voidPending"),
       refundPending: num(r, "refundPending"),
     }));
-    list.sort((a, b) => b.seg.totalMinor - a.seg.totalMinor || a.title.localeCompare(b.title));
+    list.sort((a, b) => b.seg.totalMinor - a.seg.totalMinor || a.title.localeCompare(b.title) || a.id.localeCompare(b.id));
     const sum = (k: SegKey) => list.reduce((acc, i) => acc + i.seg[k], 0);
     const agg = flowSegments({ authorizedMinor: sum("holdMinor"), capturedMinor: sum("keptMinor") + sum("refundDueMinor") + sum("refundedMinor"), refundedMinor: sum("refundedMinor"), refundDueMinor: sum("refundDueMinor") });
     return { items: list, total: agg };
@@ -159,14 +162,14 @@ function MoneyFlow(p: AgWidgetParams<MoneyFlowState>) {
           </section>
           <ul className="mf-list">
             {items.map((it) => (
-              <li key={it.title} className="mf-item" data-selected={selected.has(it.title)}>
+              <li key={it.id} className="mf-item" data-selected={selected.has(it.id)}>
                 <div className="mf-head">
                   <button
                     type="button"
                     className="mf-title"
-                    aria-pressed={selected.has(it.title)}
+                    aria-pressed={selected.has(it.id)}
                     title="Cross-filter the other widgets to this outing"
-                    onClick={() => p.widgetApi.toggleCrossFilter({ type: "value", group: 0, field: m.outing![0], value: it.title })}
+                    onClick={() => p.widgetApi.toggleCrossFilter({ type: "value", group: 0, field: m.outingId![0], value: it.id })}
                   >
                     {it.title}
                   </button>
@@ -198,6 +201,7 @@ export const moneyFlowDef = {
   comp: MoneyFlow,
   dataMapping: {
     outing: { type: "field", supportedRoles: ["category"], required: true },
+    outingId: { type: "field", supportedRoles: ["category"], required: true },
     status: { type: "field", supportedRoles: ["category"], required: true },
     mode: { type: "field", supportedRoles: ["category"], required: true },
     hold: { type: "field", supportedRoles: ["numeric"], required: true },
@@ -211,6 +215,7 @@ export const moneyFlowDef = {
     createDefaults({
       dataMappingItems: [
         { key: "outing", label: "Outing" },
+        { key: "outingId", label: "Outing ID (unique key)" },
         { key: "status", label: "Status" },
         { key: "mode", label: "Mode" },
         { key: "hold", label: "Still on hold (minor units)" },

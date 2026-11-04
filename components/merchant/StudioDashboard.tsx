@@ -122,6 +122,7 @@ function buildReport(sort: DashboardQuery["sort"], currency: string, page: Studi
                 { id: f("captured") },
                 { id: f("refunded") },
                 { id: f("recovery") },
+                { id: f("id") },
               ],
             },
             ...(col ? { sort: [{ field: { id: col }, direction: sort!.direction }] } : {}),
@@ -155,6 +156,7 @@ function buildReport(sort: DashboardQuery["sort"], currency: string, page: Studi
             type: "money-flow",
             dataMapping: {
               outing: [{ id: f("title") }],
+              outingId: [{ id: f("id") }],
               status: [{ id: f("status") }],
               mode: [{ id: f("mode") }],
               hold: [sum(f("holdMinor"))],

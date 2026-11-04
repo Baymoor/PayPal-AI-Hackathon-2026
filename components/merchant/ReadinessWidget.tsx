@@ -96,7 +96,7 @@ function BookingReadiness(p: AgWidgetParams<ReadinessWidgetState>) {
         const payers = Number(get(r, "payers") ?? 0);
         const min = Number(get(r, "minPayers") ?? 0);
         const a = assessReadiness({ requiredAccepted: accepted, requiredInvited: invited, payersAuthorized: payers, minPayers: min, minutesLeft });
-        return { id: String(get(r, "outingId")), title: String(get(r, "outing")), mode: String(get(r, "mode")), accepted, invited, payers, min, minutesLeft, a, field: m.outing![0] };
+        return { id: String(get(r, "outingId")), title: String(get(r, "outing")), mode: String(get(r, "mode")), accepted, invited, payers, min, minutesLeft, a, field: m.outingId![0] };
       })
       .sort((x, y) => (x.minutesLeft ?? 1e12) - (y.minutesLeft ?? 1e12));
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -117,7 +117,7 @@ function BookingReadiness(p: AgWidgetParams<ReadinessWidgetState>) {
                     type="button"
                     className="mw-title"
                     title="Cross-filter the other widgets to this outing"
-                    onClick={() => p.widgetApi.toggleCrossFilter({ type: "value", group: 0, field: it.field, value: it.title })}
+                    onClick={() => p.widgetApi.toggleCrossFilter({ type: "value", group: 0, field: it.field, value: it.id })}
                   >
                     {it.title}
                   </button>

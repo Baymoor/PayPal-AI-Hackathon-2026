@@ -1,3 +1,6 @@
+import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
+import { MERCHANT_COOKIE, merchantSessionFromCookieValue } from "@/lib/auth/session";
 import DashboardClient from "@/components/merchant/DashboardClient";
 
 export const dynamic = "force-dynamic";
@@ -6,6 +9,12 @@ export default async function MerchantDashboardPage({ searchParams }: { searchPa
   const sp = await searchParams;
   // Dev-only fixture mode; hard-disabled in production builds.
   const fixtures = process.env.NODE_ENV !== "production" && sp.fixtures === "1";
+  // Check the session on the server so a visitor without one never triggers a failing client fetch.
+  // (?fixtures=1 renders synthetic rows without calling the API, so it needs no session.)
+  if (!fixtures) {
+    const jar = await cookies();
+    if (!merchantSessionFromCookieValue(jar.get(MERCHANT_COOKIE)?.value)) redirect("/merchant/login");
+  }
   // Configuration value; passed to the client provider, never logged.
   const licenseKey = process.env.AG_STUDIO_LICENSE_KEY?.trim() || undefined;
   // Studio's AI module needs a PRO-AI licence; trial mode (no key) unlocks it. Offer the assistant only when

@@ -71,6 +71,7 @@ interface ScenarioStatus {
   deadlineAt: string | null;
   serverNow: string;
   operations: OperationCounts;
+  personas?: { participantId: string; committed: boolean }[];
   headline: string;
   tickAvailable?: boolean;
 }
@@ -193,6 +194,31 @@ function saveScenario(s: ActiveScenario | null): void {
 }
 
 /** Nothing more will happen to this outing on its own. */
+/** A persona's note derived from live state; falls back to the static note written at scenario creation. */
+function liveNote(p: ScenarioPersona, kind: DemoScenarioKind, st: ScenarioStatus | null): string {
+  const live = st?.personas?.find((x) => x.participantId === p.participantId);
+  if (!st || !live || p.payerType !== "PAYER") return p.note;
+  const prefix = p.role === "ORGANIZER" ? "Organizer · " : "";
+  const hold = "Committed · $20 hold (fixture)";
+  const failed = st.cancelReasons.includes("CAPTURE_FAILED");
+  switch (st.status) {
+    case "COLLECTING":
+      return live.committed ? (p.note.startsWith(prefix + "Committed") || p.note.includes(hold) ? p.note : prefix + hold) : p.note;
+    case "SETTLING":
+      return live.committed ? `${prefix}Committed · share being captured` : p.note;
+    case "CONFIRMED":
+      return live.committed ? `${prefix}Committed · share captured (fixture)` : `${prefix}Did not commit in time`;
+    case "COMPENSATING":
+    case "CANCELLING":
+    case "CANCELLED":
+      if (failed && kind === "capture-failure") return p.note;
+      if (!live.committed) return `${prefix}Never committed · outing cancelled, nothing charged`;
+      return `${prefix}Committed · ${st.cleanup === "COMPLETE" ? "hold released, nothing charged" : "releasing the hold"}`;
+    default:
+      return p.note;
+  }
+}
+
 function isSettled(s: ScenarioStatus | null): boolean {
   if (!s) return false;
   if (s.status === "CONFIRMED") return true;
@@ -392,6 +418,7 @@ export function DemoHub({ initialDeadlineSeconds }: { initialDeadlineSeconds?: n
         deadlineAt: r.deadlineAt,
         serverNow: r.serverNow,
         operations: { CAPTURE: {}, VOID: {}, REFUND: {} },
+        personas: [],
         headline: "Collecting: nothing is settled before the deadline.",
       });
       setTickResult(null);
@@ -599,7 +626,7 @@ export function DemoHub({ initialDeadlineSeconds }: { initialDeadlineSeconds?: n
                     <Avatar name={p.displayName} index={i} size={40} />
                     <div className="min-w-0 flex-1">
                       <p className="font-semibold">{p.displayName}</p>
-                      <p className="text-small text-ink-muted">{p.note}</p>
+                      <p className="text-small text-ink-muted">{liveNote(p, scenario.kind, scenarioStatus)}</p>
                     </div>
                   </div>
                   <Button
