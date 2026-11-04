@@ -5,8 +5,8 @@
 ## 1. Where things are
 
 - Repository: https://github.com/Baymoor/PayPal-AI-Hackathon-2026
-- Branch: `claude/wizardly-rubin-16wxoj` (all work pushed; no PR yet — the owner asked for milestone pushes)
-- HEAD: see `git log -1` (this file is updated alongside milestone commits)
+- Branch: `claude/wizardly-rubin-16wxoj` — everything committed and pushed; no PR opened (owner asked for milestone pushes). Run `git log -1` for the exact HEAD.
+- The app boots with no external keys (labelled FIXTURE payments + FIXTURE AI). Real PayPal sandbox and real Claude are implemented but **not yet exercised** against the live services (the cloud container could not reach PayPal and had no runtime Anthropic key).
 
 ## 2. Feature status
 
@@ -26,9 +26,11 @@ Legend: **REAL_SANDBOX** = exercised against PayPal sandbox · **REAL_AI** = exe
 | Consumer UI | IMPLEMENTED | built from Claude Design mockups; verified end to end in Chromium (production build) |
 | Merchant AG Studio dashboard (custom Booking Readiness widget, cross-filter, NL filter, drill-down, retry) | IMPLEMENTED | trial mode (no licence key) |
 | Independent audit of payments/settlement (Fable) | DONE | 2 high, 2 medium, 5 low defects found; all fixed with regression tests (tests/audit) |
-| Second audit: privacy/access/consent + brief test-coverage map (Fable) | IN_PROGRESS | |
+| Second audit: privacy/access/consent + brief test-coverage map (Fable) | DONE | 2 medium defects fixed (merchant session expiry, no cancel after deadline); every brief §11 scenario mapped to a test (tests/audit2) |
 | End-to-end browser flow, production build, Playwright e2e | DONE (FIXTURE modes) | `npm run test:e2e`: karaoke settle, required-holdout cancel, organizer cancel, demo hub — 4/4 |
-| UX/a11y polish + /how-it-works explainer | IN_PROGRESS | |
+| UX/a11y polish + /how-it-works explainer | DONE | axe: 0 violations on consumer screens (one third-party AG Charts landmark label remains) |
+| One-click demo scenarios (settle-soon, holdout, capture-failure) | DONE (FIXTURE) | `/demo`; `POST /api/demo/scenario`, `POST /api/demo/tick`; compensation e2e |
+| Real-AI verification script | READY, NOT RUN | `npx tsx scripts/ai-smoke.ts` with OUTINGS_ANTHROPIC_API_KEY |
 | PayPal sandbox proof (auth → $10 under-capture → void → refund) | NOT VERIFIED | run `npx tsx scripts/paypal-smoke.ts` locally with sandbox credentials |
 | Deployment + scheduler | DOCUMENTED, NOT DEPLOYED | `docs/DEPLOYMENT.md`, `render.yaml` |
 
@@ -58,7 +60,11 @@ npm run worker     # deadline/settlement worker (separate terminal)
 npm run typecheck && npm test
 ```
 
-Last results: see the milestone commit messages and §10.
+```bash
+npm run test:e2e   # Playwright against a production build (resets DATABASE_URL db)
+```
+
+Last results (cloud session, 4 Nov 2026): `npx tsc --noEmit` clean · `npx eslint .` 0 problems · `npx vitest run` 19 files / **267 passed** · `npm run test:e2e` **5/5 passed** (karaoke settle, holdout cancel, organizer cancel, demo hub, capture-failure compensation) · `next build` passes.
 
 ## 4. Environment variable names
 
@@ -68,9 +74,29 @@ Last results: see the milestone commit messages and §10.
 
 Proven against sandbox: **none yet** (network policy of the cloud container blocks PayPal hosts). Unverified until the owner runs the smoke script: AUTHORIZE order creation, buyer approval via redirect, authorize, under-capture with `final_capture=true` ($20 → $10), void, refund, webhook signature verification, `PayPal-Mock-Response` negative testing. See `docs/research/PAYPAL.md` §14 for the exact list.
 
-## 6. Known defects / next tasks
+## 6. Known gaps and next tasks
 
-To be filled at the end of the cloud session.
+### Next five tasks (priority order)
+
+1. **Prove PayPal sandbox.** Create the sandbox REST app + 2 Personal buyers, set `PAYPAL_CLIENT_ID/SECRET`, run `npx tsx scripts/paypal-smoke.ts` (and `--mock-decline`). Fix any adapter mismatches (unverified assumptions listed below), commit the redacted evidence in `docs/evidence/`, then run one full outing in `PAYPAL_SANDBOX` mode with two buyers and flip the status rows to REAL_SANDBOX.
+2. **Prove real Claude.** Set `OUTINGS_ANTHROPIC_API_KEY`, run `npx tsx scripts/ai-smoke.ts`, commit the evidence, create one outing through `/new` with the real model.
+3. **Deploy** (Render blueprint `render.yaml` or the `Dockerfile`): Postgres, web, worker (or a scheduler on `/api/cron/tick`), HTTPS `APP_BASE_URL`, PayPal webhook → `/api/webhooks/paypal` with `PAYPAL_WEBHOOK_ID`, AG Studio trial key. Prove a deadline settles with every browser closed on the hosted URL; keep it free and up through **15 Dec 2026**.
+4. **Submission:** record the < 3 min video from `docs/DEMO_SCRIPT.md` (label fixture footage; show real sandbox/Claude only if actually recorded), fill the TODOs in `docs/HACKATHON_SUBMISSION.md`, make the repo public, submit on Devpost by **11 Nov** (hard deadline 12 Nov 21:00 CET).
+5. **Hardening:** trusted-proxy aware (or Postgres-backed) rate limiting; payee from the merchant row instead of `PAYPAL_MERCHANT_ID`; merchant timezone carried in `MerchantBookingRow` (dashboard uses `NEXT_PUBLIC_MERCHANT_TIMEZONE`, default Europe/Copenhagen); optional PayPal JS SDK v6 popup on top of the redirect flow.
+
+### Unverified PayPal assumptions (see docs/research/PAYPAL.md §14)
+
+`payer-action` vs `approve` link selection; `token` query parameter on return; authorization status/remainder after a partial `final_capture`; exact issue-code names (e.g. PREVIOUSLY_CAPTURED, AUTHORIZATION_ALREADY_CAPTURED); `PayPal-Mock-Response` support on capture/void/refund; idempotency retention window (designed for 6 h).
+
+### Known limitations / minor defects
+
+- Rate limiter is in-memory per process and keys on the first `X-Forwarded-For` hop (spoofable behind some proxies).
+- `OutingView.outing.paymentMode` comes from config, not from the outing's own attempts (fixture outings in a PayPal-configured deployment still use FIXTURE — enforced in `startPayment`).
+- Sessions are signed cookies without server-side revocation (merchant sessions expire after 12 h).
+- AG Studio: trial watermark off localhost without a key; KPI cards above Studio don't cross-filter; grid scrolls horizontally below ~1300 px; NL-query focus ring locates widgets by layout order; one axe finding inside AG Charts (third-party landmark label).
+- `next dev`/`next build` with a custom `NEXT_DIST_DIR` rewrites `tsconfig.json` includes — restore with `git checkout tsconfig.json`.
+- Seeded "Maya's birthday karaoke" closes ~2 h after seeding; use the `/demo` scenarios for a live settlement.
+- Budget poker implements TOTAL mode only (no per-person input mode).
 
 ## 7. Visual direction
 
@@ -82,7 +108,11 @@ No `AG_STUDIO_LICENSE_KEY` in the cloud container: Studio runs in trial mode (wa
 
 ## 9. Models used in the cloud session
 
-Coordinator: Opus 5.5. Subagents: Fable 5.1 (settlement engine; later independent audit), Opus 5.5 (payments; outing services/API), Sonnet 5.5 (design mockups, AG Studio + PayPal research, AI module, consumer UI, merchant dashboard). All three requested models were available.
+All three requested models were available and used via subagent routing:
+
+- **Opus 5.5** — coordinator (architecture, domain core, schema, contracts, integration, commits); payments package; outing services/API/seed; end-to-end integration + Playwright; demo scenarios.
+- **Fable 5.1** — settlement engine (deadline freeze, reconciliation, sequential capture, compensation, worker, webhooks); independent audit #1 (payments/settlement) + follow-up fixes; independent audit #2 (privacy/access/consent + coverage map).
+- **Sonnet 5.5** — Claude Design mockups + design system; AG Studio and PayPal research; AI module; consumer UI; merchant AG Studio dashboard; hackathon docs; UX/a11y polish + /how-it-works; AI smoke script.
 
 ## 10. Credits
 
