@@ -27,6 +27,7 @@ import {
   type Outing,
   type Participant,
   type PaymentAttempt,
+  type PaymentOperation,
   type QuoteVersion,
   type SettlementSnapshot,
 } from "../db/schema";
@@ -209,7 +210,7 @@ export async function getOutingDetail(db: DbOrTx, merchantId: string, outingId: 
     lastError: op.lastError ? op.lastError.slice(0, 300) : null,
     providerStatus: op.providerStatus,
     updatedAt: op.updatedAt.toISOString(),
-    canRetry: op.status === "FAILED" || op.status === "UNKNOWN",
+    canRetry: isRetryable(op),
   }));
 
   const events = await db.query.auditEvents.findMany({
@@ -226,6 +227,15 @@ export async function getOutingDetail(db: DbOrTx, merchantId: string, outingId: 
     operations: operationRows,
     timeline: events.map((e) => ({ at: e.createdAt.toISOString(), actor: actorLabel(e.actor, names), type: e.type })),
   };
+}
+
+/**
+ * Retryable = outcome UNKNOWN (must be reconciled, then re-sent with the same
+ * request id) or a FAILED attempt the engine left open (`completedAt` null).
+ * A FAILED op with `completedAt` set is a definitive provider refusal: final.
+ */
+export function isRetryable(op: Pick<PaymentOperation, "status" | "completedAt">): boolean {
+  return op.status === "UNKNOWN" || (op.status === "FAILED" && op.completedAt === null);
 }
 
 /**
@@ -247,6 +257,9 @@ export async function retryOperation(
     if (!outing || outing.merchantId !== merchantId) throw notFound("Operation not found");
     if (op.status !== "FAILED" && op.status !== "UNKNOWN") {
       throw conflict("NOT_RETRYABLE", `Only failed or unknown operations can be retried (this one is ${op.status})`);
+    }
+    if (!isRetryable(op)) {
+      throw conflict("NOT_RETRYABLE", "The provider definitively refused this operation; recovery has already been planned");
     }
     const exhausted = op.attempts >= op.maxAttempts;
     await tx

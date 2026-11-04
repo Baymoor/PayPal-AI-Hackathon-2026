@@ -13,7 +13,7 @@ import { eq } from "drizzle-orm";
 import { outings, paymentAttempts, settlementSnapshots, type PaymentAttempt } from "../db/schema";
 import type { Db, Tx } from "../db/client";
 import type { PaymentStatus } from "../domain/types";
-import type { AuthorizationView, PaymentProvider } from "../payments/provider";
+import type { AuthorizationView } from "../payments/provider";
 import { planPaymentOperation } from "../payments/plan";
 import { recordAudit } from "../audit";
 import { assertPaymentPath, lockAttempt, moveAttempt, patchAttempt, truncateError, type AttemptPatch } from "./attempts";
@@ -167,11 +167,16 @@ export async function voidIfNotOnRoster(
   attemptId: string,
   ctx: { now: Date; workerId: string },
 ): Promise<boolean> {
+  // Cheap pre-check without locks; the locked re-read below is authoritative.
+  const peek = await db.query.paymentAttempts.findFirst({ where: eq(paymentAttempts.id, attemptId), columns: { outingId: true, status: true } });
+  if (!peek || peek.status !== "AUTHORIZED") return false;
   return db.transaction(async (tx) => {
+    // Lock order everywhere in the engine: outing row first, then attempt rows (prevents deadlocks
+    // with the decision transaction, which holds the outing lock while updating attempts).
+    const [outing] = await tx.select().from(outings).where(eq(outings.id, peek.outingId)).for("update");
+    if (!outing) return false;
     const attempt = await lockAttempt(tx, attemptId);
     if (!attempt || attempt.status !== "AUTHORIZED") return false;
-    const [outing] = await tx.select().from(outings).where(eq(outings.id, attempt.outingId)).for("update");
-    if (!outing) return false;
     const snapshot = await tx.query.settlementSnapshots.findFirst({ where: eq(settlementSnapshots.outingId, outing.id) });
     if (!snapshot && outing.status === "COLLECTING") return false;
     if (snapshot && plannedCaptureFor(readRoster(snapshot), attempt.id)) return false;

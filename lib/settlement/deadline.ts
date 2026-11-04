@@ -263,6 +263,7 @@ async function decide(tx: Tx, ctx: DecideContext): Promise<DeadlineSettlementRes
     trigger: ctx.trigger,
     early,
     decision,
+    allocations: decision.kind === "SETTLE" ? decision.allocations : [],
     deadlineAt: locked.deadlineAt.toISOString(),
     frozenAt: frozenAt.toISOString(),
     evaluatedAt: dbNow.toISOString(),

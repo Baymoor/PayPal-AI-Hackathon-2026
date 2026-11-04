@@ -3,7 +3,7 @@
  * read it back. The snapshot is the only source of truth for what may be
  * captured from whom once the roster is frozen.
  */
-import type { SettlementDecision } from "../domain/policy";
+import type { PayerAllocation, SettlementDecision } from "../domain/policy";
 import type { AttendanceState, ParticipantRole, PayerType } from "../domain/types";
 import type { SettlementSnapshot } from "../db/schema";
 import type { MerchantAvailability } from "./availability";
@@ -33,6 +33,8 @@ export interface SettlementRoster {
   trigger: SettlementTrigger;
   early: boolean;
   decision: SettlementDecision;
+  /** Top-level mirror of decision.allocations (empty for CANCEL) so other readers need not know the union. */
+  allocations?: PayerAllocation[];
   deadlineAt: string;
   frozenAt: string;
   evaluatedAt: string;

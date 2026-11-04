@@ -32,7 +32,6 @@ interface Bucket {
 const MAX_KEYS = 10_000;
 
 declare global {
-  // eslint-disable-next-line no-var
   var __outingsRateLimits: Map<string, Bucket> | undefined;
 }
 

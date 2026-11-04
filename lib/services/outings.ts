@@ -164,7 +164,6 @@ export function collectionWindowOpen(outing: Pick<Outing, "status" | "frozenAt" 
   return outing.status === "COLLECTING" && !outing.frozenAt && !!outing.deadlineAt && isBeforeDeadline(now, outing.deadlineAt);
 }
 
-// eslint-disable-next-line no-control-regex
 const CONTROL_CHARS = new RegExp("[\\u0000-\\u0008\\u000b\\u000c\\u000e-\\u001f\\u007f\\u200b-\\u200f\\u2028-\\u202e\\u2066-\\u2069]", "g");
 
 /** Display names: no control/bidi characters, collapsed whitespace, 1..40 chars. */
@@ -645,7 +644,7 @@ function deterministicProposal(
     })
     .sort((a, b) => b.score - a.score)
     .slice(0, 5)
-    .map(({ score: _score, ...r }) => r);
+    .map((r) => ({ offeringId: r.offeringId, fit: r.fit, reasons: r.reasons, concerns: r.concerns }));
   return { ranked, note: "AI ranking was unavailable, so offerings are listed by capacity and budget fit." };
 }
 
