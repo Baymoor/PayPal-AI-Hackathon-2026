@@ -20,6 +20,26 @@ Scope: a hackathon demo that uses PayPal **sandbox** only. This is a summary of 
 | PII in logs and prompts | Audit events avoid full provider ids; webhook payloads are redacted for nested PII keys; error text is truncated; server errors log the message only. Model prompts receive sanitized data and never private votes or per-person amounts. | `lib/audit.ts`, `lib/webhooks/paypal.ts` |
 | Private votes | Budget votes are returned only to their own voter. The reveal exposes an aggregate distribution with no names, and only with 3 or more votes. | `lib/services/views.ts`, `tests/access` |
 
+## HTTP security headers
+
+Built in `lib/security/headers.ts`; the static ones are set by `next.config.ts` `headers()` on every route, the Content-Security-Policy per request by `proxy.ts` (nonce-based, per the Next.js CSP guide).
+
+| Header | Value | Notes |
+|---|---|---|
+| `Content-Security-Policy` | `default-src 'self'; script-src 'self' 'nonce-<per-request>' 'strict-dynamic'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; worker-src 'self' blob:; connect-src 'self'; frame-ancestors 'none'; form-action 'self' https://www.sandbox.paypal.com https://www.paypal.com; base-uri 'self'; object-src 'none'` | Fresh nonce on every request. |
+| `Referrer-Policy` | `strict-origin-when-cross-origin` | `/i/:token` responses (redirect and error page) send `no-referrer`. |
+| `X-Content-Type-Options` | `nosniff` | |
+| `X-Frame-Options` | `DENY` | Same intent as `frame-ancestors 'none'` for old browsers. |
+| `Permissions-Policy` | `camera=(), microphone=(), geolocation=(), payment=()` | The app uses none of these. |
+| `Strict-Transport-Security` | `max-age=63072000; includeSubDomains` | Only when `NODE_ENV=production` and `APP_BASE_URL` is `https:`; evaluated when the server starts. |
+
+Relaxations and why:
+
+- `style-src 'unsafe-inline'`: React `style` attributes and the runtime styles of AG Grid / AG Studio / AG Charts. Scripts stay strict (no `'unsafe-inline'`, no `'unsafe-eval'` in production).
+- Nonce means every page renders per request (the root layout awaits `connection()`): no static prerendering or CDN caching of HTML. Most screens show live payment state anyway.
+- `next dev` only: `script-src` adds `'unsafe-eval'` (React debugging) and `connect-src` adds `ws: wss:` (HMR).
+- `form-action` lists PayPal because the fixture/PayPal flow may post or redirect there; the approval redirect itself uses `window.location`, which CSP does not restrict.
+
 ## Payment safety invariants
 
 1. Money is integer minor units, one currency (USD) per outing; no floats.

@@ -23,6 +23,10 @@ The in-memory rate limiter keys each bucket on client IP + route. Set `TRUSTED_P
 
 Typical values: `1` behind a single platform load balancer (Render, Fly.io, Heroku-style routers, one nginx/Caddy); `2` with a CDN in front of that load balancer. Too high a value lets clients choose their own key by sending a forged `X-Forwarded-For`; too low a value keys on a proxy address, so users share buckets. To check: send `curl -H 'X-Forwarded-For: 203.0.113.9' https://<host>/...` and look at the header your app receives (platform request logs or a temporary log line). It should read `203.0.113.9, <your IP>[, <proxy IPs>]`, and N is the number of entries from `<your IP>` to the end. The value must be a whole number from 0 to 10; anything else fails at startup.
 
+## Security headers and HSTS
+
+`next.config.ts` and `proxy.ts` set the headers listed in [SECURITY_AND_LIMITATIONS.md](SECURITY_AND_LIMITATIONS.md#http-security-headers). `Strict-Transport-Security` (2 years, `includeSubDomains`) is sent only when `NODE_ENV=production` **and** `APP_BASE_URL` starts with `https://`, so set `APP_BASE_URL` to the public https URL. Because it covers subdomains and browsers cache it, only enable it on a host that will stay https. If TLS is terminated by a platform that already adds HSTS, the duplicate is harmless.
+
 ## Payee (`merchants.paypal_merchant_id`)
 
 PayPal orders name a payee only if one is configured. The payee is the outing merchant's `merchants.paypal_merchant_id`, then the deployment-wide `PAYPAL_MERCHANT_ID`. If neither is set, the field is left out and PayPal pays the account that owns the REST app credentials. The same value is checked against the payee on the returned authorization: a mismatch is never admitted and the hold is voided. `npm run db:seed` / `demo:reset` copy `PAYPAL_MERCHANT_ID` into the demo merchant when it is set, and otherwise keep the value already in the column. Use the sandbox business account's **merchant ID**. An email is sent as `payee.email_address` and accepted by the order, but if PayPal reports the payee on the authorization by merchant ID, the check sees a mismatch and voids the hold.
