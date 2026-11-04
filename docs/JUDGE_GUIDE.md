@@ -55,7 +55,7 @@ A hosted demo URL: **TODO: add the hosted URL once deployed (see [DEPLOYMENT.md]
 
 ### 3a. Watch a deadline settle (one-click scenarios, about 2 minutes each)
 
-On `/demo`, the **Watch a deadline settle** section creates a fresh demo outing at The Sound Room ($100 private karaoke room, capacity 10, Maya sponsored, Friday 19:00) whose commitment deadline is 1, 1.5, 2 (default) or 5 minutes away. Pick a scenario and press **Start (closes in 2 min)**. The panel that appears shows a countdown against the server clock, every person with an **Open as …** button, a **Process due work now** button, and **Open the merchant drill-down**.
+On `/demo`, the **Watch a deadline settle** section creates a fresh demo outing at The Sound Room ($100 private karaoke room, capacity 10, Maya sponsored, Friday 19:00) whose commitment deadline is 1, 1.5, 2 (default) or 5 minutes away. Pick a scenario and press **Start (closes in 2 min)**. The panel that appears shows a countdown against the server clock, every person with an **Open as …** button, a **Process due work now** button, and **Open merchant drill-down**.
 
 | Scenario | Do this | What you should see |
 |---|---|---|

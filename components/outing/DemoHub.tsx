@@ -651,7 +651,7 @@ export function DemoHub({ initialDeadlineSeconds }: { initialDeadlineSeconds?: n
                 onClick={() => merchant(`/merchant/outings/${scenario.outingId}`, "merchant:scenario")}
               >
                 <Store className="size-4" aria-hidden />
-                Open the merchant drill-down
+                Open merchant drill-down
               </Button>
             </div>
             {settled && (

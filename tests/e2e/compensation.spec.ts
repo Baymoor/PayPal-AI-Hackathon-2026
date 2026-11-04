@@ -161,7 +161,7 @@ test("a capture fails mid-settlement: never confirmed, holds released, captured 
   await test.step("the merchant drill-down shows the refunded operations", async () => {
     await page.goto("/demo");
     panel = panelOf(page, s.title);
-    await panel.getByRole("button", { name: "Open the merchant drill-down" }).click();
+    await panel.getByRole("button", { name: "Open merchant drill-down" }).click();
     await expect(page).toHaveURL(new RegExp(`/merchant/outings/${s.outingId}$`));
     await expect(page.getByRole("heading", { name: s.title, level: 1 })).toBeVisible();
     await expect(page.getByText("Recovery: Complete")).toBeVisible();
