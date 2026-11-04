@@ -44,7 +44,7 @@ Payments go directly to the experience merchant; the organizer never receives th
 | AI | Anthropic Claude with structured outputs, validated by zod; labelled deterministic fixture when no key is set |
 | Merchant UI | AG Studio with AG Grid (Community for the drill-down grid) |
 | Worker | `npm run worker` loop, or an authenticated `POST /api/cron/tick` from any scheduler |
-| Tests | 311 Vitest tests in 23 files against a real Postgres database, plus Playwright end-to-end specs (see [TESTING.md](TESTING.md)) |
+| Tests | 338 Vitest tests in 26 files against a real Postgres database, plus Playwright end-to-end specs (see [TESTING.md](TESTING.md)) |
 
 The money logic lives in a small pure domain layer (integer minor units, equal split, cap, terms hash, settle-or-cancel decision) so it can be tested exhaustively. Provider calls never run inside a database transaction, and every provider mutation has a durable outbox row with a stable request id.
 
@@ -97,7 +97,7 @@ AG Studio runs under its evaluation trial. **TODO: add the trial licence key to 
 - Two independent audits (payments/settlement; privacy/access/consent) whose confirmed defects were fixed with regression tests in `tests/audit` and `tests/audit2`.
 - Hardening beyond the happy path: rate limiting keyed on `TRUSTED_PROXY_HOPS`, the PayPal payee read from the merchant row, merchant timezone carried in rows, merchant sessions that expire after 12 h, and no organizer cancel after the deadline.
 - A compensation path that can be watched in one click and is covered by a browser test (`tests/e2e/compensation.spec.ts`).
-- Current verified results: 311 Vitest tests (23 files) pass; Playwright specs for the karaoke settle, holdout cancel, organizer cancel, demo hub and capture-failure compensation; eslint and `tsc` clean; `next build` passes. All of it runs in FIXTURE modes.
+- Current verified results: 338 Vitest tests (26 files) pass; Playwright specs for the karaoke settle, holdout cancel, organizer cancel, demo hub and capture-failure compensation; eslint and `tsc` clean; `next build` passes. All of it runs in FIXTURE modes.
 
 ## What we learned
 
