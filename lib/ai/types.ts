@@ -152,7 +152,7 @@ export type DashboardQuery = z.infer<typeof DashboardQuerySchema>;
 
 export interface OutingsAi {
   readonly source: AiSource;
-  extractBrief(input: { brief: string; now: Date; timezone: string }): Promise<AiResult<BriefExtraction>>;
+  extractBrief(input: { brief: string; now: Date; timezone: string; categories?: string[] }): Promise<AiResult<BriefExtraction>>;
   proposeOfferings(input: {
     extraction: BriefExtraction;
     catalogue: CatalogueItemForAi[];

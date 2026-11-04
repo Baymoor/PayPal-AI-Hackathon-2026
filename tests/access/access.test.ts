@@ -248,6 +248,45 @@ describe("budget vote privacy", () => {
   });
 });
 
+describe("organizer happy path over HTTP", () => {
+  it("drives budget -> proposal -> sponsor -> open through the route handlers", async () => {
+    const db = getDb();
+    const f = await createWithInvitees(db, ["Ben", "Freya", "Jules", "Noor", "Maya"]);
+    const alex = participantCookieFor({ [f.outingId]: f.organizerId });
+    const p = params({ id: f.outingId });
+    const post = (h: unknown, path: string, b: unknown = {}) => asHandler(h)(request(`/api/outings/${f.outingId}${path}`, { cookie: alex, body: b }), p);
+    expect((await post(startBudgetRoute.POST, "/start-budget")).status).toBe(200);
+    expect((await post(agreeRoute.POST, "/budget/agree", { amountMinor: 10_000 })).status).toBe(200);
+    expect((await post(selectRoute.POST, "/select", { offeringId: f.offerings["pottery-wheel-evening"].id })).status).toBe(422);
+    expect((await post(selectRoute.POST, "/select", { offeringId: f.offerings["private-karaoke-room"].id })).status).toBe(200);
+    const patch = await patchRoute.PATCH(
+      request(`/api/outings/${f.outingId}/participants/${f.ids.Maya}`, { cookie: alex, body: { payerType: "SPONSORED" }, method: "PATCH" }),
+      params({ id: f.outingId, pid: f.ids.Maya }),
+    );
+    expect(patch.status).toBe(200);
+    const bad = await patchRoute.PATCH(
+      request(`/api/outings/${f.outingId}/participants/not-a-uuid`, { cookie: alex, body: { required: false }, method: "PATCH" }),
+      params({ id: f.outingId, pid: "not-a-uuid" }),
+    );
+    expect(bad.status).toBe(404);
+    const now = new Date();
+    const { deadlineAt, activityAt } = collectionTimes(now);
+    expect((await post(openRoute.POST, "/open", { activityAt: "tomorrow", deadlineAt: deadlineAt.toISOString(), minPayers: 5 })).status).toBe(400);
+    const tooLate = await post(openRoute.POST, "/open", { activityAt: activityAt.toISOString(), deadlineAt: new Date(now.getTime() + 72 * 3_600_000).toISOString(), minPayers: 5 });
+    expect(tooLate.status).toBe(422);
+    expect((await body<{ error: { code: string } }>(tooLate)).error.code).toBe("DEADLINE_TOO_LATE");
+    const opened = await post(openRoute.POST, "/open", { activityAt: activityAt.toISOString(), deadlineAt: deadlineAt.toISOString(), minPayers: 5 });
+    expect(opened.status).toBe(200);
+    const o = await body<{ capMinor: number; termsHash: string }>(opened);
+    expect(o.capMinor).toBe(2_000);
+    const view = await body<{ outing: { stage: string }; quote: { termsHash: string; capMinor: number } }>(
+      await outingRoute.GET(request(`/api/outings/${f.outingId}`, { cookie: participantCookieFor({ [f.outingId]: f.ids.Ben }) }), p),
+    );
+    expect(view.outing.stage).toBe("COMMIT");
+    expect(view.quote).toMatchObject({ termsHash: o.termsHash, capMinor: 2_000 });
+  });
+});
+
 describe("collection endpoints", () => {
   it("consent is per-payer, server-timed and bound to the current terms hash", async () => {
     const db = getDb();

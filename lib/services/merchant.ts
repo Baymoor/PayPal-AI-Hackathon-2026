@@ -31,7 +31,7 @@ import {
   type QuoteVersion,
   type SettlementSnapshot,
 } from "../db/schema";
-import { ServiceError, conflict, notFound } from "../http";
+import { ServiceError, badRequest, conflict, notFound } from "../http";
 import { assertUuid } from "./access";
 import { recordAudit } from "../audit";
 import { enqueueJob, operationsJobKey } from "../jobs/queue";
@@ -299,7 +299,7 @@ export const MAX_DASHBOARD_QUESTION_CHARS = 300;
  */
 export async function dashboardQuery(db: DbOrTx, question: string, now: Date = new Date()): Promise<DashboardQueryResult> {
   const q = question.replace(/\s+/g, " ").trim().slice(0, MAX_DASHBOARD_QUESTION_CHARS);
-  if (!q) throw conflict("INVALID_QUESTION", "Ask a question about your bookings");
+  if (!q) throw badRequest("INVALID_QUESTION", "Ask a question about your bookings");
   let source: string = config().aiMode;
   try {
     const ai = getOutingsAi();

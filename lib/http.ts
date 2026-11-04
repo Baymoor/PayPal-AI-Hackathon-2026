@@ -9,6 +9,7 @@ export class ServiceError extends Error {
     readonly code: string,
     readonly status: number,
     message: string,
+    readonly retryAfterSeconds?: number,
   ) {
     super(message);
     this.name = "ServiceError";
@@ -30,7 +31,10 @@ export function json(data: unknown, init: ResponseInit & { headers?: Record<stri
 
 /** Convert any thrown error into a safe JSON error response (no stack traces / secrets). */
 export function errorResponse(err: unknown): Response {
-  if (err instanceof ServiceError) return json({ error: { code: err.code, message: err.message } }, { status: err.status });
+  if (err instanceof ServiceError) {
+    const headers: Record<string, string> = err.status === 429 ? { "retry-after": String(err.retryAfterSeconds ?? 30) } : {};
+    return json({ error: { code: err.code, message: err.message } }, { status: err.status, headers });
+  }
   if (err instanceof PolicyError) return json({ error: { code: err.code, message: err.message } }, { status: 422 });
   if (err instanceof MoneyError) return json({ error: { code: "INVALID_MONEY", message: err.message } }, { status: 422 });
   if (err instanceof IllegalTransitionError) return json({ error: { code: "INVALID_STATE", message: err.message } }, { status: 409 });

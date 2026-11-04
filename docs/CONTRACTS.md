@@ -69,7 +69,7 @@ Participant (cookie `outings_p`):
 
 Merchant (cookie `outings_m`): `POST /api/merchant/login {password}`, `POST /api/merchant/demo-login` (demo only), `POST /api/merchant/logout`, `GET /api/merchant/bookings` → `MerchantBookingRow[]`, `GET /api/merchant/outings/:id` → `MerchantOutingDetail`, `POST /api/merchant/operations/:opId/retry` (re-queue an existing FAILED/UNKNOWN op only), `POST /api/merchant/ai/query {question}` → validated `DashboardQuery` (read-only).
 
-System: `POST /api/cron/tick` (`Authorization: Bearer $CRON_SECRET`) runs due jobs and due payment operations; `POST /api/webhooks/paypal` verifies + dedupes + reconciles; `GET /api/health` → `publicModeSummary()`; `POST /api/demo/reset` (demo only).
+System: `POST /api/cron/tick` (`Authorization: Bearer $CRON_SECRET`) runs due jobs and due payment operations; `POST /api/webhooks/paypal` verifies + dedupes + reconciles; `GET /api/health` → `publicModeSummary()`; `POST /api/demo/reset` and `GET /api/demo/personas` (demo only; both return `{outingId, personas, budgetOutingId, budgetPersonas, merchant, outings}`), `POST /api/demo/persona {participantId}` (demo only, fixture outings only).
 
 ## Pages
 
