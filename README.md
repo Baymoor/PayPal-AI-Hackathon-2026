@@ -4,6 +4,10 @@
 
 Independent project for the **PayPal AI Hackathon 2026**. Uses **PayPal sandbox** payments only — no real money moves. "Outings" is a working name.
 
+![Outings landing page](docs/screenshots/landing.png)
+
+**Judges:** start with the [judge guide](docs/JUDGE_GUIDE.md) and the interactive [`/how-it-works`](docs/screenshots/how-it-works.png) page.
+
 ## How it works
 
 1. **Brief** — the organizer writes a plain-language plan ("A karaoke night for Maya's birthday. Six of us, Friday evening. We want a private room and to cover Maya's share."). Claude extracts structured preferences (activity, date window, group size, budget unit, guest of honour) with schema-validated output.
@@ -83,15 +87,19 @@ Captured by the e2e suite from the running app (FIXTURE payments and FIXTURE AI,
 | ![Brief](docs/screenshots/brief.png) | ![Budget poker](docs/screenshots/budget-poker.png) | ![Invitation](docs/screenshots/invitation.png) |
 | ![Waiting](docs/screenshots/waiting.png) | ![Confirmed](docs/screenshots/confirmed.png) | ![Cancelled](docs/screenshots/cancelled.png) |
 
+![Merchant AG Studio dashboard](docs/screenshots/merchant-dashboard.png)
+
 Organizer and merchant views: [reveal](docs/screenshots/reveal.png) · [sponsor & open](docs/screenshots/sponsor.png) · [merchant dashboard](docs/screenshots/merchant-dashboard.png) · [drill-down](docs/screenshots/merchant-drilldown.png) · [payments](docs/screenshots/merchant-drilldown-payments.png)
 
 ## Documentation
 
+- [Judge guide](docs/JUDGE_GUIDE.md) · [Demo video script](docs/DEMO_SCRIPT.md) · [Devpost draft](docs/HACKATHON_SUBMISSION.md)
 - [Product & financial spec](docs/PRODUCT_SPEC.md)
 - [Architecture](docs/ARCHITECTURE.md)
 - [Module contracts & HTTP API](docs/CONTRACTS.md)
 - [Design system](docs/design/DESIGN_SYSTEM.md)
 - [PayPal integration research](docs/research/PAYPAL.md) · [AG Studio research](docs/research/AG_STUDIO.md)
+- [Security & limitations](docs/SECURITY_AND_LIMITATIONS.md) · [Testing](docs/TESTING.md) · [Deployment](docs/DEPLOYMENT.md)
 - [Source provenance](docs/PROVENANCE.md)
 - [Handoff / status](docs/HANDOFF_TO_CODEX.md)
 
