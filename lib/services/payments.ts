@@ -433,7 +433,78 @@ export async function startPayment(
 /* Record a provider authorization (shared by return route + reconciliation)  */
 /* -------------------------------------------------------------------------- */
 
-const VOID_NOT_NEEDED: ReadonlySet<string> = new Set(["DENIED", "VOIDED", "EXPIRED", "CAPTURED"]);
+/** Authorization states in which no hold exists any more (nothing to void). CAPTURED is deliberately absent: captured money is refunded. */
+const NOTHING_HELD: ReadonlySet<string> = new Set(["DENIED", "VOIDED", "EXPIRED"]);
+
+interface ReleasePlan {
+  voidPlanned: boolean;
+  refundPlanned: boolean;
+  capturedMinor: number;
+  captureRef: string | null;
+  releaseNote: string | null;
+}
+
+/**
+ * Release whatever the provider holds for an authorization we do not admit
+ * (mismatch, stray hold on a closed attempt). A live hold is planned for VOID.
+ * Money the provider already shows as captured (out of band) is recorded on the
+ * attempt and planned for REFUND: a void would be refused (PREVIOUSLY_CAPTURED)
+ * and captured money must never stay with the merchant for a booking that is
+ * not confirmed. A CAPTURED / PARTIALLY_CAPTURED authorization whose capture
+ * is not visible yet still gets a VOID: the void executor re-reads it and turns
+ * a refused void into a refund once the capture is visible, or flags it.
+ * The attempt must be FAILED (or AUTHORIZED) so *_PENDING is a legal move.
+ */
+async function planReleaseFor(tx: Tx, attempt: PaymentAttempt, auth: AuthorizationView, now: Date): Promise<ReleasePlan> {
+  const plan: ReleasePlan = { voidPlanned: false, refundPlanned: false, capturedMinor: 0, captureRef: null, releaseNote: null };
+  const refundable = auth.captures.find((c) => c.status === "COMPLETED" || c.status === "PARTIALLY_REFUNDED");
+  const capture = refundable ?? auth.captures.find((c) => c.status === "REFUNDED");
+  if (capture) {
+    plan.capturedMinor = capture.amountMinor;
+    plan.captureRef = redactRef(capture.captureId);
+    const notes: string[] = [];
+    if (auth.captures.length > 1) notes.push(`${auth.captures.length} captures at provider; only ${plan.captureRef} is tracked`);
+    await tx
+      .update(paymentAttempts)
+      .set({
+        captureId: capture.captureId,
+        capturedMinor: capture.amountMinor,
+        authorizedMinor: Math.max(attempt.authorizedMinor, auth.amountMinor, capture.amountMinor),
+        ...(refundable ? {} : { refundedMinor: capture.amountMinor }),
+        updatedAt: now,
+      })
+      .where(eq(paymentAttempts.id, attempt.id));
+    if (refundable) {
+      await planPaymentOperation(tx, {
+        outingId: attempt.outingId,
+        paymentAttemptId: attempt.id,
+        kind: "REFUND",
+        amountMinor: capture.amountMinor,
+        currency: capture.currency,
+      });
+      plan.refundPlanned = true;
+    } else {
+      notes.push("capture already refunded at provider");
+    }
+    plan.releaseNote = notes.length > 0 ? notes.join("; ") : null;
+    return plan;
+  }
+  if (!NOTHING_HELD.has(auth.status)) {
+    await planPaymentOperation(tx, {
+      outingId: attempt.outingId,
+      paymentAttemptId: attempt.id,
+      kind: "VOID",
+      amountMinor: auth.amountMinor,
+      currency: auth.currency,
+    });
+    plan.voidPlanned = true;
+  }
+  return plan;
+}
+
+function describeRelease(plan: ReleasePlan): string {
+  return plan.refundPlanned ? "refund planned" : plan.voidPlanned ? "void planned" : "nothing held";
+}
 
 function snapshotAllocates(roster: unknown, attemptId: string): boolean {
   const allocations = roster && typeof roster === "object" ? (roster as { allocations?: unknown }).allocations : undefined;
@@ -486,17 +557,13 @@ async function recordAuthorization(db: Db, attemptId: string, auth: Authorizatio
 
     if (mismatches.length > 0) {
       await setStatus(tx, attempt, "FAILED", now, { ...verifiedFields, lastError: `AUTHORIZATION_MISMATCH: ${mismatches.join(",")}` });
-      const needsVoid = !VOID_NOT_NEEDED.has(auth.status);
-      if (needsVoid) {
-        await planPaymentOperation(tx, {
-          outingId: attempt.outingId,
-          paymentAttemptId: attempt.id,
-          kind: "VOID",
-          amountMinor: auth.amountMinor,
-          currency: auth.currency,
-        });
-      }
-      await recordAudit(tx, { outingId: attempt.outingId, actor, type: "PAYMENT_AUTHORIZATION_MISMATCH", data: { ...baseAudit, mismatches, voidPlanned: needsVoid } });
+      // Whatever the provider holds or captured under this authorization is released (void) or returned (refund).
+      const release = await planReleaseFor(tx, attempt, auth, now);
+      await tx
+        .update(paymentAttempts)
+        .set({ lastError: `AUTHORIZATION_MISMATCH: ${mismatches.join(",")}; ${describeRelease(release)}`, updatedAt: now })
+        .where(eq(paymentAttempts.id, attempt.id));
+      await recordAudit(tx, { outingId: attempt.outingId, actor, type: "PAYMENT_AUTHORIZATION_MISMATCH", data: { ...baseAudit, mismatches, ...release } });
       return "FAILED";
     }
 
@@ -542,7 +609,6 @@ async function recordAuthorization(db: Db, attemptId: string, auth: Authorizatio
  * must never hide a live hold.
  */
 async function recordStrayAuthorization(tx: Tx, attempt: PaymentAttempt, auth: AuthorizationView, now: Date, actor: AuditActor): Promise<PaymentOutcome> {
-  const needsVoid = !VOID_NOT_NEEDED.has(auth.status);
   await tx
     .update(paymentAttempts)
     .set({
@@ -553,19 +619,15 @@ async function recordStrayAuthorization(tx: Tx, attempt: PaymentAttempt, auth: A
       providerStatus: auth.providerStatus,
       verified: true,
       verifiedAt: now,
-      lastError: `AUTHORIZATION_AFTER_CLOSE: hold found for a closed attempt; ${needsVoid ? "void planned" : "nothing held"}`,
       updatedAt: now,
     })
     .where(eq(paymentAttempts.id, attempt.id));
-  if (needsVoid) {
-    await planPaymentOperation(tx, {
-      outingId: attempt.outingId,
-      paymentAttemptId: attempt.id,
-      kind: "VOID",
-      amountMinor: auth.amountMinor,
-      currency: auth.currency,
-    });
-  }
+  // A live hold is voided; money already captured under it is refunded (never left with the merchant).
+  const release = await planReleaseFor(tx, { ...attempt, authorizedMinor: auth.amountMinor }, auth, now);
+  await tx
+    .update(paymentAttempts)
+    .set({ lastError: `AUTHORIZATION_AFTER_CLOSE: hold found for a closed attempt; ${describeRelease(release)}`, updatedAt: now })
+    .where(eq(paymentAttempts.id, attempt.id));
   await recordAudit(tx, {
     outingId: attempt.outingId,
     actor,
@@ -578,7 +640,7 @@ async function recordStrayAuthorization(tx: Tx, attempt: PaymentAttempt, auth: A
       currency: auth.currency,
       providerCreateTime: auth.createTime.toISOString(),
       reasons: ["ATTEMPT_ALREADY_CLOSED"],
-      voidPlanned: needsVoid,
+      ...release,
     },
   });
   return attempt.late ? "LATE" : "FAILED";

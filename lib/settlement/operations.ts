@@ -441,8 +441,32 @@ async function executeCapture(db: Db, provider: PaymentProvider, ctx: OpCtx, c: 
     noteToPayer: "Your share of the group booking",
   });
   if (!res.ok) {
-    if (res.kind === "UNKNOWN") await markOpUnknown(db, ctx, op, `${res.code}: ${res.message}`);
-    else await recordCaptureFailure(db, ctx, op, res.code, res.message);
+    if (res.kind === "UNKNOWN") {
+      await markOpUnknown(db, ctx, op, `${res.code}: ${res.message}`);
+      return;
+    }
+    if (looksAlreadyCaptured(res.code)) {
+      // The provider says a capture already exists (our own send whose idempotent replay is gone, or an
+      // out-of-band capture). Read it back before declaring failure: only a COMPLETED final capture of
+      // exactly this operation's amount is this operation's outcome; anything else fails closed.
+      const state = await readCaptureState(provider, attempt);
+      if (state.kind === "COMPLETED" && isThisOperationsCapture(state.capture, op)) {
+        await recordCaptureSuccess(db, ctx, op, state.capture, `provider answered ${res.code}; matching final capture found at provider`);
+        return;
+      }
+      if (state.kind === "PENDING" && isThisOperationsCapture(state.capture, op, "PENDING")) {
+        await patchAttempt(db, attempt.id, { captureId: state.capture.captureId, providerStatus: state.capture.providerStatus }, ctx.now);
+        await markOpUnknown(db, ctx, op, `provider answered ${res.code}; matching capture pending at provider`, { providerRef: state.capture.captureId, providerStatus: state.capture.providerStatus });
+        return;
+      }
+      if (state.kind === "READ_FAILED") {
+        await markOpUnknown(db, ctx, op, `${res.code}: ${res.message}; reconcile read failed (${state.code})`);
+        return;
+      }
+      await recordCaptureFailure(db, ctx, op, res.code, `${res.message}; no matching capture of ${op.amountMinor} found at provider (${describeCaptureState(state)})`);
+      return;
+    }
+    await recordCaptureFailure(db, ctx, op, res.code, res.message);
     return;
   }
   switch (res.capture.status) {
@@ -459,6 +483,31 @@ async function executeCapture(db: Db, provider: PaymentProvider, ctx: OpCtx, c: 
       return;
     default:
       await markOpUnknown(db, ctx, op, `capture status ${res.capture.providerStatus}; reconcile`, { providerRef: res.capture.captureId });
+  }
+}
+
+/** Provider issue codes that mean "this authorization already has a capture": AUTHORIZATION_ALREADY_CAPTURED, PREVIOUSLY_CAPTURED, ORDER_ALREADY_CAPTURED (PAYPAL.md §6, §10). */
+function looksAlreadyCaptured(code: string): boolean {
+  return /ALREADY_CAPTURED|PREVIOUSLY_CAPTURED/.test(code);
+}
+
+/** A capture at the provider counts as THIS operation's only when it is final and for exactly the planned amount and currency. */
+function isThisOperationsCapture(capture: CaptureView, op: PaymentOperation, status: CaptureView["status"] = "COMPLETED"): boolean {
+  return capture.status === status && capture.finalCapture && capture.amountMinor === op.amountMinor && capture.currency === op.currency;
+}
+
+function describeCaptureState(state: CaptureState): string {
+  switch (state.kind) {
+    case "COMPLETED":
+    case "PENDING":
+    case "DECLINED":
+      return `capture ${state.capture.captureId} ${state.capture.status} ${state.capture.amountMinor}${state.capture.finalCapture ? " final" : " non-final"}`;
+    case "AUTH_GONE":
+      return `authorization ${state.status}`;
+    case "INDETERMINATE":
+      return `authorization status ${state.status}`;
+    default:
+      return state.kind;
   }
 }
 
@@ -688,7 +737,7 @@ async function settleVoidFromView(db: Db, ctx: OpCtx, op: PaymentOperation, auth
   if (auth.status === "CAPTURED" || auth.status === "PARTIALLY_CAPTURED") {
     const captured = auth.captures.find((c) => c.status === "COMPLETED" || c.status === "REFUNDED" || c.status === "PARTIALLY_REFUNDED");
     if (captured) {
-      await recordVoidCapturedConflict(db, ctx, op, captured, why);
+      await recordVoidCapturedConflict(db, ctx, op, auth, captured, why);
       return true;
     }
   }
@@ -734,12 +783,26 @@ async function recordVoidNothingHeld(db: Db, ctx: OpCtx, op: PaymentOperation, n
   });
 }
 
-/** A void failed because money was captured: record the capture and plan a refund instead. */
-async function recordVoidCapturedConflict(db: Db, ctx: OpCtx, op: PaymentOperation, capture: CaptureView, why: string): Promise<void> {
+/**
+ * A void was refused because money was captured: record the capture and plan a
+ * refund instead. The VOID itself is superseded (SUCCEEDED with providerStatus
+ * PREVIOUSLY_CAPTURED): a final capture closes the authorization, so no hold
+ * remains to void and the money is tracked by the REFUND operation — clean-up
+ * reaches COMPLETE once the provider confirmed that refund, instead of staying
+ * NEEDS_ATTENTION forever behind a terminal-FAILED void. Only a non-final
+ * partial capture, which leaves a remainder PayPal refuses to void, stays a
+ * terminal failure (it needs a human).
+ */
+async function recordVoidCapturedConflict(db: Db, ctx: OpCtx, op: PaymentOperation, auth: AuthorizationView, capture: CaptureView, why: string): Promise<void> {
   await db.transaction(async (tx) => {
     const attempt = await lockAttempt(tx, op.paymentAttemptId);
     if (!attempt) throw new Error("attempt vanished");
-    await setOpFailedTerminal(tx, op, "PREVIOUSLY_CAPTURED", `${why}; capture ${capture.captureId} exists, refund planned`, ctx.now);
+    const superseded = capture.finalCapture || auth.status === "CAPTURED";
+    if (superseded) {
+      await setOpSucceeded(tx, op, { providerStatus: "PREVIOUSLY_CAPTURED", note: `${why}; authorization captured (${capture.captureId}), nothing left to void; refund planned` }, ctx.now);
+    } else {
+      await setOpFailedTerminal(tx, op, "PREVIOUSLY_CAPTURED", `${why}; non-final partial capture ${capture.captureId} leaves a hold that cannot be voided; refund planned`, ctx.now);
+    }
     const facts: AttemptPatch = {
       captureId: attempt.captureId ?? capture.captureId,
       authorizedMinor: Math.max(attempt.authorizedMinor, capture.amountMinor),
@@ -757,7 +820,7 @@ async function recordVoidCapturedConflict(db: Db, ctx: OpCtx, op: PaymentOperati
       outingId: op.outingId,
       actor: ctx.actor,
       type: "VOID_CONFLICT_CAPTURED",
-      data: { operationId: op.id, paymentAttemptId: attempt.id, participantId: attempt.participantId, captureId: capture.captureId, amountMinor: capture.amountMinor },
+      data: { operationId: op.id, paymentAttemptId: attempt.id, participantId: attempt.participantId, captureId: capture.captureId, amountMinor: capture.amountMinor, voidSuperseded: superseded },
     });
     if (updated.status === "FAILED" || updated.status === "CAPTURED") await planRefundFor(tx, updated, ctx.now);
   });

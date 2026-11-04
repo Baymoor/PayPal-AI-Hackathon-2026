@@ -1,6 +1,8 @@
 /**
  * GET /api/payments/paypal/cancel?attempt=<id>[&token=<orderId>]
  * The buyer cancelled at PayPal: the attempt is abandoned (no hold exists).
+ * Without a participant session for the attempt's outing the browser is sent
+ * to a neutral page: a valid attempt id alone never reveals which outing it is for.
  */
 import { eq } from "drizzle-orm";
 import { getDb } from "@/lib/db/client";
@@ -8,6 +10,9 @@ import { paymentAttempts } from "@/lib/db/schema";
 import { handle, notFound, ServiceError } from "@/lib/http";
 import { assertUuid, requireParticipant } from "@/lib/services/access";
 import { cancelApproval, paymentRedirectPath } from "@/lib/services/payments";
+
+/** Neutral landing page when there is no session for the attempt's outing (no outing id in the URL). */
+const SIGN_IN_REDIRECT = "/?payment=signin";
 
 function redirect(location: string): Response {
   return new Response(null, { status: 303, headers: { location, "cache-control": "no-store" } });
@@ -22,11 +27,20 @@ export const GET = handle(async (req: Request) => {
     columns: { outingId: true },
   });
   if (!attempt) throw notFound("Payment attempt not found");
+
+  // Session first: nothing below may redirect to /o/<outingId> for a caller without a session for that outing.
+  let participantId: string;
   try {
-    const { participant } = await requireParticipant(db, req, attempt.outingId);
+    participantId = (await requireParticipant(db, req, attempt.outingId)).participant.id;
+  } catch (err) {
+    if (err instanceof ServiceError && err.status === 401) return redirect(SIGN_IN_REDIRECT);
+    throw err;
+  }
+
+  try {
     const r = await cancelApproval(db, {
       attemptId,
-      participantId: participant.id,
+      participantId,
       orderId: url.searchParams.get("token"),
       now: new Date(),
     });

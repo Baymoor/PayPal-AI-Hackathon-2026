@@ -124,7 +124,8 @@ describe("approval return / cancel / fixture routes", () => {
     expect((await getDb().query.paymentAttempts.findFirst({ where: eq(paymentAttempts.id, a.id) }))!.status).toBe("APPROVAL_PENDING");
 
     const noSession = await returnRoute(req(path));
-    expect(noSession.headers.get("location")).toBe(`/o/${s.outing.id}?payment=failed&reason=unauthorized`);
+    // No session for this outing: neutral redirect, the outing id is never revealed (see tests/audit/followup.test.ts).
+    expect(noSession.headers.get("location")).toBe("/?payment=signin");
 
     const owner = await returnRoute(req(path, { cookie: cookieFor(s.payers[0].id) }));
     expect(owner.status).toBe(303);
