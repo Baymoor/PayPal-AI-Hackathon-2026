@@ -23,10 +23,12 @@ Legend: **REAL_SANDBOX** = exercised against PayPal sandbox · **REAL_AI** = exe
 | FIXTURE payment simulator (persistent, failure injection) | FIXTURE_ONLY | labelled "Fixture — not real PayPal" |
 | Outing services, read models, HTTP API, demo seed | IMPLEMENTED | tests/services; worker settles the seeded demo |
 | AI (Anthropic structured output + labelled fixture) | IMPLEMENTED — **REAL_AI not verified** | no runtime key in container; mocked SDK tests |
-| Consumer UI | IMPLEMENTED | built from Claude Design mockups; e2e in progress |
+| Consumer UI | IMPLEMENTED | built from Claude Design mockups; verified end to end in Chromium (production build) |
 | Merchant AG Studio dashboard (custom Booking Readiness widget, cross-filter, NL filter, drill-down, retry) | IMPLEMENTED | trial mode (no licence key) |
-| Independent audit of payments/settlement (Fable) | IN_PROGRESS | |
-| End-to-end browser flow, production build, Playwright e2e | IN_PROGRESS | |
+| Independent audit of payments/settlement (Fable) | DONE | 2 high, 2 medium, 5 low defects found; all fixed with regression tests (tests/audit) |
+| Second audit: privacy/access/consent + brief test-coverage map (Fable) | IN_PROGRESS | |
+| End-to-end browser flow, production build, Playwright e2e | DONE (FIXTURE modes) | `npm run test:e2e`: karaoke settle, required-holdout cancel, organizer cancel, demo hub — 4/4 |
+| UX/a11y polish + /how-it-works explainer | IN_PROGRESS | |
 | PayPal sandbox proof (auth → $10 under-capture → void → refund) | NOT VERIFIED | run `npx tsx scripts/paypal-smoke.ts` locally with sandbox credentials |
 | Deployment + scheduler | DOCUMENTED, NOT DEPLOYED | `docs/DEPLOYMENT.md`, `render.yaml` |
 
