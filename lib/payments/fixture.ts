@@ -330,7 +330,7 @@ export class FixtureProvider implements PaymentProvider {
   }
 
   async authorizeOrder(input: { orderId: string; requestId: string }): Promise<ProviderResult<{ authorization: AuthorizationView }>> {
-    return this.mutate("AUTHORIZE", input.requestId, input.orderId, async (tx, now) => {
+    return this.mutate<{ authorization: AuthorizationView }>("AUTHORIZE", input.requestId, input.orderId, async (tx, now) => {
       const target = input.orderId;
       const order = await lockRow<FixtureOrder>(tx, input.orderId, "ORDER");
       if (!order) return { result: fail("INVALID", "RESOURCE_NOT_FOUND", "order not found", 404), target };
@@ -406,7 +406,7 @@ export class FixtureProvider implements PaymentProvider {
     if (!Number.isSafeInteger(input.amountMinor) || input.amountMinor <= 0) {
       return fail("INVALID", "INVALID_PARAMETER_VALUE", "capture amount must be a positive integer", 400);
     }
-    return this.mutate("CAPTURE", input.requestId, input.authorizationId, async (tx, now) => {
+    return this.mutate<{ capture: CaptureView }>("CAPTURE", input.requestId, input.authorizationId, async (tx, now) => {
       const target = input.authorizationId;
       const a = await lockRow<FixtureAuthorization>(tx, input.authorizationId, "AUTHORIZATION");
       if (!a) return { result: fail("INVALID", "RESOURCE_NOT_FOUND", "authorization not found", 404), target };
@@ -451,7 +451,7 @@ export class FixtureProvider implements PaymentProvider {
   }
 
   async voidAuthorization(input: { authorizationId: string; requestId: string }): Promise<ProviderResult<{ providerStatus: string }>> {
-    return this.mutate("VOID", input.requestId, input.authorizationId, async (tx, now) => {
+    return this.mutate<{ providerStatus: string }>("VOID", input.requestId, input.authorizationId, async (tx, now) => {
       const target = input.authorizationId;
       const a = await lockRow<FixtureAuthorization>(tx, input.authorizationId, "AUTHORIZATION");
       if (!a) return { result: fail("INVALID", "RESOURCE_NOT_FOUND", "authorization not found", 404), target };
@@ -480,7 +480,7 @@ export class FixtureProvider implements PaymentProvider {
     if (!Number.isSafeInteger(input.amountMinor) || input.amountMinor <= 0) {
       return fail("INVALID", "INVALID_PARAMETER_VALUE", "refund amount must be a positive integer", 400);
     }
-    return this.mutate("REFUND", input.requestId, input.captureId, async (tx, now) => {
+    return this.mutate<{ refund: RefundView }>("REFUND", input.requestId, input.captureId, async (tx, now) => {
       const target = input.captureId;
       const c = await lockRow<FixtureCapture>(tx, input.captureId, "CAPTURE");
       if (!c) return { result: fail("INVALID", "RESOURCE_NOT_FOUND", "capture not found", 404), target };
