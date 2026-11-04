@@ -4,7 +4,11 @@
  * Per-process only (good enough for the single-instance demo deployment); it
  * protects AI-backed endpoints, outing creation, voting and merchant login
  * from bursts. Not a substitute for an edge rate limiter in production.
+ *
+ * The client IP honours TRUSTED_PROXY_HOPS (see `clientIp`): forwarding
+ * headers are only believed as far as the configured proxies vouch for them.
  */
+import { config } from "./env";
 import { ServiceError } from "./http";
 
 export interface RateLimitRule {
@@ -40,15 +44,32 @@ function buckets(): Map<string, Bucket> {
   return globalThis.__outingsRateLimits;
 }
 
-/** Client IP: first X-Forwarded-For hop (set by the hosting proxy), then X-Real-IP. */
-export function clientIp(req: Request): string {
-  const xff = req.headers.get("x-forwarded-for");
-  if (xff) {
-    const first = xff.split(",")[0]?.trim();
-    if (first) return first.slice(0, 64);
-  }
+/** Shared key used when no trustworthy client address is available. */
+export const UNKNOWN_CLIENT = "unknown";
+
+/**
+ * Client IP for rate-limit keys, given N = TRUSTED_PROXY_HOPS (the number of
+ * reverse proxies in front of the app that append to X-Forwarded-For).
+ *
+ * Each trusted proxy appends the address it received the connection from, so
+ * the N-th X-Forwarded-For entry counted from the RIGHT is the address the
+ * outermost trusted proxy saw: the real client. Entries further left were
+ * supplied by the client and are never used (they are trivially spoofable).
+ *
+ * - N = 0 (default): no proxy is trusted, so no forwarding header is trusted
+ *   (neither X-Forwarded-For nor X-Real-IP); every caller shares the
+ *   `"unknown"` key per route.
+ * - N > 0: the N-th entry from the right; if the header is missing or has
+ *   fewer than N entries, X-Real-IP (set by the trusted proxy); else
+ *   `"unknown"`.
+ */
+export function clientIp(req: Request, trustedHops: number = config().trustedProxyHops): string {
+  if (!Number.isInteger(trustedHops) || trustedHops <= 0) return UNKNOWN_CLIENT;
+  const hops = (req.headers.get("x-forwarded-for") ?? "").split(",").map((h) => h.trim());
+  const fromRight = hops.length >= trustedHops ? hops[hops.length - trustedHops] : undefined;
+  if (fromRight) return fromRight.slice(0, 64);
   const real = req.headers.get("x-real-ip")?.trim();
-  return real ? real.slice(0, 64) : "local";
+  return real ? real.slice(0, 64) : UNKNOWN_CLIENT;
 }
 
 /** Consume one token; returns false when the bucket is empty. */

@@ -7,7 +7,7 @@
 import type { MerchantBookingRow, MerchantOutingDetail, MerchantOperationRow, MerchantParticipantRow, QuoteView } from "@/lib/contracts/views";
 import type { AttendanceState, PaymentStatus } from "@/lib/domain/types";
 import type { DashboardQuery } from "@/lib/ai/types";
-import { dayKey } from "../format";
+import { dayKey, MERCHANT_TIMEZONE } from "../format";
 
 const MIN = 60_000;
 const HOUR = 60 * MIN;
@@ -16,6 +16,7 @@ type Seed = Partial<MerchantBookingRow> & Pick<MerchantBookingRow, "outingId" | 
 
 function row(now: number, minutesToDeadline: number | null, s: Seed): MerchantBookingRow {
   const deadline = minutesToDeadline === null ? null : new Date(now + minutesToDeadline * MIN);
+  const tz = s.merchantTimezone ?? MERCHANT_TIMEZONE;
   const reqInvited = s.requiredInvited ?? 4;
   const reqAccepted = s.requiredAccepted ?? reqInvited;
   return {
@@ -27,7 +28,8 @@ function row(now: number, minutesToDeadline: number | null, s: Seed): MerchantBo
     activityAt: deadline ? new Date(deadline.getTime() + 26 * HOUR).toISOString() : null,
     deadlineAt: deadline ? deadline.toISOString() : null,
     closesInMinutes: minutesToDeadline === null ? null : Math.round(minutesToDeadline),
-    closesToday: deadline ? dayKey(deadline) === dayKey(new Date(now)) : false,
+    closesToday: deadline ? dayKey(deadline, tz) === dayKey(new Date(now), tz) : false,
+    merchantTimezone: tz,
     requiredInvited: reqInvited,
     requiredAccepted: reqAccepted,
     missingRequired: reqInvited - reqAccepted,

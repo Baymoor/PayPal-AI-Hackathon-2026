@@ -82,7 +82,7 @@ Proven against sandbox: **none yet** (network policy of the cloud container bloc
 2. **Prove real Claude.** Set `OUTINGS_ANTHROPIC_API_KEY`, run `npx tsx scripts/ai-smoke.ts`, commit the evidence, create one outing through `/new` with the real model.
 3. **Deploy** (Render blueprint `render.yaml` or the `Dockerfile`): Postgres, web, worker (or a scheduler on `/api/cron/tick`), HTTPS `APP_BASE_URL`, PayPal webhook → `/api/webhooks/paypal` with `PAYPAL_WEBHOOK_ID`, AG Studio trial key. Prove a deadline settles with every browser closed on the hosted URL; keep it free and up through **15 Dec 2026**.
 4. **Submission:** record the < 3 min video from `docs/DEMO_SCRIPT.md` (label fixture footage; show real sandbox/Claude only if actually recorded), fill the TODOs in `docs/HACKATHON_SUBMISSION.md`, make the repo public, submit on Devpost by **11 Nov** (hard deadline 12 Nov 21:00 CET).
-5. **Hardening:** trusted-proxy aware (or Postgres-backed) rate limiting; payee from the merchant row instead of `PAYPAL_MERCHANT_ID`; merchant timezone carried in `MerchantBookingRow` (dashboard uses `NEXT_PUBLIC_MERCHANT_TIMEZONE`, default Europe/Copenhagen); optional PayPal JS SDK v6 popup on top of the redirect flow.
+5. **Hardening:** a shared (Postgres-backed or edge) rate limiter for multi-instance hosting; the AG Studio data source (`components/merchant/studioData.ts`) still formats in the `NEXT_PUBLIC_MERCHANT_TIMEZONE` fallback. Switch it to `merchantTz(row)` from `components/merchant/format.ts`, as the drill-down already does. Optional: PayPal JS SDK v6 popup on top of the redirect flow. Done: trusted-proxy-aware rate-limit keys (`TRUSTED_PROXY_HOPS`; set it when deploying, see [DEPLOYMENT.md](DEPLOYMENT.md)); payee taken from `merchants.paypal_merchant_id` with `PAYPAL_MERCHANT_ID` as fallback, for both order creation and authorization verification; `merchantTimezone` carried in `MerchantBookingRow`.
 
 ### Unverified PayPal assumptions (see docs/research/PAYPAL.md §14)
 
@@ -90,7 +90,7 @@ Proven against sandbox: **none yet** (network policy of the cloud container bloc
 
 ### Known limitations / minor defects
 
-- Rate limiter is in-memory per process and keys on the first `X-Forwarded-For` hop (spoofable behind some proxies).
+- Rate limiter is in-memory per process. The client IP is the `TRUSTED_PROXY_HOPS`-th `X-Forwarded-For` entry from the right. The default of 0 trusts no header, so all clients share one bucket per route; set it to 1 behind a single load balancer.
 - `OutingView.outing.paymentMode` comes from config, not from the outing's own attempts (fixture outings in a PayPal-configured deployment still use FIXTURE — enforced in `startPayment`).
 - Sessions are signed cookies without server-side revocation (merchant sessions expire after 12 h).
 - AG Studio: trial watermark off localhost without a key; KPI cards above Studio don't cross-filter; grid scrolls horizontally below ~1300 px; NL-query focus ring locates widgets by layout order; one axe finding inside AG Charts (third-party landmark label).

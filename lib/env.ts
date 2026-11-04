@@ -28,6 +28,7 @@ const EnvSchema = z.object({
   AG_STUDIO_LICENSE_KEY: z.string().optional(),
   OUTINGS_ANTHROPIC_API_KEY: z.string().optional(),
   OUTINGS_AI_MODEL: z.string().optional(),
+  TRUSTED_PROXY_HOPS: z.string().optional(),
 });
 
 export type PaymentMode = "PAYPAL_SANDBOX" | "FIXTURE" | "DISABLED";
@@ -47,11 +48,29 @@ export interface AppConfig {
   agStudioLicenseKey: string | undefined;
   aiMode: AiMode;
   anthropic: { apiKey: string; model: string } | null;
+  /**
+   * Number of reverse proxies in front of the app that append to
+   * X-Forwarded-For (0 = none: forwarding headers are not trusted). Used only
+   * to key rate limits (`clientIp` in lib/rate-limit.ts).
+   */
+  trustedProxyHops: number;
 }
 
 let cached: AppConfig | null = null;
 
 const nonEmpty = (v: string | undefined) => (v && v.trim().length > 0 ? v.trim() : undefined);
+
+export const MAX_TRUSTED_PROXY_HOPS = 10;
+
+/** TRUSTED_PROXY_HOPS: unset/empty = 0; otherwise a whole number 0..10 (anything else is a configuration error). */
+function parseTrustedProxyHops(v: string | undefined): number {
+  const s = nonEmpty(v);
+  if (s === undefined) return 0;
+  if (!/^\d{1,2}$/.test(s) || Number(s) > MAX_TRUSTED_PROXY_HOPS) {
+    throw new Error(`TRUSTED_PROXY_HOPS must be a whole number from 0 to ${MAX_TRUSTED_PROXY_HOPS}`);
+  }
+  return Number(s);
+}
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
   const parsed = EnvSchema.parse(env);
@@ -95,6 +114,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     agStudioLicenseKey: nonEmpty(parsed.AG_STUDIO_LICENSE_KEY),
     aiMode: anthropic ? "ANTHROPIC" : demo ? "FIXTURE" : "DISABLED",
     anthropic,
+    trustedProxyHops: parseTrustedProxyHops(parsed.TRUSTED_PROXY_HOPS),
   };
 }
 

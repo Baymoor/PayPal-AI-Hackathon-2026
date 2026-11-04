@@ -20,6 +20,7 @@
 import { and, desc, eq, isNull } from "drizzle-orm";
 import {
   consents,
+  merchants,
   outings,
   participants,
   paymentAttempts,
@@ -30,7 +31,7 @@ import {
   type PaymentAttempt,
   type QuoteVersion,
 } from "../db/schema";
-import type { Db, Tx } from "../db/client";
+import type { Db, DbOrTx, Tx } from "../db/client";
 import { config } from "../env";
 import { assertCurrency, formatMoney } from "../domain/money";
 import { assertPaymentTransition } from "../domain/state-machine";
@@ -194,7 +195,26 @@ function describeHold(quote: QuoteVersion, capMinor: number): string {
   return `Outings: hold up to ${formatMoney(capMinor, currency, { alwaysShowCents: true })} for ${what}`.slice(0, 127);
 }
 
-function orderInput(attempt: PaymentAttempt, quote: QuoteVersion): CreateOrderInput {
+/**
+ * The PayPal payee for an outing: its merchant's `merchants.paypal_merchant_id`,
+ * else the deployment-wide PAYPAL_MERCHANT_ID, else none (PayPal then pays the
+ * API caller's own account). Used both when creating the order and when
+ * verifying the authorization's payee. FIXTURE attempts never carry a payee.
+ */
+export async function expectedPayeeFor(
+  db: DbOrTx,
+  provider: PaymentProviderName,
+  merchantId: string | null | undefined,
+): Promise<string | undefined> {
+  if (provider !== "PAYPAL") return undefined;
+  const merchant = merchantId
+    ? await db.query.merchants.findFirst({ columns: { paypalMerchantId: true }, where: eq(merchants.id, merchantId) })
+    : undefined;
+  const fromRow = merchant?.paypalMerchantId?.trim();
+  return fromRow || config().paypal?.merchantId;
+}
+
+function orderInput(attempt: PaymentAttempt, quote: QuoteVersion, payeeMerchantId: string | undefined): CreateOrderInput {
   return {
     requestId: orderRequestId(attempt.id),
     paymentAttemptId: attempt.id,
@@ -203,6 +223,7 @@ function orderInput(attempt: PaymentAttempt, quote: QuoteVersion): CreateOrderIn
     description: describeHold(quote, attempt.requestedMinor),
     returnUrl: appUrl(`/api/payments/paypal/return?attempt=${attempt.id}`),
     cancelUrl: appUrl(`/api/payments/paypal/cancel?attempt=${attempt.id}`),
+    ...(payeeMerchantId ? { payeeMerchantId } : {}),
   };
 }
 
@@ -241,8 +262,8 @@ async function requireCurrentConsent(tx: Tx, participantId: string, outingId: st
 }
 
 type StartPrep =
-  | { kind: "reuse"; attempt: PaymentAttempt; quote: QuoteVersion }
-  | { kind: "new"; attempt: PaymentAttempt; quote: QuoteVersion };
+  | { kind: "reuse"; attempt: PaymentAttempt; quote: QuoteVersion; payee: string | undefined }
+  | { kind: "new"; attempt: PaymentAttempt; quote: QuoteVersion; payee: string | undefined };
 
 export async function startPayment(
   db: Db,
@@ -286,6 +307,7 @@ export async function startPayment(
       throw conflict("TERMS_CHANGED", "The terms changed since you reviewed them. Review the new terms again before authorizing.");
     }
     const consent = await requireCurrentConsent(tx, participant.id, outing.id, quote, deadline);
+    const payee = await expectedPayeeFor(tx, providerName, outing.merchantId);
 
     const attempts = await tx
       .select()
@@ -319,7 +341,7 @@ export async function startPayment(
           a.provider === providerName &&
           !!a.providerOrderId &&
           now.getTime() - a.createdAt.getTime() < APPROVAL_REUSE_WINDOW_MS;
-        if (reusable) return { kind: "reuse", attempt: a, quote } satisfies StartPrep;
+        if (reusable) return { kind: "reuse", attempt: a, quote, payee } satisfies StartPrep;
         await setStatus(tx, a, "FAILED", now, { lastError: "SUPERSEDED: approval link expired or terms changed; no hold was placed" });
         await recordAudit(tx, { outingId: outing.id, actor, type: "PAYMENT_APPROVAL_SUPERSEDED", data: { paymentAttemptId: a.id } });
       }
@@ -347,14 +369,14 @@ export async function startPayment(
       type: "PAYMENT_STARTED",
       data: { paymentAttemptId: attempt.id, provider: providerName, requestedMinor: attempt.requestedMinor, currency: attempt.currency, quoteId: quote.id },
     });
-    return { kind: "new", attempt, quote } satisfies StartPrep;
+    return { kind: "new", attempt, quote, payee } satisfies StartPrep;
   });
 
   const provider = providerFor(prep.attempt.provider);
 
   if (prep.kind === "reuse") {
     // Idempotent replay with the SAME request id returns the original order and its approval link.
-    const replay = await safeCall(() => provider.createAuthorizeOrder(orderInput(prep.attempt, prep.quote)));
+    const replay = await safeCall(() => provider.createAuthorizeOrder(orderInput(prep.attempt, prep.quote, prep.payee)));
     if (replay.ok && replay.orderId === prep.attempt.providerOrderId && replay.approveUrl) {
       return {
         approveUrl: replay.approveUrl,
@@ -374,7 +396,7 @@ export async function startPayment(
   }
 
   const attempt = prep.attempt;
-  const created = await safeCall(() => provider.createAuthorizeOrder(orderInput(attempt, prep.quote)));
+  const created = await safeCall(() => provider.createAuthorizeOrder(orderInput(attempt, prep.quote, prep.payee)));
 
   // Errors are returned (not thrown) from the transaction so the recorded status survives the commit.
   const outcome: StartPaymentResult | ServiceError = await db.transaction(async (tx) => {
@@ -534,7 +556,7 @@ async function recordAuthorization(db: Db, attemptId: string, auth: Authorizatio
     if (auth.currency !== attempt.currency) mismatches.push("CURRENCY");
     if (auth.customId !== attempt.id) mismatches.push("CUSTOM_ID");
     if (auth.orderId && attempt.providerOrderId && auth.orderId !== attempt.providerOrderId) mismatches.push("ORDER_ID");
-    const expectedPayee = attempt.provider === "PAYPAL" ? config().paypal?.merchantId : undefined;
+    const expectedPayee = await expectedPayeeFor(tx, attempt.provider, outing.merchantId);
     if (expectedPayee && auth.payeeMerchantId && auth.payeeMerchantId !== expectedPayee) mismatches.push("PAYEE");
 
     const verifiedFields = {

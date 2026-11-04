@@ -107,6 +107,7 @@ function bookingRow(b: OutingBundle, merchant: Merchant, now: Date): MerchantBoo
     deadlineAt: deadline?.toISOString() ?? null,
     closesInMinutes: deadline ? Math.round((deadline.getTime() - now.getTime()) / 60_000) : null,
     closesToday: !!deadline && deadline.getTime() > now.getTime() && sameLocalDate(deadline, now, merchant.timezone),
+    merchantTimezone: merchant.timezone,
     requiredInvited: requiredIds.length,
     requiredAccepted,
     missingRequired: requiredIds.length - requiredAccepted,

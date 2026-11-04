@@ -172,6 +172,22 @@ describe("merchant read models", () => {
     expect(launchDetail.operations.some((o) => o.kind === "CAPTURE" && o.status === "FAILED" && !o.canRetry)).toBe(true);
   });
 
+  it("booking rows carry the merchant's own time zone, and 'closes today' follows it", async () => {
+    const db = getDb();
+    const f = await openCanonical(db, new Date());
+    // 07:00Z on Jan 15 = 08:00 Jan 15 in Copenhagen, but 23:00 Jan 14 in Los Angeles.
+    await db.update(outings).set({ deadlineAt: new Date("2027-01-15T07:00:00Z") }).where(eq(outings.id, f.outingId));
+    const now = new Date("2027-01-14T20:00:00Z"); // 21:00 Jan 14 in Copenhagen, 12:00 Jan 14 in Los Angeles
+    const row = async () => (await listBookingRows(db, f.merchantId, now)).find((r) => r.outingId === f.outingId)!;
+
+    expect(await row()).toMatchObject({ merchantTimezone: "Europe/Copenhagen", closesToday: false });
+
+    await db.update(merchants).set({ timezone: "America/Los_Angeles" }).where(eq(merchants.id, f.merchantId));
+    expect(await row()).toMatchObject({ merchantTimezone: "America/Los_Angeles", closesToday: true });
+    const detail = await getOutingDetail(db, f.merchantId, f.outingId, now);
+    expect(detail.booking).toMatchObject({ merchantTimezone: "America/Los_Angeles", closesToday: true });
+  });
+
   it("retries only existing FAILED/UNKNOWN operations of the merchant's own outings", async () => {
     const db = getDb();
     const now = new Date();

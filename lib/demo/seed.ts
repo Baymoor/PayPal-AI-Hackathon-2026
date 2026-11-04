@@ -131,17 +131,25 @@ const CATALOGUE = [
 export type CatalogueSlug = (typeof CATALOGUE)[number]["slug"];
 
 export async function seedCatalogue(db: Db): Promise<{ merchant: Merchant; offerings: Record<string, Offering> }> {
+  // Payee: PayPal orders for this merchant's outings are paid to
+  // merchants.paypal_merchant_id (lib/services/payments.ts). The demo merchant
+  // gets PAYPAL_MERCHANT_ID when it is set (sandbox credentials configured) and
+  // stays null otherwise, so PayPal pays the API caller's own sandbox account.
+  // To point it at a separate sandbox business account without the env var:
+  //   UPDATE merchants SET paypal_merchant_id = '<merchant id or email>' WHERE slug = 'the-sound-room';
+  // Re-seeding keeps a value set that way unless PAYPAL_MERCHANT_ID overrides it.
+  const envPayee = config().paypal?.merchantId ?? null;
   const [merchant] = await db
     .insert(merchants)
     .values({
       slug: DEMO_MERCHANT_SLUG,
       name: DEMO_MERCHANT_NAME,
       timezone: DEMO_TIMEZONE,
-      paypalMerchantId: config().paypal?.merchantId ?? null,
+      paypalMerchantId: envPayee,
     })
     .onConflictDoUpdate({
       target: merchants.slug,
-      set: { name: DEMO_MERCHANT_NAME, timezone: DEMO_TIMEZONE, paypalMerchantId: config().paypal?.merchantId ?? null },
+      set: { name: DEMO_MERCHANT_NAME, timezone: DEMO_TIMEZONE, paypalMerchantId: sql`coalesce(excluded.paypal_merchant_id, "merchants"."paypal_merchant_id")` },
     })
     .returning();
   const result: Record<string, Offering> = {};

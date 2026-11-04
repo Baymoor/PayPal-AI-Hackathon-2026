@@ -225,7 +225,10 @@ export interface MerchantBookingRow {
   deadlineAt: string | null;
   /** Minutes until deadline (negative once passed); null without deadline. */
   closesInMinutes: number | null;
+  /** Deadline falls later today in `merchantTimezone`. */
   closesToday: boolean;
+  /** The merchant's IANA time zone (merchants.timezone); format instants in it. */
+  merchantTimezone: string;
   requiredInvited: number;
   requiredAccepted: number;
   missingRequired: number;

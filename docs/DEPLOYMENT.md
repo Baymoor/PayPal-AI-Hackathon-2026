@@ -12,6 +12,21 @@ Outings needs four things in production-like hosting (the hackathon demo must st
 
 Optional: a PayPal sandbox **webhook** pointing at `https://<host>/api/webhooks/paypal` with `PAYPAL_WEBHOOK_ID` set (unverified webhooks are rejected; webhooks only trigger re-reading provider state).
 
+## Client IP behind proxies (`TRUSTED_PROXY_HOPS`)
+
+The in-memory rate limiter keys each bucket on client IP + route. Set `TRUSTED_PROXY_HOPS` to the number of reverse proxies in front of the app that **append** to `X-Forwarded-For` (a proxy that overwrites the header with the peer address also counts as one):
+
+| Value | Client IP used for rate limits |
+|---|---|
+| `0` (default) | None. No forwarding header is trusted (neither `X-Forwarded-For` nor `X-Real-IP`), so every caller shares one bucket per route. Right for local development and for a server that is reached directly; on a hosted deployment it means the limits apply to all users together. |
+| `N > 0` | The N-th `X-Forwarded-For` entry counted from the right, i.e. the address the outermost trusted proxy saw. Entries further left come from the client and are ignored. If the header is missing or has fewer than N entries: `X-Real-IP`, then the shared `unknown` key. |
+
+Typical values: `1` behind a single platform load balancer (Render, Fly.io, Heroku-style routers, one nginx/Caddy); `2` with a CDN in front of that load balancer. Too high a value lets clients choose their own key by sending a forged `X-Forwarded-For`; too low a value keys on a proxy address, so users share buckets. To check: send `curl -H 'X-Forwarded-For: 203.0.113.9' https://<host>/...` and look at the header your app receives (platform request logs or a temporary log line). It should read `203.0.113.9, <your IP>[, <proxy IPs>]`, and N is the number of entries from `<your IP>` to the end. The value must be a whole number from 0 to 10; anything else fails at startup.
+
+## Payee (`merchants.paypal_merchant_id`)
+
+PayPal orders name a payee only if one is configured. The payee is the outing merchant's `merchants.paypal_merchant_id`, then the deployment-wide `PAYPAL_MERCHANT_ID`. If neither is set, the field is left out and PayPal pays the account that owns the REST app credentials. The same value is checked against the payee on the returned authorization: a mismatch is never admitted and the hold is voided. `npm run db:seed` / `demo:reset` copy `PAYPAL_MERCHANT_ID` into the demo merchant when it is set, and otherwise keep the value already in the column. Use the sandbox business account's **merchant ID**. An email is sent as `payee.email_address` and accepted by the order, but if PayPal reports the payee on the authorization by merchant ID, the check sees a mismatch and voids the hold.
+
 ## Render blueprint
 
 `render.yaml` defines a Postgres database, the web service and a background worker. Review plan sizes/costs before applying; Render's hackathon credits are credits, not cash. Secrets marked `sync: false` are entered in the dashboard and never committed.

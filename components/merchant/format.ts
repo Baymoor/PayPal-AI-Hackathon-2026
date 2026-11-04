@@ -1,11 +1,36 @@
 /** Display helpers for the merchant dashboard (pure, usable on client and server). */
 
 /**
- * The Sound Room's local time zone. The merchant DTOs carry UTC instants and no
- * merchant time zone, so the dashboard formats in this documented constant
- * (override with NEXT_PUBLIC_MERCHANT_TIMEZONE).
+ * Fallback merchant time zone (The Sound Room's), used only when a DTO carries
+ * no usable `merchantTimezone`: NEXT_PUBLIC_MERCHANT_TIMEZONE, else
+ * Europe/Copenhagen. Prefer `merchantTz(row)`.
  */
 export const MERCHANT_TIMEZONE = process.env.NEXT_PUBLIC_MERCHANT_TIMEZONE || "Europe/Copenhagen";
+
+const tzValidity = new Map<string, boolean>();
+function isValidTimeZone(tz: string): boolean {
+  let ok = tzValidity.get(tz);
+  if (ok === undefined) {
+    try {
+      new Intl.DateTimeFormat("en-US", { timeZone: tz });
+      ok = true;
+    } catch {
+      ok = false;
+    }
+    tzValidity.set(tz, ok);
+  }
+  return ok;
+}
+
+/**
+ * Time zone to display a merchant booking in: the row's own `merchantTimezone`
+ * (merchants.timezone, sent by the server) when it is a valid IANA zone,
+ * otherwise MERCHANT_TIMEZONE.
+ */
+export function merchantTz(row?: { merchantTimezone?: string | null } | null): string {
+  const tz = row?.merchantTimezone?.trim();
+  return tz && isValidTimeZone(tz) ? tz : MERCHANT_TIMEZONE;
+}
 
 export function formatMoney(minor: number | null | undefined, currency = "USD"): string {
   if (minor === null || minor === undefined) return "n/a";
@@ -21,7 +46,7 @@ const tzAbbrev = (d: Date, tz: string) =>
     .formatToParts(d)
     .find((p) => p.type === "timeZoneName")?.value ?? "";
 
-/** "Thu 6:00 PM PDT" in the merchant time zone. */
+/** "Thu 6:00 PM PDT" in the merchant time zone (pass `merchantTz(row)`). */
 export function formatInstant(iso: string | null | undefined, tz = MERCHANT_TIMEZONE): string {
   if (!iso) return "No deadline";
   const d = new Date(iso);
