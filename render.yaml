@@ -28,6 +28,9 @@ services:
         sync: false
       - key: DEMO_FIXTURES_ENABLED
         value: "true"
+      # Render puts one proxy in front of the service; the client IP is the right-most X-Forwarded-For entry.
+      - key: TRUSTED_PROXY_HOPS
+        value: "1"
       - key: MERCHANT_DASHBOARD_PASSWORD
         sync: false
       - key: PAYPAL_ENV

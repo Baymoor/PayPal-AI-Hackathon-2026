@@ -1,7 +1,7 @@
 import type { AgDataSourcesDefinition } from "ag-studio";
 import type { MerchantBookingRow } from "@/lib/contracts/views";
 import { CLEANUP_LABEL, OUTING_STATUS_LABEL } from "./labels";
-import { formatInstant, MERCHANT_TIMEZONE } from "./format";
+import { formatInstant, merchantTz } from "./format";
 import { refundDueMinor } from "./moneyFlow";
 
 /** One flat row per outing, in major currency units for Studio's currency format. */
@@ -90,7 +90,7 @@ export const f = (name: keyof StudioRow) => `${TABLE}.${name}`;
 /** Pass rows for ONE currency only (Studio has no currency conversion). */
 export function buildStudioData(rows: MerchantBookingRow[], currency: string): AgDataSourcesDefinition {
   const now = Date.now();
-  const dtf = new Intl.DateTimeFormat("en-US", { timeZone: MERCHANT_TIMEZONE, weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit", timeZoneName: "short" });
+  const dtf = new Intl.DateTimeFormat("en-US", { timeZone: merchantTz(rows[0]), weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit", timeZoneName: "short" });
   const money = { format: new Intl.NumberFormat("en-US", { style: "currency", currency }) };
   return {
     description:

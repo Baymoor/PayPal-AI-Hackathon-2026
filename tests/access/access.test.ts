@@ -401,9 +401,11 @@ describe("merchant endpoints", () => {
     const out = await logoutRoute.POST(request("/api/merchant/logout", { body: {} }));
     expect(out.headers.get("set-cookie")).toMatch(/Max-Age=0/);
 
-    // Rate limited after a burst of wrong passwords.
+    // Rate limited after a burst of wrong passwords from one client behind one trusted proxy,
+    // even while it rotates a forged left-most X-Forwarded-For entry.
+    resetConfigForTests(testConfig({ TRUSTED_PROXY_HOPS: "1" }));
     const statuses: number[] = [];
-    for (let i = 0; i < 8; i++) statuses.push((await loginRoute.POST(request("/api/merchant/login", { body: { password: "guess" }, headers: { "x-forwarded-for": "203.0.113.9" } }))).status);
+    for (let i = 0; i < 8; i++) statuses.push((await loginRoute.POST(request("/api/merchant/login", { body: { password: "guess" }, headers: { "x-forwarded-for": `198.51.100.${i}, 203.0.113.9` } }))).status);
     expect(statuses).toContain(429);
 
     resetConfigForTests(testConfig({ DEMO_FIXTURES_ENABLED: "false", MERCHANT_DASHBOARD_PASSWORD: "" }));
