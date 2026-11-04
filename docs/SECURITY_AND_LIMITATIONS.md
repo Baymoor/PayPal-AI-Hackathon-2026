@@ -1,6 +1,6 @@
 # Security and limitations
 
-Scope: a hackathon demo that uses PayPal **sandbox** only. This is a summary of what the code does and does not do. It has not had an external security review, and an internal audit of the payment and settlement code was still in progress (see [HANDOFF_TO_CODEX.md](HANDOFF_TO_CODEX.md)).
+Scope: a hackathon demo that uses PayPal **sandbox** only. This is a summary of what the code does and does not do. It has not had an external security review. Two internal, independent audits were run during the build (payments/settlement; privacy/access/consent); every confirmed defect was fixed with a regression test in `tests/audit` and `tests/audit2` (see [HANDOFF_TO_CODEX.md](HANDOFF_TO_CODEX.md)).
 
 ## Threat model summary
 
@@ -47,6 +47,7 @@ Scope: a hackathon demo that uses PayPal **sandbox** only. This is a summary of 
 - **Organizer is a required payer.** Organizer transfer and changing the quote after opening collection are not supported (a change means new terms and renewed consent).
 - **AG Studio is commercial software** used under a 45-day evaluation trial (watermark off localhost). The trial must cover the demo window through 15 Dec 2026. AG Grid Community is MIT.
 - **Hosted demo and scheduler are documented, not deployed** at the time of writing ([DEPLOYMENT.md](DEPLOYMENT.md)).
-- **Browser end-to-end tests** (Playwright) and the independent audit were in progress; `tests/e2e` and `tests/audit` did not exist yet when this was written.
+- **Rate limiting** is in-memory and per process, and keys on the first `X-Forwarded-For` hop, which a client can spoof when the hosting proxy appends rather than overwrites the header. Configure the trusted hop for your host before relying on it.
+- **Browser end-to-end tests** (`tests/e2e`) run in FIXTURE modes only; the real PayPal sandbox approval page has not been exercised.
 - **Demo mode** (`DEMO_FIXTURES_ENABLED=true`) exposes one-click merchant login and persona switching. Never enable it where real data is held.
 - Accessibility and cross-browser testing were not exhaustively performed.

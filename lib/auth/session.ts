@@ -16,6 +16,10 @@ export const PARTICIPANT_COOKIE = "outings_p";
 export const MERCHANT_COOKIE = "outings_m";
 const MAX_AGE_SECONDS = 60 * 60 * 24 * 30;
 const MAX_OUTINGS_PER_SESSION = 20;
+/** Merchant sessions last 12 h: enforced here from `iat`, not only by the cookie's Max-Age. */
+export const MERCHANT_SESSION_MAX_AGE_SECONDS = 60 * 60 * 12;
+/** Tolerated clock skew for an `iat` slightly in the future. */
+const IAT_SKEW_SECONDS = 60;
 
 export interface ParticipantSession {
   v: 1;
@@ -71,10 +75,18 @@ export function readParticipantSession(req: Request): ParticipantSession {
   return s && s.v === 1 && s.outings && typeof s.outings === "object" ? s : { v: 1, outings: {} };
 }
 
-export function readMerchantSession(req: Request): MerchantSession | null {
+/** A signed merchant session is valid only while its issue time is within the 12 h window (server clock). */
+function validMerchantSession(s: MerchantSession | null, nowSec: number): MerchantSession | null {
+  if (!s || s.v !== 1 || typeof s.merchantId !== "string") return null;
+  if (typeof s.iat !== "number" || !Number.isFinite(s.iat)) return null;
+  if (s.iat > nowSec + IAT_SKEW_SECONDS) return null;
+  if (nowSec - s.iat > MERCHANT_SESSION_MAX_AGE_SECONDS) return null;
+  return s;
+}
+
+export function readMerchantSession(req: Request, nowSec: number = Math.floor(Date.now() / 1000)): MerchantSession | null {
   const raw = parseCookieHeader(req.headers.get("cookie"))[MERCHANT_COOKIE];
-  const s = decodeSigned<MerchantSession>(raw);
-  return s && s.v === 1 && typeof s.merchantId === "string" ? s : null;
+  return validMerchantSession(decodeSigned<MerchantSession>(raw), nowSec);
 }
 
 /** Same as above but from a cookie value (for server components via next/headers). */
@@ -82,9 +94,8 @@ export function participantSessionFromCookieValue(raw: string | undefined): Part
   const s = decodeSigned<ParticipantSession>(raw);
   return s && s.v === 1 && s.outings && typeof s.outings === "object" ? s : { v: 1, outings: {} };
 }
-export function merchantSessionFromCookieValue(raw: string | undefined): MerchantSession | null {
-  const s = decodeSigned<MerchantSession>(raw);
-  return s && s.v === 1 && typeof s.merchantId === "string" ? s : null;
+export function merchantSessionFromCookieValue(raw: string | undefined, nowSec: number = Math.floor(Date.now() / 1000)): MerchantSession | null {
+  return validMerchantSession(decodeSigned<MerchantSession>(raw), nowSec);
 }
 
 export function withOuting(session: ParticipantSession, outingId: string, participantId: string): ParticipantSession {
@@ -103,7 +114,7 @@ export function participantCookie(session: ParticipantSession): string {
 
 export function merchantCookie(merchantId: string): string {
   return cookieHeader(MERCHANT_COOKIE, encodeSigned({ v: 1, merchantId, iat: Math.floor(Date.now() / 1000) } satisfies MerchantSession), {
-    maxAge: 60 * 60 * 12,
+    maxAge: MERCHANT_SESSION_MAX_AGE_SECONDS,
   });
 }
 

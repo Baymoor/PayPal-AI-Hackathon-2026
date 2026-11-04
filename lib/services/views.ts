@@ -457,7 +457,7 @@ export async function buildOutingView(
             editRoster: pre,
             openCollection:
               outing.status === "PROPOSED" && !!selectedOffering && selectedOffering.active && selectedOffering.pricingModel === "FIXED_TOTAL",
-            cancel: pre || (outing.status === "COLLECTING" && !outing.frozenAt),
+            cancel: pre || windowOpen,
           },
         }
       : null,

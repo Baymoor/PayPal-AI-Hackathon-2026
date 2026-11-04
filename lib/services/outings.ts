@@ -1129,7 +1129,12 @@ export async function cancel(
       await recordAudit(tx, { outingId: outing.id, actor: actorOf(me.id), type: "OUTING_CANCELLED", data: { reason: "ORGANIZER_CANCELLED" } });
       return { status: "CANCELLED", cancellationQueued: false };
     }
-    if (outing.status === "COLLECTING" && !outing.frozenAt) {
+    if (outing.status === "COLLECTING") {
+      // After the SERVER deadline the roster belongs to the settlement job (it is frozen and
+      // settled against the stored deadline, even when the worker runs late): no organizer cancel.
+      if (!collectionWindowOpen(outing, now)) {
+        throw conflict("DEADLINE_PASSED", "The commitment deadline has passed; the booking is being settled and can no longer be cancelled here");
+      }
       // The settlement engine cancels and voids holds under the same outing lock.
       await enqueueEarlyCancel(tx, outing.id, "ORGANIZER_CANCELLED", now);
       await touch(tx, outing, now);
