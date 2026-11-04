@@ -17,6 +17,7 @@ import {
 } from "./labels";
 import { Badge, ModeBadge } from "./Badge";
 import { assessRow, VERDICT_LABEL } from "./readiness";
+import { isFixtureMoney, usePaymentMode } from "./modes";
 
 function toneRenderer<T>(text: (d: T) => string | null, tone: (d: T) => Parameters<typeof Badge>[0]["tone"]) {
   return function ToneCell(p: ICellRendererParams<T>) {
@@ -35,6 +36,7 @@ export default function OutingDetailClient({ outingId, fixtures }: { outingId: s
   const [notice, setNotice] = useState<{ tone: "info" | "danger"; text: string } | null>(null);
   const dialogRef = useRef<HTMLDialogElement>(null);
   const backHref = fixtures ? "/merchant?fixtures=1" : "/merchant";
+  const paymentMode = usePaymentMode();
 
   const load = useCallback(async () => {
     try {
@@ -161,7 +163,7 @@ export default function OutingDetailClient({ outingId, fixtures }: { outingId: s
         <span className="m-spacer" />
         <Badge tone={outingTone(b.status)}>{OUTING_STATUS_LABEL[b.status]}</Badge>
         {b.recoveryStatus !== "NONE" && <Badge tone={cleanupTone(b.recoveryStatus)}>Recovery: {CLEANUP_LABEL[b.recoveryStatus]}</Badge>}
-        <ModeBadge fixture={b.isFixture} />
+        <ModeBadge fixture={isFixtureMoney(b, paymentMode)} />
       </div>
 
       {notice && <div className="m-banner" role="status" data-tone={notice.tone === "danger" ? "danger" : "info"}><span>{notice.text}</span></div>}

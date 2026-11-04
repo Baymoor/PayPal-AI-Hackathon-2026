@@ -34,7 +34,7 @@ export const merchantLogin = (password: string) =>
   request<unknown>("/api/merchant/login", { method: "POST", body: JSON.stringify({ password }) });
 export const merchantDemoLogin = () => request<unknown>("/api/merchant/demo-login", { method: "POST", body: "{}" });
 export const merchantLogout = () => request<unknown>("/api/merchant/logout", { method: "POST", body: "{}" });
-export const fetchHealth = () => request<{ demoFixturesEnabled?: boolean }>("/api/health");
+export const fetchHealth = () => request<{ demoFixturesEnabled?: boolean; paymentMode?: string; aiMode?: string }>("/api/health");
 
 export interface AskResult {
   query: DashboardQuery;

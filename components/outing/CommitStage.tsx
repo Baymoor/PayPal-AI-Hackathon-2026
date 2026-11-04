@@ -19,6 +19,11 @@ import { InvitePanel } from "./InvitePanel";
 import { ModeRow, ScreenHeader } from "./Shell";
 import { ActionErrorBanner, useAction } from "./useAction";
 
+/** Is the viewer's hold (or, before paying, this outing's payments) a FIXTURE simulation rather than PayPal? */
+export function fixtureHold(view: OutingView): boolean {
+  return view.me.payment ? view.me.payment.provider === "FIXTURE" : view.outing.paymentMode !== "PAYPAL_SANDBOX";
+}
+
 export type PaymentFlag = "authorized" | "late" | "pending" | "failed" | "cancelled" | string | undefined;
 
 function PaymentFlagBanner({ flag, view }: { flag: PaymentFlag; view: OutingView }) {
@@ -38,7 +43,7 @@ function PaymentFlagBanner({ flag, view }: { flag: PaymentFlag; view: OutingView
     );
   if (flag === "pending")
     return (
-      <StatusBanner tone="pending" title="Still confirming with PayPal">
+      <StatusBanner tone="pending" title={fixtureHold(view) ? "Still confirming the simulated approval" : "Still confirming with PayPal"}>
         We haven&apos;t verified your authorization yet. This page updates on its own — you don&apos;t need to pay again.
       </StatusBanner>
     );
@@ -112,7 +117,7 @@ function TermsReview({ view, actions, onClose }: { view: OutingView; actions: Ou
 
   return (
     <Card as="section" aria-labelledby="terms-h" className="space-y-5 pop-in">
-      <div className="flex items-center justify-between gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
         <h2 id="terms-h" className="text-h3">
           Review your terms
         </h2>
@@ -199,6 +204,7 @@ function WaitingPanel({ view, actions, clockOffsetMs }: { view: OutingView; acti
   return (
     <div className="space-y-6">
       <div className="space-y-4 text-center">
+        <p className="font-display text-[22px] leading-7">{view.outing.title}</p>
         <div className="flex flex-wrap justify-center gap-2">
           <StatusBadge kind="authorized" />
           <Pill tone="neutral">Not charged yet</Pill>
@@ -241,7 +247,9 @@ function WaitingPanel({ view, actions, clockOffsetMs }: { view: OutingView; acti
                 {view.viewer.required
                   ? "You're a required guest, so withdrawing cancels the outing for everyone. "
                   : "You'll no longer be part of this booking. "}
-                Your hold is released by PayPal — it can take a few days to disappear from your account.
+                {fixtureHold(view)
+                  ? "Your simulated hold is released (fixture — no real money is involved)."
+                  : "Your hold is released by PayPal — it can take a few days to disappear from your account."}
               </p>
               <div className="flex flex-wrap gap-3">
                 <Button
@@ -352,7 +360,7 @@ export function CommitStage({
             value={formatMoney(q.totalMinor)}
             sub={
               <>
-                {r.attendeeCount} attendees · {view.estimates.projectedPayers} paying
+                {r.attendeeCount} attendees · {r.invitedPayers} paying
                 {q.sponsoredNames.length > 0 && (
                   <span className="block font-medium text-ink">
                     {q.sponsoredNames.map((n) => n.split(" ")[0]).join(", ")}&apos;s share is covered
@@ -464,7 +472,7 @@ export function CommitStage({
       {view.organizer?.can.cancel && <OrganizerTools view={view} actions={actions} />}
       <div aria-hidden className="relative my-2 text-center text-small text-ink-muted">
         <span className="absolute inset-x-0 top-1/2 h-px bg-line-strong" />
-        <span className="relative bg-cream px-3">Sandbox demo</span>
+        <span className="relative bg-cream px-3">{view.outing.paymentMode === "PAYPAL_SANDBOX" ? "PayPal sandbox demo" : "Demo · no real money"}</span>
       </div>
     </div>
   );
@@ -485,8 +493,8 @@ function OrganizerTools({ view, actions }: { view: OutingView; actions: OutingAc
       ) : (
         <div className="space-y-3">
           <p>
-            Cancelling ends the plan for everyone. No booking payment is collected, and existing payment holds are released by PayPal — which can take
-            a few days to show.
+            Cancelling ends the plan for everyone. No booking payment is collected, and existing payment holds are released
+            {fixtureHold(view) ? " (fixture holds — no real money is involved)." : " by PayPal — which can take a few days to show."}
           </p>
           <div className="flex flex-wrap gap-3">
             <Button variant="danger" loading={pending === "cancel"} loadingLabel="Cancelling…" onClick={() => run("cancel", async () => { await actions.cancel(); await actions.refresh(); })}>

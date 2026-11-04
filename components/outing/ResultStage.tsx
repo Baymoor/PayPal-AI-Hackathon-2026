@@ -9,6 +9,7 @@ import { StatusBanner } from "@/components/ui/StatusBanner";
 import { LinkButton } from "@/components/ui/Button";
 import { formatWhenFull } from "./format";
 import { ModeRow, stepIndex } from "./Shell";
+import { fixtureHold } from "./CommitStage";
 import { Stepper } from "@/components/ui/Stepper";
 
 const REASONS: Record<string, string> = {
@@ -57,6 +58,8 @@ export function ResultStage({ view }: { view: OutingView }) {
   const pay = me.payment;
   const tz = outing.displayTimezone;
   const badge = paymentBadge(view);
+  const fixture = fixtureHold(view);
+  const provider = fixture ? "the payment simulator" : "PayPal";
   const reasons = outing.cancelReasons.map((r) => REASONS[r]).filter(Boolean);
   const recovery =
     status === "COMPENSATING" ||
@@ -93,7 +96,9 @@ export function ResultStage({ view }: { view: OutingView }) {
     banner = (
       <StatusBanner tone={done ? "info" : outing.cleanup === "NEEDS_ATTENTION" ? "danger" : "pending"} title={done ? "Refunded" : "Refund pending"}>
         {done
-          ? "Booking not confirmed. A payment failed; completed payments were refunded. Your bank may take a few days to show it."
+          ? fixture
+            ? "Booking not confirmed. A payment failed; completed fixture payments were refunded. No real money moved."
+            : "Booking not confirmed. A payment failed; completed payments were refunded. Your bank may take a few days to show it."
           : outing.cleanup === "NEEDS_ATTENTION"
             ? "Booking not confirmed. A payment failed; a refund needs manual attention. Contact the organizer or merchant."
             : "Booking not confirmed. A payment failed; completed payments are being refunded."}
@@ -105,7 +110,9 @@ export function ResultStage({ view }: { view: OutingView }) {
     banner = (
       <StatusBanner tone={c === "NEEDS_ATTENTION" ? "danger" : c === "COMPLETE" || c === "NONE" ? "info" : "pending"} title={c === "COMPLETE" ? "Holds released" : c === "VOID_PENDING" || status === "CANCELLING" ? "Hold release pending" : "Cancelled"}>
         {c === "COMPLETE"
-          ? "Outing cancelled. No booking payment collected. Holds released."
+          ? fixture
+            ? "Outing cancelled. No booking payment collected. Every simulated hold has been released (fixture — no real money)."
+            : "Outing cancelled. No booking payment collected. PayPal confirmed every hold was released; your bank may take a few days to show it."
           : c === "NONE"
             ? "Outing cancelled. No booking payment collected."
             : c === "NEEDS_ATTENTION"
@@ -118,7 +125,11 @@ export function ResultStage({ view }: { view: OutingView }) {
   return (
     <div className="space-y-6">
       <div className="space-y-4 text-center">
-        <Stepper current={stepIndex("RESULT")} context={outing.title.toUpperCase()} />
+        <Stepper
+          current={stepIndex("RESULT")}
+          context={outing.title.toUpperCase()}
+          doneLabel={status === "CONFIRMED" ? "Confirmed" : status === "SETTLING" ? "Settling" : recovery ? "Not confirmed" : "Cancelled"}
+        />
         <ModeRow view={view} />
         <h1 className="text-[36px] leading-10 sm:text-h1 sm:leading-[3rem]">{heading}</h1>
         <p className="font-display text-[22px]">{outing.title}</p>
@@ -158,13 +169,16 @@ export function ResultStage({ view }: { view: OutingView }) {
           {status === "CONFIRMED" && pay?.status === "CAPTURED" && (
             <p className="flex items-start gap-2 text-small text-ink-muted">
               <CircleCheck className="mt-0.5 size-4 shrink-0" aria-hidden />
-              Any unused part of your hold is released by PayPal. It can take a few days to disappear from your account.
+              {fixture
+                ? "Fixture payment: only your final share was captured and the rest of the simulated hold was released. No real money moved."
+                : "Any unused part of your hold is released by PayPal. It can take a few days to disappear from your account."}
             </p>
           )}
           {(status === "CANCELLED" || status === "CANCELLING") && pay && (pay.status === "VOID_PENDING" || pay.status === "AUTHORIZED") && (
             <p className="flex items-start gap-2 text-small text-ink-muted">
               <Hourglass className="mt-0.5 size-4 shrink-0" aria-hidden />
-              Your hold is being released. PayPal can take a few days to show it — you have not been charged.
+              Your hold is being released by {provider}.{" "}
+              {fixture ? "No real money is involved." : "PayPal can take a few days to show it — you have not been charged."}
             </p>
           )}
         </Card>

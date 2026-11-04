@@ -21,13 +21,13 @@ export function MoneyRow({
 }) {
   return (
     <div className="flex items-start justify-between gap-4 py-3.5 first:pt-0 last:pb-0">
-      <dt className={cn("text-body", emphasis ? "font-bold" : "text-ink")}>
+      <dt className={cn("min-w-0 flex-1 text-body", emphasis ? "font-bold" : "text-ink")}>
         {label}
         {sub && <span className="block text-small font-normal text-ink-muted">{sub}</span>}
       </dt>
       <dd
         className={cn(
-          "text-right tabular-nums [&_span]:font-sans",
+          "max-w-[60%] shrink-0 text-right tabular-nums break-words [&_span]:font-sans",
           emphasis ? "font-display text-[26px] leading-8 font-semibold" : "font-display text-[20px] leading-7 font-semibold",
           valueClassName,
         )}

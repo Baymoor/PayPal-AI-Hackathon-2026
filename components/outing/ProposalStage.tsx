@@ -1,6 +1,6 @@
 "use client";
 import { CalendarClock, Check, Cake, Info, TriangleAlert, Users } from "lucide-react";
-import { useId, useMemo, useState } from "react";
+import { useId, useState } from "react";
 import type { CatalogueCandidateView, OutingView } from "@/lib/contracts/views";
 import { formatMoney } from "@/lib/domain/money";
 import { AiSourceBadge, Pill } from "@/components/ui/Badge";
@@ -9,7 +9,6 @@ import { Card, Eyebrow } from "@/components/ui/Card";
 import { TextField } from "@/components/ui/Field";
 import { MoneyRow, MoneyRows } from "@/components/ui/MoneyRow";
 import { EmptyState } from "@/components/ui/States";
-import { StatusBanner } from "@/components/ui/StatusBanner";
 import { Toggle } from "@/components/ui/Toggle";
 import { cn } from "@/components/ui/cn";
 import type { OutingActions } from "./api";
@@ -105,7 +104,12 @@ function CandidateCard({
 function SponsorCard({ view, actions }: { view: OutingView; actions: OutingActions }) {
   const guests = view.roster.people.filter((p) => p.role !== "ORGANIZER");
   const sponsored = view.roster.people.find((p) => p.payerType === "SPONSORED");
-  const [chosen, setChosen] = useState<string>(sponsored?.participantId ?? guests[0]?.participantId ?? "");
+  // Default to the guest of honour the brief named ("cover Maya's share"), if they are invited.
+  const honour = view.brief.extraction?.guestOfHonour.name?.trim().toLowerCase() ?? "";
+  const named = honour ? guests.find((g) => g.displayName.trim().toLowerCase().split(/\s+/)[0] === honour.split(/\s+/)[0]) : undefined;
+  const [picked, setChosen] = useState<string>("");
+  // Derived (not frozen at first render): guests can be invited after this card mounts.
+  const chosen = guests.some((g) => g.participantId === picked) ? picked : (named ?? guests[0])?.participantId ?? "";
   const { pending, error, run } = useAction();
   const selectId = useId();
   const canEdit = !!view.organizer?.can.editRoster;
@@ -217,19 +221,48 @@ function SplitPreview({ view, candidate }: { view: OutingView; candidate: Catalo
   );
 }
 
-function OpenForm({ view, actions }: { view: OutingView; actions: OutingActions }) {
+const PART_OF_DAY_HOUR: Record<string, number> = { MORNING: 10, AFTERNOON: 16, EVENING: 19, NIGHT: 21 };
+const WEEKDAY_SHORT: Record<string, string> = { MON: "Mon", TUE: "Tue", WED: "Wed", THU: "Thu", FRI: "Fri", SAT: "Sat", SUN: "Sun" };
+
+/**
+ * Suggested times (in the outing's timezone): the activity on the next day matching the brief's date window
+ * (e.g. Friday evening -> next Friday 19:00, at least 4 h away); commitments close 24 h from now, or 2 h before
+ * the activity if that is sooner. The organizer can change both; the server validates them.
+ */
+export function suggestTimes(view: OutingView): { deadline: string; activity: string } {
+  const tz = view.outing.displayTimezone;
+  const now = Date.parse(view.outing.serverNow);
+  const win = view.brief.extraction?.dateWindow;
+  const hour = String(PART_OF_DAY_HOUR[win?.partOfDay ?? "EVENING"] ?? 19).padStart(2, "0");
+  const wantDay = win?.dayOfWeek ? WEEKDAY_SHORT[win.dayOfWeek] : null;
+  const weekday = new Intl.DateTimeFormat("en-US", { timeZone: tz, weekday: "short" });
+  let activity = now + 2 * 24 * 3600_000;
+  for (let d = 0; d < 15; d++) {
+    const day = isoToZonedLocal(new Date(now + d * 24 * 3600_000).toISOString(), tz).slice(0, 10);
+    const iso = zonedLocalToIso(`${day}T${hour}:00`, tz);
+    if (!iso) continue;
+    const t = Date.parse(iso);
+    if (t - now < 4 * 3600_000) continue;
+    if (wantDay && weekday.format(new Date(t)) !== wantDay) continue;
+    activity = t;
+    break;
+  }
+  const quarter = 15 * 60_000;
+  const deadline = Math.floor(Math.min(now + 24 * 3600_000, activity - 2 * 3600_000) / quarter) * quarter;
+  return { deadline: isoToZonedLocal(new Date(deadline).toISOString(), tz), activity: isoToZonedLocal(new Date(activity).toISOString(), tz) };
+}
+
+function OpenForm({ view, actions, candidate }: { view: OutingView; actions: OutingActions; candidate: CatalogueCandidateView | undefined }) {
   const tz = view.outing.displayTimezone;
   const serverNow = Date.parse(view.outing.serverNow);
   const { pending, error, run } = useAction();
-  const dflt = useMemo(() => {
-    const dl = new Date(serverNow + 24 * 3600_000);
-    dl.setUTCMinutes(0, 0, 0);
-    const act = new Date(dl.getTime() + 24 * 3600_000);
-    return { deadline: isoToZonedLocal(dl.toISOString(), tz), activity: isoToZonedLocal(act.toISOString(), tz) };
-  }, [serverNow, tz]);
+  const [dflt] = useState(() => suggestTimes(view));
   const [deadline, setDeadline] = useState(view.outing.deadlineAt ? isoToZonedLocal(view.outing.deadlineAt, tz) : dflt.deadline);
   const [activity, setActivity] = useState(view.outing.activityAt ? isoToZonedLocal(view.outing.activityAt, tz) : dflt.activity);
-  const [minPayers, setMinPayers] = useState(String(view.roster.minPayers ?? Math.max(2, view.estimates.projectedPayers)));
+  // Follows the number of paying guests (sponsoring someone lowers it) until the organizer edits it.
+  const payers = view.roster.invitedPayers;
+  const [minPayersEdit, setMinPayers] = useState<string | null>(null);
+  const minPayers = minPayersEdit ?? String(view.roster.minPayers ?? Math.max(1, payers));
 
   const deadlineIso = zonedLocalToIso(deadline, tz);
   const activityIso = zonedLocalToIso(activity, tz);
@@ -240,7 +273,9 @@ function OpenForm({ view, actions }: { view: OutingView; actions: OutingActions 
   else if (Date.parse(activityIso) <= Date.parse(deadlineIso)) problem = "The activity must start after the commitment deadline.";
   const mp = Number(minPayers);
   if (!problem && (!Number.isInteger(mp) || mp < 1)) problem = "Minimum payers must be a whole number of at least 1.";
+  if (!problem && mp > payers) problem = `Minimum payers can't be more than the ${payers} ${payers === 1 ? "person" : "people"} paying.`;
   const canOpen = !!view.organizer?.can.openCollection;
+  const cap = candidate && candidate.pricingModel === "FIXED_TOTAL" && Number.isInteger(mp) && mp >= 1 ? Math.ceil(candidate.priceMinor / mp) : null;
 
   return (
     <Card as="section" aria-labelledby="open-h" className="space-y-4">
@@ -260,12 +295,18 @@ function OpenForm({ view, actions }: { view: OutingView; actions: OutingActions 
           label="Minimum payers"
           type="number"
           min={1}
+          max={Math.max(1, payers)}
           inputMode="numeric"
           value={minPayers}
           onChange={(e) => setMinPayers(e.target.value)}
           hint="Sets each person’s maximum. More payers lower the final share."
         />
       </div>
+      {cap !== null && !problem && (
+        <p className="text-small font-semibold" aria-live="polite">
+          Each payer will be asked to authorize up to {formatMoney(cap)}.
+        </p>
+      )}
       {deadlineIso && !problem && (
         <p className="text-small text-ink-muted" aria-live="polite">
           People will be asked to commit by {formatDeadline(deadlineIso, tz)}.
@@ -377,7 +418,7 @@ export function ProposalStage({ view, actions }: { view: OutingView; actions: Ou
           <SponsorCard view={view} actions={actions} />
           <RosterToggles view={view} actions={actions} />
           <SplitPreview view={view} candidate={selected} />
-          <OpenForm view={view} actions={actions} />
+          <OpenForm view={view} actions={actions} candidate={selected} />
         </div>
       </div>
     </div>

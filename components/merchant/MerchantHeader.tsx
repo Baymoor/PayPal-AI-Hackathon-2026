@@ -4,11 +4,13 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
 import { merchantLogout } from "./api";
+import { usePaymentMode } from "./modes";
 
 export function MerchantHeader() {
   const pathname = usePathname();
   const router = useRouter();
   const [busy, setBusy] = useState(false);
+  const paymentMode = usePaymentMode();
   const onLogin = pathname?.startsWith("/merchant/login");
 
   async function signOut() {
@@ -31,7 +33,9 @@ export function MerchantHeader() {
         </Link>
         <span className="m-merchant">The Sound Room · Merchant</span>
         <span className="m-header-sp" />
-        <span className="m-badge" data-tone="navy">PayPal sandbox</span>
+        {paymentMode === "PAYPAL_SANDBOX" && <span className="m-badge" data-tone="navy">PayPal sandbox</span>}
+        {paymentMode === "FIXTURE" && <span className="m-badge" data-tone="fixture">Fixture payments · not real PayPal</span>}
+        {paymentMode === "DISABLED" && <span className="m-badge">Payments off</span>}
         {!onLogin && (
           <button type="button" className="m-signout" onClick={signOut} disabled={busy}>
             Sign out

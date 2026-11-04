@@ -33,7 +33,13 @@ export function BudgetStage({ view, actions }: { view: OutingView; actions: Outi
 
   const changed = choice !== null && choice !== budget.myVoteMinor;
   const label =
-    choice === null ? "Submit my vote" : budget.myVoteMinor !== null ? `Update my ${money(choice)} vote` : `Submit my ${money(choice)} vote`;
+    choice === null
+      ? "Submit my vote"
+      : budget.myVoteMinor === null
+        ? `Submit my ${money(choice)} vote`
+        : changed
+          ? `Change my vote to ${money(choice)}`
+          : `Your ${money(choice)} vote is saved`;
   const voters = roster.people;
 
   return (

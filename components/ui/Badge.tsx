@@ -52,8 +52,9 @@ export function Pill({
   return <span className={cn(pill, tones[tone], className)}>{children}</span>;
 }
 
+/** Site-wide demo marker. Mode-neutral on purpose: the page's ModeBadge says whether payments are PayPal sandbox or FIXTURE. */
 export function SandboxBadge({ className }: { className?: string }) {
-  return <Pill className={className}>Sandbox demo</Pill>;
+  return <Pill className={className}>Demo · no real money</Pill>;
 }
 
 /** Fixture / sandbox labels derived from outing modes. Always shown, never hidden. */

@@ -62,7 +62,7 @@ export function buildStudioData(rows: MerchantBookingRow[], currency: string): A
     description:
       "One row per outing booked with The Sound Room. Money fields are in major currency units of a single currency. " +
       "'Authorized holds' are uncaptured PayPal authorizations and are NOT revenue. 'Captured' is money actually collected. " +
-      "Mode 'Sandbox' = real PayPal sandbox transactions; 'Fixture' = synthetic demo rows; never add them together without saying so.",
+      "Mode 'Sandbox' = real PayPal sandbox transactions; 'Fixture' = simulated payments (fixture simulator or synthetic demo rows), not real PayPal; never add them together without saying so.",
     sources: [
       {
         id: TABLE,
@@ -72,8 +72,8 @@ export function buildStudioData(rows: MerchantBookingRow[], currency: string): A
         fields: [
           { id: "id", name: "Outing ID", format: "textFormat", hide: true },
           { id: "title", name: "Outing", format: "textFormat" },
-          { id: "mode", name: "Mode", format: "textFormat", description: "Sandbox = real PayPal sandbox; Fixture = synthetic demo data" },
-          { id: "modeLabel", name: "Row type", format: "textFormat", description: "Sandbox = real PayPal sandbox; Fixture = synthetic demo data" },
+          { id: "mode", name: "Mode", format: "textFormat", description: "Sandbox = real PayPal sandbox; Fixture = simulated, not real PayPal" },
+          { id: "modeLabel", name: "Row type", format: "textFormat", description: "Sandbox = real PayPal sandbox; Fixture = simulated, not real PayPal" },
           { id: "status", name: "Status", format: "textFormat" },
           { id: "closingAt", name: "Closing time", format: "dateTimeFormat", formatOptions: { format: dtf } },
           { id: "closingLabel", name: "Closes (merchant time)", format: "textFormat" },

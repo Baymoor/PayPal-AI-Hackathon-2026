@@ -11,6 +11,7 @@ import { applyDashboardQuery } from "./query";
 import { Kpis } from "./Kpis";
 import { AskBox, type AppliedQuery } from "./AskBox";
 import { Badge } from "./Badge";
+import { labelRows, usePaymentMode } from "./modes";
 
 const StudioDashboard = dynamic(() => import("./StudioDashboard"), {
   ssr: false,
@@ -18,7 +19,7 @@ const StudioDashboard = dynamic(() => import("./StudioDashboard"), {
 });
 
 type Segment = "SANDBOX" | "FIXTURE" | "BOTH";
-const SEGMENT_LABEL: Record<Segment, string> = { SANDBOX: "Sandbox (real PayPal sandbox)", FIXTURE: "Synthetic fixtures", BOTH: "Both, labelled" };
+const SEGMENT_LABEL: Record<Segment, string> = { SANDBOX: "PayPal sandbox", FIXTURE: "Fixture (not real PayPal)", BOTH: "Both, labelled" };
 
 function hash(s: string): string {
   let h = 5381;
@@ -37,7 +38,10 @@ export interface DashboardClientProps {
 
 export default function DashboardClient({ licenseKey, fixtures, aiEnabled }: DashboardClientProps) {
   const router = useRouter();
-  const [rows, setRows] = useState<MerchantBookingRow[] | null>(null);
+  const [rawRows, setRows] = useState<MerchantBookingRow[] | null>(null);
+  const paymentMode = usePaymentMode();
+  // Re-label by provider: only PayPal-provider rows are "sandbox"; FIXTURE-paid outings are fixtures too.
+  const rows = useMemo(() => (rawRows ? labelRows(rawRows, paymentMode) : null), [rawRows, paymentMode]);
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [segment, setSegment] = useState<Segment | null>(null);
@@ -147,7 +151,7 @@ export default function DashboardClient({ licenseKey, fixtures, aiEnabled }: Das
       {activeSegment === "FIXTURE" && (
         <div className="m-banner" role="note" data-tone="fixture">
           <Info size={18} aria-hidden />
-          <span>Demo data: these are synthetic fixture bookings, not real PayPal transactions.</span>
+          <span>Fixture data: seeded synthetic bookings and outings paid with the built-in payment simulator. These are not real PayPal transactions.</span>
         </div>
       )}
       {activeSegment === "SANDBOX" && (
@@ -178,7 +182,7 @@ export default function DashboardClient({ licenseKey, fixtures, aiEnabled }: Das
             <p>
               <strong>No bookings match.</strong>
               <br />
-              {applied ? "Clear the AI filter or switch data source." : activeSegment === "SANDBOX" ? "No real sandbox bookings yet. Switch to Synthetic fixtures to explore demo data." : "Nothing to show yet."}
+              {applied ? "Clear the AI filter or switch data source." : activeSegment === "SANDBOX" ? "No real PayPal sandbox bookings yet. Switch to Fixture to explore demo data." : "Nothing to show yet."}
             </p>
           </div>
         )}

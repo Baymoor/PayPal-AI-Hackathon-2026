@@ -3,10 +3,10 @@ import { cn } from "./cn";
 
 export const STEPS = ["Brief", "Budget", "Invite", "Commit"] as const;
 
-/** `current` is 0-based; pass 4 (or more) when every step is done (result). */
-export function Stepper({ current, context }: { current: number; context?: string }) {
+/** `current` is 0-based; pass 4 (or more) when every step is done (result), with `doneLabel` naming the outcome. */
+export function Stepper({ current, context, doneLabel = "Result" }: { current: number; context?: string; doneLabel?: string }) {
   const mobileLabel =
-    current >= STEPS.length ? "Complete" : `Step ${current + 1} of ${STEPS.length}`;
+    current >= STEPS.length ? doneLabel : `Step ${current + 1} of ${STEPS.length}`;
   return (
     <nav aria-label="Progress">
       <p className="text-center text-caption font-semibold uppercase tracking-[0.14em] text-ink-muted sm:hidden">

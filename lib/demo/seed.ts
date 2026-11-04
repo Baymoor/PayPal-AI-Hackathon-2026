@@ -783,6 +783,15 @@ export interface DemoPersona {
   link: string | null;
 }
 
+export interface DemoOutingSummary {
+  outingId: string;
+  title: string;
+  status: OutingStatus;
+  cleanup: CleanupState;
+  /** Everyone on the outing, organizer first, so the demo hub can open any stage as anyone. */
+  personas: DemoPersona[];
+}
+
 export interface DemoState {
   /** The COLLECTING "Maya's birthday karaoke" demo outing. */
   outingId: string | null;
@@ -790,26 +799,44 @@ export interface DemoState {
   budgetOutingId: string | null;
   budgetPersonas: DemoPersona[];
   merchant: { id: string; name: string } | null;
-  outings: { outingId: string; title: string; status: OutingStatus; cleanup: CleanupState }[];
+  outings: DemoOutingSummary[];
 }
 
-function personaHint(p: Participant, committed: boolean, outing: Outing): string {
-  if (p.role === "ORGANIZER") return "Organizer";
+const SETTLED_HINT: Partial<Record<PaymentStatus, string>> = {
+  CAPTURED: "Final share collected",
+  CAPTURE_PENDING: "Collecting final share",
+  VOIDED: "Hold released",
+  VOID_PENDING: "Hold release pending",
+  REFUNDED: "Refunded",
+  REFUND_PENDING: "Refund pending",
+  FAILED: "Payment failed",
+  UNKNOWN: "Payment being reconciled",
+};
+
+function personaHint(p: Participant, attempt: PaymentAttempt | undefined, outing: Outing): string {
+  if (p.role === "ORGANIZER" && !attempt) return "Organizer";
+  const who = p.role === "ORGANIZER" ? "Organizer · " : "";
   if (p.payerType === "SPONSORED") return p.attendance === "ACCEPTED" ? "Sponsored guest · accepted" : "Sponsored guest";
-  if (outing.status === "BUDGETING") return "Invitee";
-  if (committed) return "Committed";
-  if (p.attendance === "DECLINED") return "Declined";
-  return p.required ? "Required · not committed yet" : "Optional · not committed yet";
+  if (outing.status === "BUDGETING" || outing.status === "DRAFT" || outing.status === "PROPOSED") return p.role === "ORGANIZER" ? "Organizer" : "Invitee";
+  const settled = attempt ? SETTLED_HINT[attempt.status] : undefined;
+  if (settled) return `${who}${settled}`;
+  if (attempt && attempt.status === "AUTHORIZED" && attempt.verified && !attempt.late) return `${who}Committed`;
+  if (p.attendance === "DECLINED") return `${who}Declined`;
+  if (outing.status !== "COLLECTING") return `${who}${p.required ? "Required · never committed" : "Optional · did not commit"}`;
+  return `${who}${p.required ? "Required · not committed yet" : "Optional · not committed yet"}`;
 }
 
 async function personasFor(db: Db, outing: Outing | undefined): Promise<DemoPersona[]> {
   if (!outing) return [];
   const cfg = config();
   const people = await db.query.participants.findMany({ where: eq(participants.outingId, outing.id), orderBy: (p, { asc }) => [asc(p.sortKey)] });
-  const attempts = await db.query.paymentAttempts.findMany({ where: eq(paymentAttempts.outingId, outing.id) });
+  const attempts = await db.query.paymentAttempts.findMany({
+    where: eq(paymentAttempts.outingId, outing.id),
+    orderBy: (a, { desc: d }) => [d(a.createdAt)],
+  });
   const base = cfg.appBaseUrl.replace(/\/+$/, "");
   return people.map((p) => {
-    const committed = attempts.some((a) => a.participantId === p.id && a.status === "AUTHORIZED" && a.verified && !a.late);
+    const attempt = attempts.find((a) => a.participantId === p.id);
     return {
       participantId: p.id,
       displayName: p.displayName,
@@ -817,7 +844,7 @@ async function personasFor(db: Db, outing: Outing | undefined): Promise<DemoPers
       payerType: p.payerType,
       required: p.required,
       attendance: p.attendance,
-      hint: personaHint(p, committed, outing),
+      hint: personaHint(p, attempt, outing),
       link: cfg.sessionSecretIsEphemeral ? null : `${base}/i/${demoInviteToken(cfg.sessionSecret, `${outing.id}:${p.sortKey}`)}`,
     };
   });
@@ -829,13 +856,17 @@ export async function listDemoState(db: Db): Promise<DemoState> {
   const main = fixtureOutings.find((o) => o.title === DEMO_MAIN_TITLE);
   const budget = fixtureOutings.find((o) => o.title === DEMO_BUDGET_TITLE);
   const merchant = await db.query.merchants.findFirst({ where: eq(merchants.slug, DEMO_MERCHANT_SLUG) });
+  const summaries: DemoOutingSummary[] = [];
+  for (const o of fixtureOutings) {
+    summaries.push({ outingId: o.id, title: o.title, status: o.status, cleanup: o.cleanup, personas: await personasFor(db, o) });
+  }
   return {
     outingId: main?.id ?? null,
-    personas: await personasFor(db, main),
+    personas: summaries.find((s) => s.outingId === main?.id)?.personas ?? [],
     budgetOutingId: budget?.id ?? null,
-    budgetPersonas: await personasFor(db, budget),
+    budgetPersonas: summaries.find((s) => s.outingId === budget?.id)?.personas ?? [],
     merchant: merchant ? { id: merchant.id, name: merchant.name } : null,
-    outings: fixtureOutings.map((o) => ({ outingId: o.id, title: o.title, status: o.status, cleanup: o.cleanup })),
+    outings: summaries,
   };
 }
 

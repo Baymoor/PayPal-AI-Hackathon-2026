@@ -1,5 +1,3 @@
-import { cn } from "./cn";
-
 export function ProgressBar({
   value,
   max,

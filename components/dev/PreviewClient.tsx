@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { FIXTURES, FIXTURE_FLAGS, FIXTURE_KEYS } from "@/components/__fixtures__/outing-views";
 import { OutingScreen } from "@/components/outing/OutingScreen";
 import type { OutingActions } from "@/components/outing/api";
@@ -35,16 +35,25 @@ function stubActions(): OutingActions {
   };
 }
 
+/** One fixture screen. Keyed by fixture, so the clock offset is computed once per fixture (no effect needed). */
+function PreviewScreen({ selected, entry }: { selected: string; entry: (typeof FIXTURES)[string] }) {
+  const actions = useMemo(() => stubActions(), []);
+  // Pretend the fixture's serverNow is "now" so countdowns look like the mockups.
+  const [offset] = useState(() => Date.parse(entry.view.outing.serverNow) - Date.now());
+  return (
+    <>
+      <div className="bg-ink px-4 py-1.5 text-center text-small text-cream">
+        Dev preview · {entry.label} · <Link href="/dev/preview" className="underline">all states</Link>
+      </div>
+      <OutingScreen view={entry.view} actions={actions} clockOffsetMs={offset} paymentFlag={FIXTURE_FLAGS[selected]} />
+    </>
+  );
+}
+
 export function PreviewClient({ selected }: { selected: string | null }) {
-  const [offset, setOffset] = useState(0);
-  const actions = useMemo(stubActions, []);
   const entry = selected ? FIXTURES[selected] : null;
 
-  useEffect(() => {
-    if (entry) setOffset(Date.parse(entry.view.outing.serverNow) - Date.now());
-  }, [entry]);
-
-  if (!entry) {
+  if (!entry || !selected) {
     return (
       <main className="mx-auto w-full max-w-[720px] flex-1 px-5 py-10">
         <h1 className="text-h2">Dev preview</h1>
@@ -61,12 +70,5 @@ export function PreviewClient({ selected }: { selected: string | null }) {
       </main>
     );
   }
-  return (
-    <>
-      <div className="bg-ink px-4 py-1.5 text-center text-small text-cream">
-        Dev preview · {entry.label} · <Link href="/dev/preview" className="underline">all states</Link>
-      </div>
-      <OutingScreen view={entry.view} actions={actions} clockOffsetMs={offset} paymentFlag={selected ? FIXTURE_FLAGS[selected] : undefined} />
-    </>
-  );
+  return <PreviewScreen key={selected} selected={selected} entry={entry} />;
 }

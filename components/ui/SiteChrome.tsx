@@ -68,7 +68,7 @@ export function SiteFooter() {
       <div className="mx-auto flex max-w-[1180px] items-center gap-4 text-small text-ink-muted">
         <span aria-hidden className="h-px flex-1 bg-line-strong" />
         <p className="max-w-xl text-center">
-          Independent hackathon project · PayPal sandbox payments · No real money
+          Independent hackathon project · PayPal sandbox or clearly labelled simulated payments · No real money
         </p>
         <span aria-hidden className="h-px flex-1 bg-line-strong" />
       </div>
