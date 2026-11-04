@@ -1,0 +1,71 @@
+# Render Blueprint (optional deployment target). Review plans/costs before applying.
+# Secrets are declared with sync: false and must be entered in the Render dashboard.
+databases:
+  - name: outings-db
+    plan: basic-256mb
+    databaseName: outings
+    user: outings
+
+services:
+  - type: web
+    name: outings-web
+    runtime: node
+    plan: starter
+    buildCommand: npm ci && npm run build
+    preDeployCommand: npm run db:migrate
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase: { name: outings-db, property: connectionString }
+      - key: NODE_ENV
+        value: production
+      - key: APP_BASE_URL
+        sync: false
+      - key: SESSION_SECRET
+        generateValue: true
+      - key: CRON_SECRET
+        sync: false
+      - key: DEMO_FIXTURES_ENABLED
+        value: "true"
+      - key: MERCHANT_DASHBOARD_PASSWORD
+        sync: false
+      - key: PAYPAL_ENV
+        value: sandbox
+      - key: PAYPAL_CLIENT_ID
+        sync: false
+      - key: PAYPAL_CLIENT_SECRET
+        sync: false
+      - key: PAYPAL_WEBHOOK_ID
+        sync: false
+      - key: AG_STUDIO_LICENSE_KEY
+        sync: false
+      - key: OUTINGS_ANTHROPIC_API_KEY
+        sync: false
+      - key: OUTINGS_AI_MODEL
+        value: claude-sonnet-5-5
+
+  # Deadline/settlement worker: a long-running process is the most robust option.
+  - type: worker
+    name: outings-worker
+    runtime: node
+    plan: starter
+    buildCommand: npm ci
+    startCommand: npm run worker
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase: { name: outings-db, property: connectionString }
+      - key: NODE_ENV
+        value: production
+      - key: APP_BASE_URL
+        sync: false
+      - key: SESSION_SECRET
+        sync: false
+      - key: DEMO_FIXTURES_ENABLED
+        value: "true"
+      - key: PAYPAL_ENV
+        value: sandbox
+      - key: PAYPAL_CLIENT_ID
+        sync: false
+      - key: PAYPAL_CLIENT_SECRET
+        sync: false

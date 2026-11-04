@@ -1,0 +1,41 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: outings
+          POSTGRES_PASSWORD: outings
+          POSTGRES_DB: outings_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U outings" --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      DATABASE_URL: postgres://outings:outings@localhost:5432/outings_test
+      TEST_DATABASE_URL: postgres://outings:outings@localhost:5432/outings_test
+      DEMO_FIXTURES_ENABLED: "true"
+      SESSION_SECRET: ci-only-not-a-secret-0123456789abcdef
+      NEXT_TELEMETRY_DISABLED: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run db:migrate
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm test
+      - run: npm run build
