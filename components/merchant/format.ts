@@ -5,7 +5,7 @@
  * merchant time zone, so the dashboard formats in this documented constant
  * (override with NEXT_PUBLIC_MERCHANT_TIMEZONE).
  */
-export const MERCHANT_TIMEZONE = process.env.NEXT_PUBLIC_MERCHANT_TIMEZONE || "America/Los_Angeles";
+export const MERCHANT_TIMEZONE = process.env.NEXT_PUBLIC_MERCHANT_TIMEZONE || "Europe/Copenhagen";
 
 export function formatMoney(minor: number | null | undefined, currency = "USD"): string {
   if (minor === null || minor === undefined) return "n/a";

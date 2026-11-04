@@ -3,7 +3,7 @@
 import dynamic from "next/dynamic";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { AlertTriangle, Info, RefreshCw } from "lucide-react";
+import { AlertTriangle, Info, RefreshCw, Sparkles } from "lucide-react";
 import type { MerchantBookingRow } from "@/lib/contracts/views";
 import { ApiError, fetchBookings } from "./api";
 import { makeFixtureBookings } from "./__fixtures__/bookings";
@@ -43,6 +43,7 @@ export default function DashboardClient({ licenseKey, fixtures, aiEnabled }: Das
   const [segment, setSegment] = useState<Segment | null>(null);
   const [applied, setApplied] = useState<AppliedQuery | null>(null);
   const [studioError, setStudioError] = useState<string | null>(null);
+  const [assistant, setAssistant] = useState(false);
   const [loadedAt, setLoadedAt] = useState<Date | null>(null);
   const askRef = useRef<HTMLDivElement>(null);
 
@@ -65,6 +66,8 @@ export default function DashboardClient({ licenseKey, fixtures, aiEnabled }: Das
   }, [fixtures, router]);
 
   useEffect(() => {
+    // Fetch-on-mount: the setState calls happen after awaiting the network.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void load();
     if (fixtures) return;
     const t = setInterval(() => void load(), 30_000);
@@ -113,6 +116,11 @@ export default function DashboardClient({ licenseKey, fixtures, aiEnabled }: Das
         </div>
         <span className="m-spacer" />
         {fixtures && <Badge tone="fixture">Dev fixtures mode (?fixtures=1)</Badge>}
+        {aiEnabled && (
+          <button type="button" className="m-btn" aria-pressed={assistant} onClick={() => setAssistant((v) => !v)}>
+            <Sparkles size={16} aria-hidden /> {assistant ? "Hide assistant" : "Ask the assistant"}
+          </button>
+        )}
         <button type="button" className="m-btn" onClick={() => void load()} disabled={refreshing} aria-label="Refresh bookings">
           <RefreshCw size={16} aria-hidden /> {refreshing ? "Refreshing" : "Refresh"}
         </button>
@@ -183,6 +191,7 @@ export default function DashboardClient({ licenseKey, fixtures, aiEnabled }: Das
             focus={applied?.query.focus ?? null}
             licenseKey={licenseKey}
             aiEnabled={aiEnabled}
+            mode={assistant ? "edit" : "view"}
             onOpenOuting={openOuting}
             onError={setStudioError}
           />

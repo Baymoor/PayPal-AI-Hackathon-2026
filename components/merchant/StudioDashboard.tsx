@@ -7,6 +7,7 @@
  */
 import { useEffect, useMemo, useRef } from "react";
 import { enableStudioDevValidations, type AgDataSourcesDefinition, type AgStudioApi } from "ag-studio";
+import { AgStudioAiModule } from "ag-studio";
 import { AgStudio, AgStudioProvider } from "ag-studio-react";
 import type { AgReportState } from "ag-studio";
 import type { MerchantBookingRow } from "@/lib/contracts/views";
@@ -78,7 +79,7 @@ function buildReport(sort: DashboardQuery["sort"], currency: string): AgReportSt
             dataMapping: {
               cols: [
                 { id: f("title") },
-                { id: f("mode") },
+                { id: f("modeLabel") },
                 { id: f("status") },
                 { id: f("closingAt") },
                 { id: f("requiredLabel") },
@@ -88,11 +89,10 @@ function buildReport(sort: DashboardQuery["sort"], currency: string): AgReportSt
                 { id: f("captured") },
                 { id: f("refunded") },
                 { id: f("recovery") },
-                { id: f("id") },
               ],
             },
             ...(col ? { sort: [{ field: { id: col }, direction: sort!.direction }] } : {}),
-            format: { title: { enabled: true, text: "Bookings" }, crossFilter: "filter", style: { grandTotalRow: { enabled: false }, columnAutoSize: true, headerRow: { wrapText: true } } },
+            format: { title: { enabled: true, text: "Bookings" }, crossFilter: "filter", style: { grandTotalRow: { enabled: false }, columnAutoSize: true } },
           },
         },
         widgetLayout: {
@@ -113,12 +113,14 @@ export interface StudioDashboardProps {
   focus: DashboardQuery["focus"];
   licenseKey?: string;
   aiEnabled: boolean;
+  /** "edit" opens Studio with only the AI assistant panel (see panels below). */
+  mode: "view" | "edit";
   onOpenOuting: (id: string) => void;
   onApi?: (api: AgStudioApi) => void;
   onError?: (message: string) => void;
 }
 
-export default function StudioDashboard({ rows, currency, sort, focus, licenseKey, aiEnabled, onOpenOuting, onApi, onError }: StudioDashboardProps) {
+export default function StudioDashboard({ rows, currency, sort, focus, licenseKey, aiEnabled, mode, onOpenOuting, onApi, onError }: StudioDashboardProps) {
   const apiRef = useRef<AgStudioApi | null>(null);
   // Source definitions do not depend on the widget registry; the cast only reconciles generics.
   const data = useMemo(() => buildStudioData(rows, currency) as unknown as AgDataSourcesDefinition<OutingsRegistry>, [rows, currency]);
@@ -145,7 +147,7 @@ export default function StudioDashboard({ rows, currency, sort, focus, licenseKe
 
   return (
     <div ref={wrapRef} style={{ height: "100%", width: "100%" }}>
-    <AgStudioProvider licenseKey={licenseKey}>
+    <AgStudioProvider licenseKey={licenseKey} modules={aiEnabled ? [AgStudioAiModule] : undefined}>
       <AgStudio<OutingsRegistry>
         style={{ height: "100%", width: "100%" }}
         data={data}
@@ -153,8 +155,8 @@ export default function StudioDashboard({ rows, currency, sort, focus, licenseKe
         theme={outingsStudioTheme}
         widgets={outingsWidgets}
         context={context}
-        mode="view"
-        panels={{ view: { left: [], right: [] } }}
+        mode={mode}
+        panels={{ view: { left: [], right: [] }, edit: { left: [], right: aiEnabled ? ["ai"] : [] } }}
         ai={ai}
         onApiReady={(e) => {
           apiRef.current = e.api;

@@ -56,6 +56,8 @@ export default function OutingDetailClient({ outingId, fixtures }: { outingId: s
   }, [fixtures, outingId, router]);
 
   useEffect(() => {
+    // Fetch-on-mount: the setState calls happen after awaiting the network.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void load();
   }, [load]);
 

@@ -8,6 +8,8 @@ export interface StudioRow {
   id: string;
   title: string;
   mode: "Sandbox" | "Fixture";
+  /** Same as mode with trailing em spaces: works around Studio's grid auto-size truncating the column. */
+  modeLabel: string;
   status: string;
   closingAt: string | null;
   closingLabel: string;
@@ -30,6 +32,7 @@ export function toStudioRow(r: MerchantBookingRow): StudioRow {
     id: r.outingId,
     title: r.title,
     mode: r.isFixture ? "Fixture" : "Sandbox",
+    modeLabel: `${r.isFixture ? "Fixture" : "Sandbox"}\u2003\u2003\u2003`,
     status: OUTING_STATUS_LABEL[r.status],
     closingAt: r.deadlineAt,
     closingLabel: formatInstant(r.deadlineAt),
@@ -70,17 +73,18 @@ export function buildStudioData(rows: MerchantBookingRow[], currency: string): A
           { id: "id", name: "Outing ID", format: "textFormat", hide: true },
           { id: "title", name: "Outing", format: "textFormat" },
           { id: "mode", name: "Mode", format: "textFormat", description: "Sandbox = real PayPal sandbox; Fixture = synthetic demo data" },
+          { id: "modeLabel", name: "Row type", format: "textFormat", description: "Sandbox = real PayPal sandbox; Fixture = synthetic demo data" },
           { id: "status", name: "Status", format: "textFormat" },
           { id: "closingAt", name: "Closing time", format: "dateTimeFormat", formatOptions: { format: dtf } },
           { id: "closingLabel", name: "Closes (merchant time)", format: "textFormat" },
           { id: "requiredAccepted", name: "Required accepted", format: "integerFormat" },
           { id: "requiredInvited", name: "Required invited", format: "integerFormat" },
-          { id: "requiredLabel", name: "Required accepted / invited", format: "textFormat" },
-          { id: "payersLabel", name: "Payers authorized / min", format: "textFormat" },
+          { id: "requiredLabel", name: "Required (accepted / invited)", format: "textFormat" },
+          { id: "payersLabel", name: "Payers (authorized / min)", format: "textFormat" },
           { id: "missingRequired", name: "Missing required", format: "integerFormat" },
           { id: "payersAuthorized", name: "Payers authorized", format: "integerFormat" },
           { id: "minPayers", name: "Min payers", format: "integerFormat" },
-          { id: "authorized", name: "Authorized holds (not revenue)", format: "currencyFormat", formatOptions: money, description: "Uncaptured holds. Not revenue." },
+          { id: "authorized", name: "Authorized hold (not revenue)", format: "currencyFormat", formatOptions: money, description: "Uncaptured holds. Not revenue." },
           { id: "allocated", name: "Final allocated", format: "currencyFormat", formatOptions: money },
           { id: "captured", name: "Captured (collected)", format: "currencyFormat", formatOptions: money },
           { id: "refunded", name: "Refunded", format: "currencyFormat", formatOptions: money },
