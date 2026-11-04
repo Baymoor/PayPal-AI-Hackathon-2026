@@ -14,19 +14,21 @@ Legend: **REAL_SANDBOX** = exercised against PayPal sandbox · **REAL_AI** = exe
 
 | Area | Status | Notes |
 |---|---|---|
-| Domain: integer money, equal split, caps, terms hash, deadline validation, settle/cancel decision, state machines | IMPLEMENTED | `lib/domain/*`, 47 unit tests |
-| Postgres schema + migrations | IMPLEMENTED | `lib/db/schema.ts`, `drizzle/` |
+| Domain: integer money, equal split, caps, terms hash, deadline validation, settle/cancel decision, state machines | IMPLEMENTED | `lib/domain/*`, tests/domain |
+| Postgres schema + migrations | IMPLEMENTED | `lib/db/schema.ts`, `drizzle/0000–0002` |
 | Job queue, payment operation outbox planner, audit log | IMPLEMENTED | `lib/jobs/queue.ts`, `lib/payments/plan.ts` |
-| Signed cookie sessions, hashed invite tokens, access checks | IMPLEMENTED | `lib/auth/*`, `lib/services/access.ts` |
-| Settlement engine (freeze, reconcile, capture/void/refund, compensation, worker, cron, webhooks) | IN_PROGRESS | Fable 5.1 agent |
-| PayPal REST adapter (sandbox) | IN_PROGRESS | **cannot be live-tested from the cloud container** (api-m.sandbox.paypal.com blocked) |
-| Fixture payment simulator | IN_PROGRESS | labelled "Fixture — not real PayPal" |
-| Outing services, views, HTTP API, seed, access tests | IN_PROGRESS | Opus 5.5 agent |
-| AI (Anthropic structured output + labelled fixture) | IN_PROGRESS | no `OUTINGS_ANTHROPIC_API_KEY` in the cloud container → REAL_AI unverified |
-| Consumer UI | IN_PROGRESS | Sonnet 5.5 agent, from Claude Design mockups |
-| Merchant AG Studio dashboard | IN_PROGRESS | Sonnet 5.5 agent |
-| PayPal sandbox proof (auth → $10 under-capture → void → refund) | NOT VERIFIED | run `scripts/paypal-smoke.ts` locally with sandbox credentials |
-| Deployment + scheduler | NOT_IMPLEMENTED | see §8 |
+| Signed cookie sessions, hashed invite tokens, access checks | IMPLEMENTED | `lib/auth/*`, `lib/services/access.ts`, tests/access |
+| Settlement engine (freeze, reconcile, sequential capture, compensation, void/refund recovery, worker, cron route, webhooks) | IMPLEMENTED | `lib/settlement/*`, `lib/jobs/*`, tests/settlement (concurrent workers, timeouts) |
+| PayPal REST adapter (sandbox, server-only redirect approval) | IMPLEMENTED — **not verified against PayPal** | tested with mocked fetch only; cloud container cannot reach PayPal |
+| FIXTURE payment simulator (persistent, failure injection) | FIXTURE_ONLY | labelled "Fixture — not real PayPal" |
+| Outing services, read models, HTTP API, demo seed | IMPLEMENTED | tests/services; worker settles the seeded demo |
+| AI (Anthropic structured output + labelled fixture) | IMPLEMENTED — **REAL_AI not verified** | no runtime key in container; mocked SDK tests |
+| Consumer UI | IMPLEMENTED | built from Claude Design mockups; e2e in progress |
+| Merchant AG Studio dashboard (custom Booking Readiness widget, cross-filter, NL filter, drill-down, retry) | IMPLEMENTED | trial mode (no licence key) |
+| Independent audit of payments/settlement (Fable) | IN_PROGRESS | |
+| End-to-end browser flow, production build, Playwright e2e | IN_PROGRESS | |
+| PayPal sandbox proof (auth → $10 under-capture → void → refund) | NOT VERIFIED | run `npx tsx scripts/paypal-smoke.ts` locally with sandbox credentials |
+| Deployment + scheduler | DOCUMENTED, NOT DEPLOYED | `docs/DEPLOYMENT.md`, `render.yaml` |
 
 ## 3. Commands
 
