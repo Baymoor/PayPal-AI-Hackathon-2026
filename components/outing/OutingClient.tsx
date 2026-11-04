@@ -23,6 +23,7 @@ export function OutingClient({ id, paymentFlag }: { id: string; paymentFlag?: st
   const [fatal, setFatal] = useState<ApiError | null>(null);
   const [stale, setStale] = useState(false);
   const viewRef = useRef<OutingView | null>(null);
+  const started = useRef(false);
 
   /** One fetch of the view. State is only set from the promise callback, never synchronously. */
   const load = useCallback(async (): Promise<void> => {
@@ -51,13 +52,16 @@ export function OutingClient({ id, paymentFlag }: { id: string; paymentFlag?: st
 
   // Initial load + polling while the outing can still change. The countdown never decides anything:
   // the server's deadline job does, and polling picks up the result.
-  const polling = view ? shouldPoll(view) : true;
+  const polling = fatal ? false : view ? shouldPoll(view) : true;
   useEffect(() => {
     let alive = true;
+    if (!started.current) {
+      started.current = true;
+      queueMicrotask(() => void load());
+    }
     const tick = () => {
       if (alive && document.visibilityState === "visible") void load();
     };
-    if (!viewRef.current) queueMicrotask(tick);
     if (!polling) return () => void (alive = false);
     const t = setInterval(tick, POLL_MS);
     document.addEventListener("visibilitychange", tick);
