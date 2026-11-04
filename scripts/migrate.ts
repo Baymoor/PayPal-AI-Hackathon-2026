@@ -1,4 +1,5 @@
 /** Apply SQL migrations in ./drizzle to DATABASE_URL. Usage: npm run db:migrate */
+import "./load-env";
 import { migrate } from "drizzle-orm/node-postgres/migrator";
 import { createDb, databaseUrl } from "../lib/db/client";
 

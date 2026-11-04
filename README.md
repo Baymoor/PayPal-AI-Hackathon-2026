@@ -23,16 +23,23 @@ The merchant sees everything in an **AG Studio** dashboard with an AG Grid booki
 Requirements: Node ≥ 22.12, npm, Postgres 16.
 
 ```bash
-npm install
+npm ci
 ```
 
 ```bash
 cp .env.example .env.local
 ```
 
-```bash
-createdb outings   # or: psql -c "CREATE DATABASE outings"
+Create the role and databases that `DATABASE_URL` in `.env.example` points at (`postgres://outings:outings@localhost:5432/outings`). Run this as a Postgres superuser, for example `sudo -u postgres psql` on Linux or `psql postgres` with Homebrew. The `outings` role must own the database because the migrations create schemas.
+
+```sql
+CREATE ROLE outings LOGIN PASSWORD 'outings';
+CREATE DATABASE outings OWNER outings;
+CREATE DATABASE outings_test OWNER outings;  -- used by npm test (wiped by every test)
+CREATE DATABASE outings_e2e OWNER outings;   -- used by npm run test:e2e (wiped on every run)
 ```
+
+To use an existing role or database instead, edit `DATABASE_URL` in `.env.local`.
 
 ```bash
 npm run db:migrate && npm run db:seed
@@ -43,10 +50,14 @@ npm run dev
 ```
 
 ```bash
-npm run worker
+npm run worker   # second terminal: the deadline/settlement worker
 ```
 
 Open http://localhost:3000 (consumer) and http://localhost:3000/merchant (dashboard). Without PayPal or Anthropic keys the app runs in clearly labelled **FIXTURE** modes (`DEMO_FIXTURES_ENABLED=true`): simulated approvals and deterministic AI parsing, never presented as real PayPal or real model output.
+
+- Like Next.js, `npm run db:migrate`, `db:seed`, `demo:reset` and `worker` read `.env.local` and then `.env`. Variables set in the shell take precedence over both files.
+- `SESSION_SECRET` can stay empty locally. The app then uses a random secret per process, so demo sessions reset when you restart `npm run dev`. To keep sessions across restarts, set it with `openssl rand -hex 32`. Production refuses to start without it.
+- If port 3000 is taken, run `npm run dev -- -p 3001` and set `APP_BASE_URL=http://localhost:3001` in `.env.local`. The fixture approval and invitation links are built from `APP_BASE_URL`.
 
 ### Real PayPal sandbox
 
@@ -68,15 +79,19 @@ npm run typecheck
 npm test
 ```
 
-Integration tests need a Postgres database at `TEST_DATABASE_URL` (default `postgres://outings:outings@localhost:5432/outings_test`).
+Integration tests need a Postgres database at `TEST_DATABASE_URL` (default `postgres://outings:outings@localhost:5432/outings_test`, created above). `npm test` reads `TEST_DATABASE_URL` from the shell, not from `.env.local`.
 
 End-to-end tests drive real Chromium contexts (one per person) against the **production build** in FIXTURE modes: the canonical karaoke flow from brief to deadline settlement and the merchant dashboard, a required-guest-missing cancellation with voided holds, and the `/demo` persona hub. The deadline is enforced by the server; the tests advance the worker through the scheduler endpoint (`POST /api/cron/tick`).
 
 ```bash
-npm run test:e2e
+npx playwright install chromium   # once, downloads the browser
 ```
 
-This builds into `.next-e2e`, starts the app on port 3400, and **resets the database at `DATABASE_URL`** (migrate + `demo:reset`). `E2E_SKIP_BUILD=1` reuses an existing build; `E2E_SCREENSHOTS=1` refreshes `docs/screenshots/`.
+```bash
+E2E_DATABASE_URL=postgres://outings:outings@localhost:5432/outings_e2e npm run test:e2e
+```
+
+This builds into `.next-e2e`, starts the app on port 3400 (it must be free), and **truncates and re-seeds the e2e database** (migrate + `demo:reset`). The database is `E2E_DATABASE_URL`, otherwise `DATABASE_URL` from the shell, otherwise the default `outings` database. The `DATABASE_URL` in `.env.local` is ignored here, so without `E2E_DATABASE_URL` the run wipes the default local demo database. `E2E_SKIP_BUILD=1` reuses an existing build; `E2E_SCREENSHOTS=1` refreshes `docs/screenshots/`.
 
 ## Screenshots
 

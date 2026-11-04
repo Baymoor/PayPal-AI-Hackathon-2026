@@ -5,8 +5,8 @@ Test runner: Vitest (`vitest.config.ts`). Files run serially because the integra
 ## Setup and commands
 
 ```bash
-createdb outings_test   # or point TEST_DATABASE_URL at any empty database
-export TEST_DATABASE_URL=postgres://outings:outings@localhost:5432/outings_test
+createdb -O outings outings_test   # as a Postgres superuser; or point TEST_DATABASE_URL at any empty database the role owns
+export TEST_DATABASE_URL=postgres://outings:outings@localhost:5432/outings_test   # read from the shell, not .env.local
 npm run typecheck
 npm test                                  # all suites
 npx vitest run tests/domain               # one suite
@@ -17,7 +17,7 @@ The default `TEST_DATABASE_URL` is `postgres://outings:outings@localhost:5432/ou
 
 ## Current results
 
-Last verified run (build environment, FIXTURE modes only): **296 Vitest tests in 22 files pass**; eslint and `tsc` clean; `next build` passes; Playwright specs exist for the karaoke settle, holdout cancel, organizer cancel, demo hub and capture-failure compensation. Not verified: the real PayPal sandbox (`scripts/paypal-smoke.ts`) and real Claude (`scripts/ai-smoke.ts`), neither of which the build environment could run.
+Last verified run (build environment, FIXTURE modes only): **311 Vitest tests in 23 files pass**; eslint and `tsc` clean; `next build` passes; Playwright specs exist for the karaoke settle, holdout cancel, organizer cancel, demo hub and capture-failure compensation. Not verified: the real PayPal sandbox (`scripts/paypal-smoke.ts`) and real Claude (`scripts/ai-smoke.ts`), neither of which the build environment could run.
 
 Newer test files: `tests/services/demo-scenarios.test.ts` (one-click scenarios through the real services and worker), `tests/services/rate-limit.test.ts` (`TRUSTED_PROXY_HOPS` and client-IP keying), `tests/services/merchant-format.test.ts` (merchant timezone in rows and formatting), `tests/payments/payee.test.ts` (PayPal payee from the merchant row, payee mismatch is voided), `tests/audit2/*` (access and terms/time audit regressions), `tests/e2e/compensation.spec.ts`.
 
@@ -33,7 +33,7 @@ Newer test files: `tests/services/demo-scenarios.test.ts` (one-click scenarios t
 | `tests/access` | Yes | Route-handler level: scoped sessions, tampered/cross-outing/random ids, organizer-only endpoints, cross-origin rejection, vote privacy, merchant scoping, read-only dashboard AI, demo endpoints, health. | `npx vitest run tests/access` |
 | `tests/audit` | Postgres | Regression tests for defects found by the independent payments/settlement audit (orphaned holds, fail-closed reads, clean-up state, provider mixing, captured-vs-void conflicts, outing-id leakage; see the status table in [HANDOFF_TO_CODEX.md](HANDOFF_TO_CODEX.md)). | `TEST_DATABASE_URL=… npx vitest run tests/audit` |
 | `tests/audit2` | Postgres | Second audit (privacy/access/consent): merchant session expiry, no cancel after deadline, vote-is-not-consent, UTC storage of Copenhagen wall times, guest capacity, fixture labelling, plus brief-coverage gap tests. | `TEST_DATABASE_URL=… npx vitest run tests/audit2` |
-| `tests/e2e` | built app + Postgres | Playwright in Chromium against the production build (`karaoke.spec.ts`, `cancellation.spec.ts`, `demo.spec.ts`, `compensation.spec.ts`): full karaoke flow to CONFIRMED with all pages closed, required-holdout cancellation with holds voided, organizer cancel, demo hub, and the capture-failure scenario (decline, refunds and voids, REFUND_PENDING to COMPLETE). Worker driven via `POST /api/cron/tick`; the compensation spec uses `POST /api/demo/scenario` and `/api/demo/tick`. Resets the `DATABASE_URL` database. | `npm run test:e2e` |
+| `tests/e2e` | built app + Postgres | Playwright in Chromium against the production build (`karaoke.spec.ts`, `cancellation.spec.ts`, `demo.spec.ts`, `compensation.spec.ts`): full karaoke flow to CONFIRMED with all pages closed, required-holdout cancellation with holds voided, organizer cancel, demo hub, and the capture-failure scenario (decline, refunds and voids, REFUND_PENDING to COMPLETE). Worker driven via `POST /api/cron/tick`; the compensation spec uses `POST /api/demo/scenario` and `/api/demo/tick`. Truncates and re-seeds `E2E_DATABASE_URL` (else the shell's `DATABASE_URL`, else the default `outings` database; `.env.local` is ignored). Needs `npx playwright install chromium` once and a free port 3400. | `E2E_DATABASE_URL=… npm run test:e2e` |
 
 Not covered by any automated test: behaviour against the real PayPal sandbox and the real Anthropic API. The PayPal side has a manual proof script (`scripts/paypal-smoke.ts`, see `docs/evidence/README.md`); no real run has been recorded.
 

@@ -40,11 +40,11 @@ Legend: **REAL_SANDBOX** = exercised against PayPal sandbox · **REAL_AI** = exe
 ## 3. Commands
 
 ```bash
-npm install
+npm ci
 ```
 
 ```bash
-cp .env.example .env.local   # then fill in values
+cp .env.example .env.local   # then fill in values; create the Postgres role and databases as in the README quick start
 ```
 
 ```bash
@@ -64,7 +64,7 @@ npm run typecheck && npm test
 ```
 
 ```bash
-npm run test:e2e   # Playwright against a production build (resets DATABASE_URL db)
+E2E_DATABASE_URL=postgres://outings:outings@localhost:5432/outings_e2e npm run test:e2e   # Playwright against a production build (wipes that db)
 ```
 
 Last results (cloud session, 4 Nov 2026): `npx tsc --noEmit` clean · `npx eslint .` 0 problems · `npx vitest run` 23 files / **311 passed** · `npm run test:e2e` **5/5 passed** (karaoke settle, holdout cancel, organizer cancel, demo hub, capture-failure compensation) · `next build` passes.

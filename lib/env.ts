@@ -118,14 +118,22 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
   };
 }
 
-let ephemeral: string | null = null;
+declare global {
+  var __outingsEphemeralSessionSecret: string | undefined;
+}
+
+/**
+ * One random secret per process. Kept on globalThis because Next.js dev loads this module once per
+ * bundle layer (route handlers vs server components): a module-level variable would give each layer its
+ * own secret, so a cookie signed by an API route would not verify on a server-rendered page.
+ */
 function devSecret(): string {
-  if (!ephemeral) {
+  if (!globalThis.__outingsEphemeralSessionSecret) {
     const bytes = new Uint8Array(32);
     crypto.getRandomValues(bytes);
-    ephemeral = Buffer.from(bytes).toString("hex");
+    globalThis.__outingsEphemeralSessionSecret = Buffer.from(bytes).toString("hex");
   }
-  return ephemeral;
+  return globalThis.__outingsEphemeralSessionSecret;
 }
 
 export function config(): AppConfig {

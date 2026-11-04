@@ -21,16 +21,23 @@ Read this before you start: some parts of the demo are **FIXTURE** (simulated an
 
 Requirements: Node >= 22.12, npm, Postgres 16.
 
+First create the Postgres role and databases that `.env.example` points at, as a Postgres superuser (for example `sudo -u postgres psql` on Linux or `psql postgres` with Homebrew). The role must own the databases because the migrations create schemas:
+
+```sql
+CREATE ROLE outings LOGIN PASSWORD 'outings';
+CREATE DATABASE outings OWNER outings;
+CREATE DATABASE outings_test OWNER outings;  -- for npm test
+```
+
 ```bash
-npm install
+npm ci
 cp .env.example .env.local
-createdb outings          # or: psql -c "CREATE DATABASE outings"
 npm run db:migrate && npm run db:seed
 npm run dev               # http://localhost:3000
 npm run worker            # second terminal: deadline/settlement worker
 ```
 
-Set `SESSION_SECRET` (for example `openssl rand -hex 32`) and `CRON_SECRET` in `.env.local`. Keep `DEMO_FIXTURES_ENABLED=true`, which enables the labelled FIXTURE payment and AI modes, the demo seed, and persona switching. `npm run demo:reset` re-seeds the demo (it replaces fixture outings only).
+The scripts (`db:migrate`, `db:seed`, `demo:reset`, `worker`) read `.env.local` and then `.env`, like Next.js. Variables set in the shell take precedence. Keep `DEMO_FIXTURES_ENABLED=true`, which enables the labelled FIXTURE payment and AI modes, the demo seed, and persona switching. `SESSION_SECRET` and `CRON_SECRET` may stay empty locally. Without `SESSION_SECRET` the app uses a random secret per process, so demo sessions reset when the dev server restarts; set it with `openssl rand -hex 32` to keep them. Without `CRON_SECRET`, `POST /api/cron/tick` is open, but only in demo mode outside production. If you run on another port (`npm run dev -- -p 3001`), set `APP_BASE_URL` to match, because the fixture approval links are built from it. `npm run demo:reset` truncates every app table and re-seeds; `npm run db:seed` replaces only the fixture outings.
 
 A hosted demo URL: **TODO: add the hosted URL once deployed (see [DEPLOYMENT.md](DEPLOYMENT.md)). Until then, run locally.**
 
@@ -84,7 +91,7 @@ To build a settlement yourself instead, create an outing at `/new` with a "Commi
    ![Merchant dashboard](screenshots/merchant-dashboard.png) ![Merchant money](screenshots/merchant-money.png)
    - **Saved views** dropdown: "Closing today with missing required", "Recovery in progress", "Confirmed this week". Each applies a visible plain-language rule through Studio's report state; choose "all bookings" to clear it.
 3. Ask the natural-language box: **"Show outings closing today with missing required participants."** The model (or the labelled fixture parser) returns a validated, read-only filter. It cannot capture, void or refund anything.
-4. Click a booking row to open the **drill-down**: per-participant status, the authorized vs allocated vs captured vs refunded money (kept as separate figures), the payment operations, and a retry for failed operations that already exist.
+4. Click an outing name in the Bookings table (or **View details** in Booking Readiness) to open the **drill-down**. Clicking elsewhere in a row cross-filters the page instead. Scenario outings started twice have the same title, so their names are not links; open those from **Open merchant drill-down** on `/demo`. The drill-down shows per-participant status, the authorized vs allocated vs captured vs refunded money (kept as separate figures), the payment operations, and a retry for failed operations that already exist.
    ![Merchant drill-down](screenshots/merchant-drilldown.png) ![Payments](screenshots/merchant-drilldown-payments.png)
 
 ## 5. Fixture vs real
@@ -109,7 +116,7 @@ Read [HANDOFF_TO_CODEX.md](HANDOFF_TO_CODEX.md) for the authoritative status mat
 - **Automated tests** cover the domain rules, the settlement engine and the PayPal adapter (the adapter against a mocked `fetch` only).
 - **Not yet verified against PayPal:** nothing has been exercised against the PayPal sandbox from the build environment. Under-capture ($20 authorization, $10 capture) and remainder release, redirect-return parameters, webhook signature verification, and the `PayPal-Mock-Response` header are all unverified. The list is in [research/PAYPAL.md](research/PAYPAL.md) section 14. TODO: update this section after running the smoke script.
 - **Not yet verified against Anthropic:** no runtime key was available while building; tests use a mocked SDK. TODO: record a real call.
-- **Verified in the build environment (FIXTURE modes only):** 296 Vitest tests in 22 files, Playwright specs (karaoke settle, holdout cancel, organizer cancel, demo hub, capture-failure compensation), eslint and `tsc` clean, `next build` passes. Two independent audits are done and their fixes have regression tests in `tests/audit` and `tests/audit2`.
+- **Verified in the build environment (FIXTURE modes only):** 311 Vitest tests in 23 files, Playwright specs (karaoke settle, holdout cancel, organizer cancel, demo hub, capture-failure compensation), eslint and `tsc` clean, `next build` passes. Two independent audits are done and their fixes have regression tests in `tests/audit` and `tests/audit2`.
 - **Not verified:** the real PayPal sandbox and real Claude (`scripts/ai-smoke.ts` has not been run). TODO: hosted URL, demo video URL and AG Studio trial expiry are not recorded.
 
 ## 7. Where the hard parts are in the code
@@ -135,4 +142,4 @@ npm run typecheck
 npm test
 ```
 
-Integration tests need Postgres at `TEST_DATABASE_URL` (default `postgres://outings:outings@localhost:5432/outings_test`); create that database first. CI (`.github/workflows/ci.yml`) runs migrate, typecheck, lint and tests against Postgres 16.
+Integration tests need Postgres at `TEST_DATABASE_URL` (default `postgres://outings:outings@localhost:5432/outings_test`, created in section 2). `npm test` reads it from the shell, not from `.env.local`. CI (`.github/workflows/ci.yml`) runs migrate, typecheck, lint and tests against Postgres 16.

@@ -7,6 +7,7 @@
  * Set SESSION_SECRET to the same value as the web app if you want the printed
  * persona links to work (the /demo page can always switch personas without them).
  */
+import "./load-env";
 import { createDb, databaseUrl } from "../lib/db/client";
 import { seedDemo, truncateAppTables } from "../lib/demo/seed";
 

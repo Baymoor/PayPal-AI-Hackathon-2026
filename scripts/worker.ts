@@ -5,6 +5,7 @@
  *   npm run worker -- --interval 2000
  *   npm run worker:once            one tick, then exit
  */
+import "./load-env";
 import { hostname } from "node:os";
 import { closeDb, getDb } from "../lib/db/client";
 import { getPaymentProvider } from "../lib/payments";
