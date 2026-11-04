@@ -5,7 +5,7 @@
  * calls `connection()`). Other security headers live in next.config.ts.
  */
 import { NextResponse, type NextRequest } from "next/server";
-import { buildCsp, generateNonce } from "@/lib/security/headers";
+import { HSTS_VALUE, buildCsp, generateNonce, shouldSendHsts } from "@/lib/security/headers";
 
 export function proxy(request: NextRequest): NextResponse {
   const nonce = generateNonce();
@@ -15,6 +15,11 @@ export function proxy(request: NextRequest): NextResponse {
   requestHeaders.set("Content-Security-Policy", csp);
   const response = NextResponse.next({ request: { headers: requestHeaders } });
   response.headers.set("Content-Security-Policy", csp);
+  // next.config.ts `headers()` is evaluated at BUILD time, so an image built without APP_BASE_URL
+  // (e.g. the Dockerfile) would never send HSTS. Decide again here from the runtime environment.
+  if (shouldSendHsts({ nodeEnv: process.env.NODE_ENV, appBaseUrl: process.env.APP_BASE_URL })) {
+    response.headers.set("Strict-Transport-Security", HSTS_VALUE);
+  }
   return response;
 }
 

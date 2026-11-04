@@ -20,8 +20,9 @@
  */
 import { and, eq } from "drizzle-orm";
 import type { Db } from "../db/client";
-import { outings, participants, paymentAttempts, paymentOperations, type Participant } from "../db/schema";
+import { merchants, offerings, outings, participants, paymentAttempts, paymentOperations, type Merchant, type Offering, type Participant } from "../db/schema";
 import { config, type AppConfig } from "../env";
+import { conflict } from "../http";
 import { recordAudit } from "../audit";
 import { formatMoney } from "../domain/money";
 import type { CleanupState, OperationKind, OperationStatus, OutingStatus, ParticipantRole, PayerType } from "../domain/types";
@@ -29,6 +30,7 @@ import { setFixtureFailure, type FixtureFailureMode, type FixtureOperation } fro
 import { consent, openCollection, respond } from "../services/outings";
 import { approveFixturePayment, startPayment } from "../services/payments";
 import {
+  DEMO_MERCHANT_SLUG,
   DEMO_SCENARIO_DEADLINE_SECONDS,
   DEMO_SCENARIO_KINDS,
   DEMO_SCENARIO_TITLES,
@@ -139,6 +141,25 @@ export function scenarioKindOfTitle(title: string): DemoScenarioKind | null {
   return DEMO_SCENARIO_KINDS.find((k) => DEMO_SCENARIO_TITLES[k] === title) ?? null;
 }
 
+const ROOM_SLUG = "private-karaoke-room";
+
+/**
+ * The demo merchant and its karaoke room AS THEY ARE. These rows are shared with
+ * real (non-fixture) outings, so a scenario (a public button in demo mode) only
+ * reads them; it never resets price, capacity, availability, timezone or the
+ * active flag (that is what the explicit demo reset does). The catalogue is
+ * seeded only when it does not exist yet (fresh database).
+ */
+async function demoCatalogue(db: Db): Promise<{ merchant: Merchant; room: Offering }> {
+  const merchant = await db.query.merchants.findFirst({ where: eq(merchants.slug, DEMO_MERCHANT_SLUG) });
+  const room = merchant
+    ? await db.query.offerings.findFirst({ where: and(eq(offerings.merchantId, merchant.id), eq(offerings.slug, ROOM_SLUG)) })
+    : undefined;
+  if (merchant && room) return { merchant, room };
+  const seeded = await seedCatalogue(db);
+  return { merchant: seeded.merchant, room: seeded.offerings[ROOM_SLUG] };
+}
+
 /**
  * Create a fresh COLLECTING fixture outing for `kind`. Demo mode only (the
  * FIXTURE approval used for the pre-authorized holds refuses otherwise).
@@ -155,9 +176,11 @@ export async function createDemoScenario(
   const deadlineAt = new Date(now.getTime() + deadlineSeconds * 1000);
   const title = DEMO_SCENARIO_TITLES[input.kind];
 
-  // The canonical $100 fixed-total private karaoke room at The Sound Room (idempotent upsert).
-  const { merchant, offerings: catalogue } = await seedCatalogue(db);
-  const room = catalogue["private-karaoke-room"];
+  // The fixed-total private karaoke room at The Sound Room, as currently listed (read, not re-seeded).
+  const { merchant, room } = await demoCatalogue(db);
+  if (!room.active || room.pricingModel !== "FIXED_TOTAL") {
+    throw conflict("OFFERING_UNAVAILABLE", `${room.name} is not available for a shared booking right now, so no scenario was created.`);
+  }
 
   // Brief -> budget poker -> reveal -> proposal history (FIXTURE parser/ranker), ending at PROPOSED.
   const seeded = await seedOuting(

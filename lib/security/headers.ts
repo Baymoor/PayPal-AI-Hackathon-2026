@@ -51,6 +51,9 @@ export function shouldSendHsts({ nodeEnv, appBaseUrl }: StaticHeaderOptions): bo
   }
 }
 
+/** 2 years, subdomains included. Sent by next.config.ts (build-time env) and proxy.ts (runtime env). */
+export const HSTS_VALUE = "max-age=63072000; includeSubDomains";
+
 /** Headers that do not vary per request. */
 export function staticSecurityHeaders(opts: StaticHeaderOptions): { key: string; value: string }[] {
   const headers = [
@@ -60,7 +63,7 @@ export function staticSecurityHeaders(opts: StaticHeaderOptions): { key: string;
     { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=(), payment=()" },
   ];
   if (shouldSendHsts(opts)) {
-    headers.push({ key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains" });
+    headers.push({ key: "Strict-Transport-Security", value: HSTS_VALUE });
   }
   return headers;
 }
