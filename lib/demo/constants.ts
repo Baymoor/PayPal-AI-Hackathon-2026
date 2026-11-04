@@ -9,7 +9,7 @@ export const DEMO_BUDGET_TITLE = "Friday game night";
  * One-click demo scenarios (POST /api/demo/scenario). Pure constants: imported by
  * the demo hub (client) and lib/demo/scenarios.ts (server).
  */
-export const DEMO_SCENARIO_KINDS = ["settle-soon", "holdout", "capture-failure"] as const;
+export const DEMO_SCENARIO_KINDS = ["settle-soon", "holdout", "capture-failure", "big-group"] as const;
 export type DemoScenarioKind = (typeof DEMO_SCENARIO_KINDS)[number];
 
 /** Commitment deadline of a scenario outing, in seconds from creation (the policy minimum is 60 s). */
@@ -20,6 +20,7 @@ export const DEMO_SCENARIO_TITLES: Record<DemoScenarioKind, string> = {
   "settle-soon": "Maya's karaoke · settles on time (scenario)",
   holdout: "Maya's karaoke · one holdout (scenario)",
   "capture-failure": "Maya's karaoke · capture fails (scenario)",
+  "big-group": "Ten friends · karaoke room $10 each (scenario)",
 };
 
 export function isDemoScenarioKind(value: unknown): value is DemoScenarioKind {

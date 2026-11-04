@@ -1,7 +1,7 @@
 /**
  * Demo scenarios (demo only; 404 when DEMO_FIXTURES_ENABLED is off).
  *
- * POST /api/demo/scenario {kind: "settle-soon" | "holdout" | "capture-failure", deadlineSeconds?: 60-600 (default 120)}
+ * POST /api/demo/scenario {kind: "settle-soon" | "holdout" | "capture-failure" | "big-group", deadlineSeconds?: 60-600 (default 120)}
  *   -> 201 {outingId, kind, title, deadlineAt, deadlineSeconds, serverNow, personas: [{participantId, displayName, role, payerType, note}], tickAvailable}
  *   Creates a FRESH fixture outing in COLLECTING (see lib/demo/scenarios.ts). Switch personas with POST /api/demo/persona.
  * GET /api/demo/scenario?outingId=<uuid>

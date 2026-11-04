@@ -47,7 +47,7 @@ const HOUR = 60 * MIN;
 const BRIEF =
   "Karaoke for Maya's birthday on Friday evening! Six of us, ideally a private room. Let's cover Maya's share. Around $100 total, split fairly.";
 
-type CastKey = "alex" | "ben" | "freya" | "jules" | "noor" | "maya";
+type CastKey = "alex" | "ben" | "freya" | "jules" | "noor" | "maya" | "leo" | "ida" | "omar" | "kai";
 
 /** Organizer + 4 payers + Maya (sponsored). sortKey order = capture order: Alex, Ben, Freya, Jules, Noor. */
 const CAST: (PersonSpec & { key: CastKey })[] = [
@@ -57,6 +57,23 @@ const CAST: (PersonSpec & { key: CastKey })[] = [
   { key: "jules", name: "Jules", voteMinor: 15_000 },
   { key: "noor", name: "Noor", voteMinor: 10_000 },
   { key: "maya", name: "Maya", sponsored: true, voteMinor: 10_000 },
+];
+
+const BIG_BRIEF =
+  "Karaoke night for the whole crew! Ten of us, one private room, around $100 total. The more of us who join, the less each pays.";
+
+/** Organizer + 9 payers, all PAYER (no sponsored guest): ten payers share the $100 room, $10 each. Kai commits live. */
+const BIG_CAST: (PersonSpec & { key: CastKey })[] = [
+  { key: "alex", name: "Alex", organizer: true, voteMinor: 10_000 },
+  { key: "ben", name: "Ben", voteMinor: 10_000 },
+  { key: "freya", name: "Freya", voteMinor: 7_500 },
+  { key: "jules", name: "Jules", voteMinor: 15_000 },
+  { key: "noor", name: "Noor", voteMinor: 10_000 },
+  { key: "maya", name: "Maya", voteMinor: 10_000 },
+  { key: "leo", name: "Leo", voteMinor: 12_000 },
+  { key: "ida", name: "Ida", voteMinor: 8_000 },
+  { key: "omar", name: "Omar", voteMinor: 10_000 },
+  { key: "kai", name: "Kai", voteMinor: 10_000 },
 ];
 
 interface InjectedFailure {
@@ -69,11 +86,15 @@ interface ScenarioPlan {
   /** Payers who consent and authorize their $20 maximum before the viewer arrives. */
   committed: CastKey[];
   failures: InjectedFailure[];
-  notes: Record<CastKey, string>;
+  notes: Partial<Record<CastKey, string>>;
+  /** Defaults to the six-person karaoke cast (Maya sponsored). */
+  cast?: (PersonSpec & { key: CastKey })[];
+  brief?: string;
 }
 
 const HOLD = "Committed · $20 hold (fixture)";
 const MAYA = "Sponsored guest · accepted · pays $0";
+const BIG = (name: string) => `${name} · committed · $20 hold (fixture); estimate drops to $10 once ten commit`;
 
 const PLANS: Record<DemoScenarioKind, ScenarioPlan> = {
   "settle-soon": {
@@ -113,6 +134,24 @@ const PLANS: Record<DemoScenarioKind, ScenarioPlan> = {
       jules: `${HOLD} · capture is declined by the simulator (injected failure), then the hold is released`,
       noor: `${HOLD} · capture skipped after the failure, hold released`,
       maya: MAYA,
+    },
+  },
+  "big-group": {
+    cast: BIG_CAST,
+    brief: BIG_BRIEF,
+    committed: ["alex", "ben", "freya", "jules", "noor", "maya", "leo", "ida", "omar"],
+    failures: [],
+    notes: {
+      alex: `Organizer · ${HOLD}`,
+      ben: BIG("Ben"),
+      freya: BIG("Freya"),
+      jules: BIG("Jules"),
+      noor: BIG("Noor"),
+      maya: BIG("Maya"),
+      leo: BIG("Leo"),
+      ida: BIG("Ida"),
+      omar: BIG("Omar"),
+      kai: "Not committed yet: open as Kai and authorize $20. As the tenth payer your estimate drops to $10; at the deadline you are charged exactly $10 from the $20 hold",
     },
   },
 };
@@ -171,6 +210,7 @@ export async function createDemoScenario(
   const cfg = config();
   if (!cfg.demoFixturesEnabled) throw new Error("demo scenarios need DEMO_FIXTURES_ENABLED=true");
   const plan = PLANS[input.kind];
+  const cast = plan.cast ?? CAST;
   const now = input.now ?? new Date();
   const deadlineSeconds = clampScenarioSeconds(input.deadlineSeconds ?? DEMO_SCENARIO_DEADLINE_SECONDS.default);
   const deadlineAt = new Date(now.getTime() + deadlineSeconds * 1000);
@@ -188,10 +228,10 @@ export async function createDemoScenario(
     {
       key: `scenario-${input.kind}`,
       title,
-      brief: BRIEF,
+      brief: plan.brief ?? BRIEF,
       status: "PROPOSED",
       createdAt: new Date(now.getTime() - 30 * MIN),
-      people: CAST,
+      people: cast,
       proposal: { merchant, offering: room, proposedBudgetMinor: room.priceMinor },
     },
     input.secret ?? cfg.sessionSecret,
@@ -204,7 +244,7 @@ export async function createDemoScenario(
   // required), quote, SETTLE_DEADLINE job; then Maya's acceptance and each payer's consent + hold.
   const activityAt = nextLocalWeekdayAt(new Date(deadlineAt.getTime() + HOUR), 5, 19, merchant.timezone);
   const opened = await openCollection(db, actor("alex"), { activityAt, deadlineAt, minPayers: 5 }, now);
-  await respond(db, actor("maya"), { response: "ACCEPT" }, now);
+  if (!plan.cast) await respond(db, actor("maya"), { response: "ACCEPT" }, now);
 
   for (const key of plan.committed) {
     const { participantId } = actor(key);
@@ -245,9 +285,9 @@ export async function createDemoScenario(
     deadlineAt: deadlineAt.toISOString(),
     deadlineSeconds,
     serverNow: new Date().toISOString(),
-    personas: CAST.map((c) => {
+    personas: cast.map((c) => {
       const p = person(c.key);
-      return { participantId: p.id, displayName: p.displayName, role: p.role, payerType: p.payerType, note: plan.notes[c.key] };
+      return { participantId: p.id, displayName: p.displayName, role: p.role, payerType: p.payerType, note: plan.notes[c.key] ?? "" };
     }),
   };
 }

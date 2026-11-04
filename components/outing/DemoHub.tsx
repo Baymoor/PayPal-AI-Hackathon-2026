@@ -163,6 +163,12 @@ const SCENARIOS: Record<DemoScenarioKind, { title: string; what: string; fixture
     fixture: "Injected fixture failures: one declined capture, and one refund whose response is lost and reconciled on the next pass. No real money.",
     next: "When the deadline has passed, process due work. Process again a few seconds later: the lost refund response is reconciled and the clean-up completes.",
   },
+  "big-group": {
+    title: "Ten friends share the room",
+    what: "Ten friends share the $100 room. Everyone authorized up to $20; once the tenth commits the estimate drops to $10, and at the deadline each is charged exactly $10 from their $20 hold (fixture simulator).",
+    fixture: "Fixture holds and captures from the payment simulator, not real PayPal. Nine payers already hold $20; Kai is left for you to commit.",
+    next: "Open as Kai and authorize $20 (your estimate shows $10). When the deadline has passed, process due work: each of the ten is charged $10 and the rest of each hold is released.",
+  },
 };
 
 function describeSeconds(s: number): string {
@@ -524,7 +530,7 @@ export function DemoHub({ initialDeadlineSeconds }: { initialDeadlineSeconds?: n
           </h2>
         </div>
         <p className="text-ink-muted">
-          Each scenario creates a fresh demo outing at The Sound Room ($100 private karaoke room, Maya&apos;s share covered) whose commitment deadline is minutes
+          Each scenario creates a fresh demo outing at The Sound Room ($100 private karaoke room) whose commitment deadline is minutes
           away, so you can watch the server settle it instead of waiting hours.
         </p>
         <div className="flex flex-wrap items-center gap-2">

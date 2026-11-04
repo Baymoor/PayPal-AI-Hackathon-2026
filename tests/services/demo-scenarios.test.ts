@@ -80,13 +80,13 @@ async function commitAs(s: DemoScenario, name: string): Promise<void> {
 }
 
 describe("each scenario creates a valid COLLECTING fixture outing", () => {
-  const expected: Record<DemoScenarioKind, string[]> = {
+  const expected: Record<Exclude<DemoScenarioKind, "big-group">, string[]> = {
     "settle-soon": ["Alex", "Ben", "Freya", "Jules"],
     holdout: ["Alex", "Ben", "Freya", "Jules"],
     "capture-failure": ["Alex", "Ben", "Freya", "Jules", "Noor"],
   };
 
-  for (const kind of Object.keys(expected) as DemoScenarioKind[]) {
+  for (const kind of Object.keys(expected) as (keyof typeof expected)[]) {
     it(kind, async () => {
       const db = getDb();
       const now = new Date();
@@ -276,6 +276,72 @@ describe("the real engine settles each scenario at the deadline", () => {
     expect(await outingRow(s.outingId)).toBeUndefined();
     const left = await db.execute(sql`select count(*)::int as n from fixture_provider_objects`);
     expect((left.rows[0] as { n: number }).n).toBe(0);
+  });
+});
+
+describe("big-group: ten payers share the $100 room", () => {
+  const NINE = ["Alex", "Ben", "Freya", "Jules", "Noor", "Maya", "Leo", "Ida", "Omar"];
+
+  it("creates a valid COLLECTING outing with 9 authorized $20 holds and no sponsored guest", async () => {
+    const db = getDb();
+    const now = new Date();
+    const s = await createDemoScenario(db, { kind: "big-group", now });
+    expect(s.title).toBe(DEMO_SCENARIO_TITLES["big-group"]);
+    expect(s.deadlineSeconds).toBe(120);
+    expect(s.personas.map((p) => p.displayName)).toEqual([...NINE, "Kai"]);
+    expect(s.personas.every((p) => p.note.length > 0 && p.payerType === "PAYER")).toBe(true);
+    expect(s.personas[0].role).toBe("ORGANIZER");
+
+    const outing = await outingRow(s.outingId);
+    expect(outing).toMatchObject({ status: "COLLECTING", isFixture: true, minPayers: 5, frozenAt: null });
+    const quote = (await db.query.quoteVersions.findFirst({ where: eq(quoteVersions.id, outing.currentQuoteId!) }))!;
+    const terms = quote.terms as CommitmentTerms;
+    expect(quote).toMatchObject({ status: "ACTIVE", totalMinor: 10_000, capMinor: 2_000, pricingModel: "FIXED_TOTAL", minPayers: 5, capacity: 10 });
+    expect(hashTerms(terms)).toBe(quote.termsHash);
+    expect(terms.sponsoredParticipantIds).toEqual([]);
+    expect(terms.requiredParticipantIds).toHaveLength(10);
+
+    const attempts = await attemptsOf(s.outingId);
+    expect(attempts).toHaveLength(9);
+    expect(s.personas.filter((p) => attempts.some((a) => a.participantId === p.participantId)).map((p) => p.displayName)).toEqual(NINE);
+    for (const a of attempts) {
+      expect(a).toMatchObject({ provider: "FIXTURE", status: "AUTHORIZED", verified: true, late: false, authorizedMinor: 2_000, capturedMinor: 0 });
+    }
+    expect(await demoScenarioStatus(db, s.outingId)).toMatchObject({ kind: "big-group", status: "COLLECTING", payers: { total: 10, committed: 9 } });
+  });
+
+  it("after Kai commits and the deadline passes, the real engine captures 10 x $10 and releases the rest of each hold", async () => {
+    const db = getDb();
+    const s = await createDemoScenario(db, { kind: "big-group" });
+    await commitAs(s, "Kai");
+    await passDeadline(s.outingId);
+
+    const r = await tick();
+    expect(r.errors).toEqual([]);
+    expect(await outingRow(s.outingId)).toMatchObject({ status: "CONFIRMED", cleanup: "NONE" });
+    const snapshot = (await db.query.settlementSnapshots.findFirst({ where: eq(settlementSnapshots.outingId, s.outingId) }))!;
+    expect(snapshot).toMatchObject({ decision: "SETTLE", payerCount: 10, totalMinor: 10_000 });
+
+    const attempts = await attemptsOf(s.outingId);
+    expect(attempts).toHaveLength(10);
+    const captures = (await opsOf(s.outingId)).filter((o) => o.kind === "CAPTURE");
+    expect(captures).toHaveLength(10);
+    for (const c of captures) {
+      expect([c.status, c.amountMinor]).toEqual(["SUCCEEDED", 1_000]);
+      const a = attempts.find((x) => x.id === c.paymentAttemptId)!;
+      expect(c.amountMinor).toBeLessThanOrEqual(a.authorizedMinor);
+    }
+    expect(captures.reduce((sum, c) => sum + c.amountMinor, 0)).toBe(10_000);
+    for (const a of attempts) {
+      expect(a).toMatchObject({ status: "CAPTURED", authorizedMinor: 2_000, capturedMinor: 1_000, refundedMinor: 0 });
+      // Simulator final_capture semantics: one $10 capture closes the $20 authorization and releases the remaining $10.
+      const auth = (await readFixtureObject(db, a.authorizationId!))!.data as { status: string; amountMinor: number; capturedMinor: number; releasedMinor: number };
+      expect(auth).toMatchObject({ status: "CAPTURED", amountMinor: 2_000, capturedMinor: 1_000, releasedMinor: 1_000 });
+      const cap = (await readFixtureObject(db, a.captureId!))!.data as { status: string; amountMinor: number; finalCapture: boolean };
+      expect(cap).toMatchObject({ status: "COMPLETED", amountMinor: 1_000, finalCapture: true });
+    }
+    expect((await opsOf(s.outingId)).filter((o) => o.kind === "VOID" || o.kind === "REFUND")).toHaveLength(0);
+    expect((await demoScenarioStatus(db, s.outingId))!.headline).toBe("Confirmed: 10 shares captured, $100 in total (fixture).");
   });
 });
 
