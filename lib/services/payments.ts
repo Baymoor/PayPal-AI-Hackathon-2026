@@ -86,6 +86,25 @@ function resolveDefaultProvider(): PaymentProviderName {
   }
 }
 
+/**
+ * Which provider a NEW attempt for this outing must use. Demo (isFixture)
+ * outings are seeded with FIXTURE holds and always stay on the simulator;
+ * they never fall back to real PayPal when the simulator is disabled. Real
+ * outings use the configured default (PayPal sandbox when credentials exist),
+ * so one settlement never mixes simulated and real holds.
+ */
+export function providerNameForOuting(outing: Pick<Outing, "isFixture">): PaymentProviderName {
+  if (outing.isFixture) {
+    if (config().demoFixturesEnabled) return "FIXTURE";
+    throw new ServiceError(
+      "PAYMENTS_DISABLED",
+      503,
+      "This demo outing uses the fixture payment simulator, which is disabled (DEMO_FIXTURES_ENABLED is not set). It cannot be paid through real PayPal.",
+    );
+  }
+  return resolveDefaultProvider();
+}
+
 function providerFor(name: PaymentProviderName): PaymentProvider {
   try {
     return getPaymentProvider(name);
@@ -231,7 +250,6 @@ export async function startPayment(
   opts: { allowReuse?: boolean } = {},
 ): Promise<StartPaymentResult> {
   const { now } = input;
-  const providerName = resolveDefaultProvider();
   const actor = participantActor(input.participantId);
 
   const prep: StartPrep = await db.transaction(async (tx) => {
@@ -247,6 +265,7 @@ export async function startPayment(
     if (outing.status !== "COLLECTING" || outing.frozenAt) {
       throw conflict("OUTING_NOT_COLLECTING", "This outing is not accepting payment holds right now.");
     }
+    const providerName = providerNameForOuting(outing);
     const deadline = deadlineOf(outing);
     if (now.getTime() >= deadline.getTime()) {
       throw conflict("DEADLINE_PASSED", "The commitment deadline has passed. No new payment holds are accepted.");
@@ -434,8 +453,9 @@ async function recordAuthorization(db: Db, attemptId: string, auth: Authorizatio
     // Lock order: outing, then attempt (the settlement decision locks the outing and reads attempts).
     const outing = await lockOuting(tx, pre.outingId);
     const attempt = await lockAttempt(tx, attemptId);
-    if (attempt.status !== "APPROVAL_PENDING" && attempt.status !== "UNKNOWN") return outcomeOf(attempt); // already recorded
-    if (attempt.authorizationId) return outcomeOf(attempt);
+    if (attempt.authorizationId) return outcomeOf(attempt); // already recorded
+    if (attempt.status === "FAILED") return recordStrayAuthorization(tx, attempt, auth, now, actor);
+    if (attempt.status !== "APPROVAL_PENDING" && attempt.status !== "UNKNOWN") return outcomeOf(attempt);
 
     const mismatches: string[] = [];
     if (auth.status !== "CREATED") mismatches.push(`STATUS_${auth.providerStatus}`);
@@ -511,6 +531,57 @@ async function recordAuthorization(db: Db, attemptId: string, auth: Authorizatio
     await recordAudit(tx, { outingId: attempt.outingId, actor, type: "PAYMENT_AUTHORIZED", data: baseAudit });
     return "AUTHORIZED";
   });
+}
+
+/**
+ * A provider authorization exists for an attempt we had already closed as
+ * FAILED without ever recording a hold (a reconcile / late-approval path closed
+ * it while the authorize call was still in flight, or the hold only became
+ * visible later). It is never admitted: record the provider facts on the
+ * attempt and plan a VOID so the buyer's money is released — a closed attempt
+ * must never hide a live hold.
+ */
+async function recordStrayAuthorization(tx: Tx, attempt: PaymentAttempt, auth: AuthorizationView, now: Date, actor: AuditActor): Promise<PaymentOutcome> {
+  const needsVoid = !VOID_NOT_NEEDED.has(auth.status);
+  await tx
+    .update(paymentAttempts)
+    .set({
+      authorizationId: auth.authorizationId,
+      authorizedMinor: auth.amountMinor,
+      authorizedAt: auth.createTime,
+      authorizationExpiresAt: auth.expirationTime,
+      providerStatus: auth.providerStatus,
+      verified: true,
+      verifiedAt: now,
+      lastError: `AUTHORIZATION_AFTER_CLOSE: hold found for a closed attempt; ${needsVoid ? "void planned" : "nothing held"}`,
+      updatedAt: now,
+    })
+    .where(eq(paymentAttempts.id, attempt.id));
+  if (needsVoid) {
+    await planPaymentOperation(tx, {
+      outingId: attempt.outingId,
+      paymentAttemptId: attempt.id,
+      kind: "VOID",
+      amountMinor: auth.amountMinor,
+      currency: auth.currency,
+    });
+  }
+  await recordAudit(tx, {
+    outingId: attempt.outingId,
+    actor,
+    type: "PAYMENT_AUTHORIZATION_NOT_ADMITTED",
+    data: {
+      paymentAttemptId: attempt.id,
+      provider: attempt.provider,
+      authorizationRef: redactRef(auth.authorizationId),
+      authorizedMinor: auth.amountMinor,
+      currency: auth.currency,
+      providerCreateTime: auth.createTime.toISOString(),
+      reasons: ["ATTEMPT_ALREADY_CLOSED"],
+      voidPlanned: needsVoid,
+    },
+  });
+  return attempt.late ? "LATE" : "FAILED";
 }
 
 /** Mark an attempt FAILED if it is still awaiting approval / unknown (conditional, race-safe). */
@@ -765,6 +836,8 @@ export async function withdraw(db: Db, input: { outingId: string; participantId:
         runAt: now,
         dedupeKey: `settle-early:${outing.id}`,
         payload: { early: true, reason: "REQUIRED_DECLINED" },
+        // An earlier early-cancel job may already be DONE/DEAD (e.g. it ran while still feasible): run again.
+        onConflict: "requeue",
       });
       earlyCancelScheduled = true;
     }
@@ -797,7 +870,12 @@ export async function reconcilePaymentAttempt(db: Db, input: { paymentAttemptId:
   const { now } = input;
   const actor: AuditActor = "SYSTEM";
   const attempt = await db.query.paymentAttempts.findFirst({ where: eq(paymentAttempts.id, input.paymentAttemptId) });
-  if (!attempt || attempt.status !== "UNKNOWN" || attempt.authorizationId) return "NOOP";
+  if (!attempt || attempt.authorizationId) return "NOOP";
+  // A FAILED attempt that has an order but never recorded a hold is only re-read to find a stray
+  // authorization (recorded + voided by recordAuthorization); it is never re-authorized or re-failed.
+  const closed = attempt.status === "FAILED";
+  if (attempt.status !== "UNKNOWN" && !closed) return "NOOP";
+  if (closed && !attempt.providerOrderId) return "NOOP";
 
   if (!attempt.providerOrderId) {
     // Order creation never confirmed: the buyer never received an approval link, so no hold can exist.
@@ -813,6 +891,7 @@ export async function reconcilePaymentAttempt(db: Db, input: { paymentAttemptId:
   const read = await safeCall(() => provider.getOrder(attempt.providerOrderId!));
   if (!read.ok) {
     if (read.kind === "UNKNOWN") return "PENDING";
+    if (closed) return "NOOP";
     await failAttempt(db, attempt.id, now, `RECONCILE: ${failureNote(read)}`, { actor, type: "PAYMENT_RECONCILED", data: { result: "FAILED", code: read.code } });
     return "FAILED";
   }
@@ -822,6 +901,7 @@ export async function reconcilePaymentAttempt(db: Db, input: { paymentAttemptId:
     // Record (and, if needed, void) every authorization found; the first is the attempt's.
     return recordAuthorization(db, attempt.id, found[0], now, actor);
   }
+  if (closed) return "NOOP";
 
   if (read.order.status === "APPROVED") {
     const outing = await db.query.outings.findFirst({ where: eq(outings.id, attempt.outingId) });

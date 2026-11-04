@@ -241,11 +241,12 @@ export async function reconcileAttempt(
       read = "OK";
       ({ attempt, note } = await applyAuthorizationView(db, attempt.id, res.authorization, deadlineAt, now));
     }
-  } else if (attempt.status === "UNKNOWN") {
+  } else if (attempt.status === "UNKNOWN" || (attempt.status === "FAILED" && attempt.providerOrderId)) {
     // An order-creation or authorize call whose outcome we never saw. The payments service owns
     // that stage (it can re-send authorize with its own stable request id): no order -> FAILED,
     // order without authorization -> re-authorize if still admissible, else FAILED; an
-    // authorization found is recorded through its race rule (late -> VOID).
+    // authorization found is recorded through its race rule (late -> VOID). A FAILED attempt
+    // that never recorded a hold is only re-read for a stray authorization (recorded + voided).
     const outcome = await reconcilePaymentAttempt(db, { paymentAttemptId: attempt.id, now });
     if (outcome === "PENDING") {
       read = "FAILED";

@@ -35,7 +35,8 @@ import { enqueueJob, operationsJobKey } from "../jobs/queue";
 import { recordAudit } from "../audit";
 import { checkMerchantAvailability, type MerchantAvailability } from "./availability";
 import { reconcileAttempt } from "./reconcile";
-import { moveAttempt } from "./attempts";
+import { recomputeCleanup } from "./operations";
+import { moveAttempt, patchAttempt, truncateError } from "./attempts";
 import type { PlannedCapture, SettlementRoster, SettlementTrigger } from "./snapshot";
 import { workerActor, type ProviderResolver } from "./types";
 
@@ -119,8 +120,18 @@ export async function runDeadlineSettlement(
       const r = await reconcileAttempt(db, resolveProvider, { attemptId: attempt.id, now, workerId, deadlineAt: outing.deadlineAt, deferLateVoid: true });
       if (r.read === "FAILED" || r.note) reconcileNotes.push(`${attempt.id}: ${r.read}${r.note ? ` (${r.note})` : ""}`);
     } catch (err) {
-      // Fail closed for this person: the attempt keeps whatever (unverified) state it had.
-      reconcileNotes.push(`${attempt.id}: ERROR ${err instanceof Error ? err.message : String(err)}`);
+      // Fail closed for this person: a hold whose provider state could not be re-read (adapter threw,
+      // e.g. its provider is not configured any more) is unverified — exactly like a failed read.
+      const message = `provider unavailable: ${err instanceof Error ? err.message : String(err)}`;
+      reconcileNotes.push(`${attempt.id}: ERROR ${message}`);
+      try {
+        const current = await db.query.paymentAttempts.findFirst({ where: eq(paymentAttempts.id, attempt.id) });
+        if (current && current.status === "AUTHORIZED" && current.verified) {
+          await patchAttempt(db, current.id, { verified: false, verifiedAt: now, lastError: truncateError(message) }, now);
+        }
+      } catch (inner) {
+        reconcileNotes.push(`${attempt.id}: could not mark unverified (${inner instanceof Error ? inner.message : String(inner)})`);
+      }
     }
   }
 
@@ -305,7 +316,7 @@ async function decide(tx: Tx, ctx: DecideContext): Promise<DeadlineSettlementRes
     assertOutingTransition(locked.status, "SETTLING");
     await tx
       .update(outings)
-      .set({ status: "SETTLING", frozenAt, version: locked.version + 1, cleanup: "NONE", updatedAt: now })
+      .set({ status: "SETTLING", frozenAt, version: locked.version + 1, updatedAt: now })
       .where(eq(outings.id, locked.id));
     for (const c of plannedCaptures) {
       // planPaymentOperation re-checks amount <= authorized; the DB check constraint is the last line.
@@ -320,6 +331,8 @@ async function decide(tx: Tx, ctx: DecideContext): Promise<DeadlineSettlementRes
       });
     }
     await planVoids(tx, voids, byId, now);
+    // Derived from the operations (a withdrawn payer's void may still be pending / stuck), never assumed.
+    await recomputeCleanup(tx, locked.id);
     await recordAudit(tx, {
       outingId: locked.id,
       actor,
@@ -345,7 +358,10 @@ async function decide(tx: Tx, ctx: DecideContext): Promise<DeadlineSettlementRes
     .set({ status: "CANCELLING", frozenAt, version: locked.version + 1, updatedAt: now })
     .where(eq(outings.id, locked.id));
   await planVoids(tx, voids, byId, now);
-  // Booking is cancelled now; the money clean-up is tracked separately in `cleanup`.
+  // Booking is cancelled now; the money clean-up is tracked separately in `cleanup` and derived from
+  // EVERY operation of the outing (including voids planned earlier by a withdrawal that may be stuck),
+  // so COMPLETE is only ever written when the provider confirmed every release.
+  const cleanup = await recomputeCleanup(tx, locked.id);
   assertOutingTransition("CANCELLING", "CANCELLED");
   await tx
     .update(outings)
@@ -353,7 +369,7 @@ async function decide(tx: Tx, ctx: DecideContext): Promise<DeadlineSettlementRes
       status: "CANCELLED",
       cancelReasons: decision.reasons,
       cancelledAt: now,
-      cleanup: voids.length > 0 ? "VOID_PENDING" : "COMPLETE",
+      cleanup,
       version: locked.version + 2,
       updatedAt: now,
     })
@@ -372,7 +388,7 @@ async function decide(tx: Tx, ctx: DecideContext): Promise<DeadlineSettlementRes
       merchantAvailability: ctx.availability,
     },
   });
-  await recordAudit(tx, { outingId: locked.id, actor, type: "OUTING_CANCELLED", data: { reasons: decision.reasons, cleanup: voids.length > 0 ? "VOID_PENDING" : "COMPLETE" } });
+  await recordAudit(tx, { outingId: locked.id, actor, type: "OUTING_CANCELLED", data: { reasons: decision.reasons, cleanup } });
   return { outcome: "CANCEL", snapshotId: snapshot.id, reasons: decision.reasons, voids: voids.length };
 }
 
