@@ -1,36 +1,87 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Outings
 
-## Getting Started
+> Turn a group plan into an approved, fairly shared booking. Budget poker, a covered guest of honour, PayPal sandbox authorizations of each person's maximum share, and a server-side deadline that either settles the booking or releases every hold.
 
-First, run the development server:
+Independent project for the **PayPal AI Hackathon 2026**. Uses **PayPal sandbox** payments only — no real money moves. "Outings" is a working name.
+
+## How it works
+
+1. **Brief** — the organizer writes a plain-language plan ("A karaoke night for Maya's birthday. Six of us, Friday evening. We want a private room and to cover Maya's share."). Claude extracts structured preferences (activity, date window, group size, budget unit, guest of honour) with schema-validated output.
+2. **Budget poker** — everyone privately suggests a TOTAL budget. Votes are private until reveal (enforced by the API), and the reveal shows only the aggregate. A vote is never a payment.
+3. **Invite** — Claude ranks a small merchant-owned catalogue; the organizer picks a quote (e.g. *The Sound Room — private karaoke room, $100 fixed total, up to 10 people*), optionally covers one guest of honour, and opens commitments with a deadline ≤ 48 h.
+4. **Commit** — each payer reviews the exact terms and authorizes their maximum ($100 / 5 payers = $20) through PayPal (Orders v2, intent AUTHORIZE). More payers lower the *estimated* share ($10 with 10 payers) — nothing is charged yet.
+5. **Deadline** — a durable server job (not a browser timer, not an LLM) freezes the roster. If every required person committed: capture each exact share (≤ their maximum, penny-exact) with `final_capture`. Otherwise: cancel and void every hold. If a capture fails mid-way: stop, void the rest, refund completed captures, and show the recovery.
+
+The merchant sees everything in an **AG Studio** dashboard with an AG Grid booking table, a custom *Booking Readiness* widget, and a safe natural-language query.
+
+## Quick start
+
+Requirements: Node ≥ 22.12, npm, Postgres 16.
+
+```bash
+npm install
+```
+
+```bash
+cp .env.example .env.local
+```
+
+```bash
+createdb outings   # or: psql -c "CREATE DATABASE outings"
+```
+
+```bash
+npm run db:migrate && npm run db:seed
+```
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+```bash
+npm run worker
+```
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Open http://localhost:3000 (consumer) and http://localhost:3000/merchant (dashboard). Without PayPal or Anthropic keys the app runs in clearly labelled **FIXTURE** modes (`DEMO_FIXTURES_ENABLED=true`): simulated approvals and deterministic AI parsing, never presented as real PayPal or real model output.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### Real PayPal sandbox
 
-## Learn More
+1. In the PayPal Developer Dashboard create a sandbox REST app (Business merchant) and at least two Personal buyer accounts.
+2. Set `PAYPAL_CLIENT_ID`, `PAYPAL_CLIENT_SECRET` (and `PAYPAL_WEBHOOK_ID` for webhooks) in `.env.local`.
+3. Run the sandbox proof script: `npx tsx scripts/paypal-smoke.ts` (authorize $20 → capture $10 → void → refund), which writes redacted evidence to `docs/evidence/`.
 
-To learn more about Next.js, take a look at the following resources:
+### Real AI
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Set `OUTINGS_ANTHROPIC_API_KEY` (and optionally `OUTINGS_AI_MODEL`, default `claude-sonnet-5-5`). This is the app's runtime key, deliberately separate from any Claude Code credentials.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Tests
 
-## Deploy on Vercel
+```bash
+npm run typecheck
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+```bash
+npm test
+```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Integration tests need a Postgres database at `TEST_DATABASE_URL` (default `postgres://outings:outings@localhost:5432/outings_test`).
+
+## Documentation
+
+- [Product & financial spec](docs/PRODUCT_SPEC.md)
+- [Architecture](docs/ARCHITECTURE.md)
+- [Module contracts & HTTP API](docs/CONTRACTS.md)
+- [Design system](docs/design/DESIGN_SYSTEM.md)
+- [PayPal integration research](docs/research/PAYPAL.md) · [AG Studio research](docs/research/AG_STUDIO.md)
+- [Source provenance](docs/PROVENANCE.md)
+- [Handoff / status](docs/HANDOFF_TO_CODEX.md)
+
+## Known limitations
+
+- PayPal sandbox flows are implemented against the official API specs but **have not yet been exercised against PayPal** from the build environment (see the handoff for the verification checklist).
+- One merchant, one currency (USD), fixed-total pricing for shared bookings.
+- AG Studio is commercial software used under its evaluation trial; AG Grid Community is MIT.
+
+## License
+
+MIT — see [LICENSE](LICENSE). Third-party notices in [docs/PROVENANCE.md](docs/PROVENANCE.md).
