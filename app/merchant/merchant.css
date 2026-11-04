@@ -195,3 +195,17 @@ dialog.m-dialog::backdrop { background: rgb(20 33 61 / .5); }
 .m-view { display: inline-flex; align-items: center; gap: 8px; }
 .m-view select { min-height: 40px; border-radius: 999px; border: 1px solid var(--m-line-strong); background: var(--m-surface); color: var(--m-ink); font: inherit; font-weight: 600; padding: 0 14px; }
 .m-view-note { color: var(--m-ink-muted); font-size: 12px; }
+
+/* Links rendered inside Studio grid cells, and the header Setup link */
+.m-root .m-grid-link { color: var(--m-ink); font-weight: 600; text-decoration: underline; text-underline-offset: 2px; }
+.m-root .m-grid-link:hover { color: var(--m-coral-700); text-decoration-thickness: 2px; }
+.m-root .m-grid-link:focus-visible { outline: 2px solid var(--m-ink); outline-offset: 2px; }
+.m-root a.m-setup-link { color: #fff; text-decoration: underline; text-underline-offset: 3px; padding: 0 8px; min-height: 44px; display: inline-flex; align-items: center; font-size: 13px; }
+.m-root a.m-setup-link:focus-visible { outline: 2px solid #fff; }
+.m-setup-list { margin: 0; padding: 0; list-style: none; display: grid; gap: 8px; }
+.m-setup-list li { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; border-bottom: 1px solid var(--m-line); padding-bottom: 8px; }
+.m-setup-list code, .m-setup-code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; word-break: break-all; }
+.m-setup-grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
+.m-setup-result { margin-top: 12px; padding: 12px; border-radius: 12px; background: var(--m-cream); border: 1px solid var(--m-line); }
+.m-setup-result[data-ok="true"] { background: var(--m-captured-bg); border-color: var(--m-captured); }
+.m-setup-result[data-ok="false"] { background: var(--m-danger-bg); border-color: var(--m-danger); }

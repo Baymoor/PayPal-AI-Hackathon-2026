@@ -59,3 +59,4 @@ export async function askDashboard(question: string): Promise<AskResult> {
     warnings: Array.isArray(body.warnings) ? (body.warnings as unknown[]).map(String) : [],
   };
 }
+export const runSetupCheck = (which: "paypal" | "anthropic") => request<Record<string, unknown>>(`/api/merchant/setup/${which}`, { method: "POST", body: "{}" });

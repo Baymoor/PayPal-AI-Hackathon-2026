@@ -373,6 +373,16 @@ export class PaypalProvider implements PaymentProvider {
     this.tokenState.refreshAtMs = 0;
   }
 
+  /**
+   * Diagnostics: force a fresh OAuth client-credentials exchange and report only success or the
+   * failure (never the token). Used by the owner-only /setup page.
+   */
+  async checkCredentials(): Promise<{ ok: true } | ProviderFailure> {
+    this.invalidateToken();
+    const t = await this.fetchToken();
+    return typeof t === "string" ? { ok: true } : t;
+  }
+
   private async accessToken(): Promise<string | ProviderFailure> {
     const s = this.tokenState;
     if (s.token && this.nowMs() < s.refreshAtMs) return s.token;

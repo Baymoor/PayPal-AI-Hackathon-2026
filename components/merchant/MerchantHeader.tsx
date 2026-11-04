@@ -37,6 +37,11 @@ export function MerchantHeader() {
         {paymentMode === "FIXTURE" && <span className="m-badge" data-tone="fixture">Fixture payments · not real PayPal</span>}
         {paymentMode === "DISABLED" && <span className="m-badge">Payments off</span>}
         {!onLogin && (
+          <Link href="/setup" className="m-setup-link">
+            Setup
+          </Link>
+        )}
+        {!onLogin && (
           <button type="button" className="m-signout" onClick={signOut} disabled={busy}>
             Sign out
           </button>

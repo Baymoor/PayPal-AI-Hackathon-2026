@@ -17,6 +17,7 @@ import { buildStudioData, f } from "./studioData";
 import { outingsStudioTheme } from "./studioTheme";
 import { outingsWidgets, type OutingsRegistry } from "./outingsWidgets";
 import { createAiSetup } from "./studioAi";
+import { setOutingIdLookup } from "./OutingLinkCell";
 
 if (process.env.NODE_ENV !== "production") enableStudioDevValidations();
 
@@ -222,6 +223,7 @@ export interface StudioDashboardProps {
 export default function StudioDashboard({ rows, currency, sort, focus, page, licenseKey, aiEnabled, mode, onOpenOuting, onApi, onError }: StudioDashboardProps) {
   const apiRef = useRef<AgStudioApi | null>(null);
   // Source definitions do not depend on the widget registry; the cast only reconciles generics.
+  useMemo(() => setOutingIdLookup(rows.map((r) => ({ id: r.outingId, title: r.title }))), [rows]);
   const data = useMemo(() => buildStudioData(rows, currency) as unknown as AgDataSourcesDefinition<OutingsRegistry>, [rows, currency]);
   // initialState is read once at creation (remount via key); later page switches go through api.setState.
   const [initialPage] = useState(page);
