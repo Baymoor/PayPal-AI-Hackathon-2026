@@ -1,16 +1,20 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
 import { Clock } from "lucide-react";
 import { cn } from "./cn";
 
+/* A once-per-second client clock as an external store: no clock reads during render (hydration-safe). */
+function subscribeSeconds(onTick: () => void): () => void {
+  const id = setInterval(onTick, 1000);
+  return () => clearInterval(id);
+}
+/** Whole seconds, so repeated snapshots within the same second are identical. */
+const clientSecond = () => Math.floor(Date.now() / 1000) * 1000;
+const noClockOnServer = () => null;
+
 /** Remaining time to `targetIso`, using a server-clock offset (serverNow - clientNow at fetch time). */
 export function useRemainingMs(targetIso: string | null, offsetMs: number): number | null {
-  const [now, setNow] = useState<number | null>(null);
-  useEffect(() => {
-    setNow(Date.now());
-    const id = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(id);
-  }, []);
+  const now = useSyncExternalStore(subscribeSeconds, clientSecond, noClockOnServer);
   if (!targetIso || now === null) return null;
   return Date.parse(targetIso) - (now + offsetMs);
 }

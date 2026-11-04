@@ -45,9 +45,9 @@ export function SiteHeader({
         </div>
         {nav && (
           <nav aria-label="Main" className="hidden items-center gap-8 md:flex">
-            <a href="/#how" className="inline-flex min-h-[44px] items-center font-medium hover:text-coral-700">
+            <Link href="/#how" className="inline-flex min-h-[44px] items-center font-medium hover:text-coral-700">
               How it works
-            </a>
+            </Link>
             <Link href="/demo" className="inline-flex min-h-[44px] items-center font-medium hover:text-coral-700">
               Try the demo
             </Link>

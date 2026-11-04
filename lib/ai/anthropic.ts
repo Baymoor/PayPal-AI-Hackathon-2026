@@ -46,9 +46,20 @@ export const REQUEST_TIMEOUT_MS = 20_000;
 export const MAX_RETRIES = 1;
 export const MAX_OUTPUT_TOKENS = 3000;
 
+/** The parts of a Messages API response we read (everything else is ignored). */
+export interface AnthropicMessageLike {
+  stop_reason?: string | null;
+  content?: ReadonlyArray<{ type?: string; text?: string }> | null;
+}
+
 /** Minimal client surface we use (lets tests inject a mock). */
 export interface AnthropicLike {
-  messages: { create(params: any, options?: any): Promise<any> };
+  messages: {
+    create(
+      params: Record<string, unknown>,
+      options?: { timeout?: number; maxRetries?: number },
+    ): Promise<AnthropicMessageLike | null | undefined>;
+  };
 }
 
 /** Keywords json_schema output does not support; zod re-checks them afterwards. */
@@ -115,7 +126,7 @@ export class AnthropicOutingsAi implements OutingsAi {
       ...(isModernModel(this.model) ? {} : { temperature: 0.2 }),
     };
 
-    let res: any;
+    let res: AnthropicMessageLike | null | undefined;
     try {
       res = await this.client.messages.create(params, { timeout: REQUEST_TIMEOUT_MS, maxRetries: MAX_RETRIES });
     } catch (err) {
@@ -126,8 +137,8 @@ export class AnthropicOutingsAi implements OutingsAi {
     if (res?.stop_reason === "refusal") throw new AiOutputError("Model declined the request");
     if (res?.stop_reason === "max_tokens") throw new AiOutputError("Model output was truncated");
     const text = (res?.content ?? [])
-      .filter((b: { type?: string }) => b?.type === "text")
-      .map((b: { text?: string }) => b.text ?? "")
+      .filter((b) => b?.type === "text")
+      .map((b) => b.text ?? "")
       .join("")
       .trim();
     if (!text) throw new AiOutputError("Model returned no text output");

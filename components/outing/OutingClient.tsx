@@ -24,44 +24,49 @@ export function OutingClient({ id, paymentFlag }: { id: string; paymentFlag?: st
   const [stale, setStale] = useState(false);
   const viewRef = useRef<OutingView | null>(null);
 
-  const load = useCallback(async () => {
-    try {
-      const t0 = Date.now();
-      const v = await outingApi.get(id);
-      const t1 = Date.now();
+  /** One fetch of the view. State is only set from the promise callback, never synchronously. */
+  const load = useCallback(async (): Promise<void> => {
+    const t0 = Date.now();
+    const result = await outingApi.get(id).then(
+      (v) => ({ ok: true as const, v, t1: Date.now() }),
+      (e: unknown) => ({ ok: false as const, err: e instanceof ApiError ? e : new ApiError("UNKNOWN", 0, "Something went wrong.") }),
+    );
+    if (result.ok) {
       // Server clock offset, corrected for half the round trip.
-      setOffset(Date.parse(v.outing.serverNow) - (t0 + (t1 - t0) / 2));
-      viewRef.current = v;
-      setView(v);
+      setOffset(Date.parse(result.v.outing.serverNow) - (t0 + (result.t1 - t0) / 2));
+      viewRef.current = result.v;
+      setView(result.v);
       setFatal(null);
       setStale(false);
-    } catch (e) {
-      const err = e instanceof ApiError ? e : new ApiError("UNKNOWN", 0, "Something went wrong.");
-      if (viewRef.current && err.status !== 401 && err.status !== 404) setStale(true);
-      else {
-        viewRef.current = null;
-        setView(null);
-        setFatal(err);
-      }
+      return;
+    }
+    const err = result.err;
+    if (viewRef.current && err.status !== 401 && err.status !== 404) setStale(true);
+    else {
+      viewRef.current = null;
+      setView(null);
+      setFatal(err);
     }
   }, [id]);
 
+  // Initial load + polling while the outing can still change. The countdown never decides anything:
+  // the server's deadline job does, and polling picks up the result.
+  const polling = view ? shouldPoll(view) : true;
   useEffect(() => {
-    load();
-  }, [load]);
-
-  useEffect(() => {
-    if (!view || !shouldPoll(view)) return;
+    let alive = true;
     const tick = () => {
-      if (document.visibilityState === "visible") load();
+      if (alive && document.visibilityState === "visible") void load();
     };
+    if (!viewRef.current) queueMicrotask(tick);
+    if (!polling) return () => void (alive = false);
     const t = setInterval(tick, POLL_MS);
     document.addEventListener("visibilitychange", tick);
     return () => {
+      alive = false;
       clearInterval(t);
       document.removeEventListener("visibilitychange", tick);
     };
-  }, [view, load]);
+  }, [polling, load]);
 
   const actions: OutingActions = useMemo(
     () => ({
