@@ -93,7 +93,7 @@ Proven against sandbox: **none yet** (network policy of the cloud container bloc
 - Rate limiter is in-memory per process. The client IP is the `TRUSTED_PROXY_HOPS`-th `X-Forwarded-For` entry from the right. The default of 0 trusts no header, so all clients share one bucket per route; set it to 1 behind a single load balancer.
 - `OutingView.outing.paymentMode` comes from config, not from the outing's own attempts (fixture outings in a PayPal-configured deployment still use FIXTURE — enforced in `startPayment`).
 - Sessions are signed cookies without server-side revocation (merchant sessions expire after 12 h).
-- AG Studio: trial watermark off localhost without a key; KPI cards above Studio don't cross-filter; grid scrolls horizontally below ~1300 px; NL-query focus ring locates widgets by layout order; one axe finding inside AG Charts (third-party landmark label).
+- AG Studio: trial watermark off localhost without a key; grid scrolls horizontally below ~1300 px; NL-query focus ring locates widgets by layout order; one axe finding inside AG Charts (third-party landmark label).
 - `next dev`/`next build` with a custom `NEXT_DIST_DIR` rewrites `tsconfig.json` includes — restore with `git checkout tsconfig.json`.
 - Seeded "Maya's birthday karaoke" closes ~2 h after seeding; use the `/demo` scenarios for a live settlement.
 - Budget poker implements TOTAL mode only (no per-person input mode).

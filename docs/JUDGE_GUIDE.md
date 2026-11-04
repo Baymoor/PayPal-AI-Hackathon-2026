@@ -11,9 +11,9 @@ Read this before you start: some parts of the demo are **FIXTURE** (simulated an
 
 | Minutes | Do this |
 |---|---|
-| 0-1 | Skim section 5 (fixture vs real) so you know what you are looking at. |
+| 0-1 | Skim section 5 (fixture vs real). Optionally open **`/how-it-works`** and try the split calculator (same `lib/domain/money.ts` functions the server uses). |
 | 1-4 | Section 3: the consumer click path at `/demo`. Start a deadline scenario (3a) first so it is due by the time you finish. |
-| 4-6 | Section 3a: watch the deadline settle, cancel and compensate. Section 4: the merchant dashboard at `/merchant`. |
+| 4-6 | Section 3a: watch the deadline settle, cancel and compensate. Section 4: the merchant dashboard at `/merchant` (Bookings page, Money page, saved views). |
 | 6-9 | Section 7: read `decideSettlement`, `equalSplit`, and the compensation tests. |
 | 9-10 | Run `npm run typecheck && npm test` (section 8), or check the CI result. |
 
@@ -35,6 +35,9 @@ Set `SESSION_SECRET` (for example `openssl rand -hex 32`) and `CRON_SECRET` in `
 A hosted demo URL: **TODO: add the hosted URL once deployed (see [DEPLOYMENT.md](DEPLOYMENT.md)). Until then, run locally.**
 
 ## 3. The 3-minute consumer click path
+
+0. Optional: open **`/how-it-works`** (linked from the landing page). It explains the flow, what happens at the deadline and where AI stops, and has an interactive **split calculator**: change the total, payer count and sponsored guests and see the penny-exact split, the cap and the estimate, computed by the real `equalSplit`, `perPayerCap` and `estimatedShare`.
+   ![How it works](screenshots/how-it-works.png)
 
 ![Brief](screenshots/brief.png)
 
@@ -75,11 +78,14 @@ To build a settlement yourself instead, create an outing at `/new` with a "Commi
 ## 4. The merchant dashboard (AG Studio)
 
 1. Open **`/merchant`** and use the one-click **demo login** (demo mode only; otherwise the password is `MERCHANT_DASHBOARD_PASSWORD`).
-2. The dashboard is an AG Studio report with: bookings by status, money by stage, a custom **Booking Readiness** widget (how close each open outing is to being bookable), and an AG Grid bookings table. Clicking a bar or slice cross-filters the other widgets.
-   ![Merchant dashboard](screenshots/merchant-dashboard.png)
+2. The dashboard is a two-page AG Studio report. Switch pages with the **Bookings / Money** tabs.
+   - **Bookings** page: KPI value widgets (open, closing today, captured, refunds pending), bookings by status, money by stage, the custom **Booking Readiness** widget (how close each open outing is to being bookable), and an AG Grid bookings table. Clicking a bar, slice or readiness row cross-filters everything on the page, including the KPIs.
+   - **Money** page: KPIs, the custom **Money flow** widget (per outing, where each authorized dollar went: kept, refund due, refunded, still on hold), captured vs refunded, and holds outstanding. Authorized holds are never counted as revenue. After running the capture-failure scenario (3a), find that outing here: it shows captured money moving into refund due, then refunded.
+   ![Merchant dashboard](screenshots/merchant-dashboard.png) ![Merchant money](screenshots/merchant-money.png)
+   - **Saved views** dropdown: "Closing today with missing required", "Recovery in progress", "Confirmed this week". Each applies a visible plain-language rule through Studio's report state; choose "all bookings" to clear it.
 3. Ask the natural-language box: **"Show outings closing today with missing required participants."** The model (or the labelled fixture parser) returns a validated, read-only filter. It cannot capture, void or refund anything.
 4. Click a booking row to open the **drill-down**: per-participant status, the authorized vs allocated vs captured vs refunded money (kept as separate figures), the payment operations, and a retry for failed operations that already exist.
-   ![Merchant drill-down](screenshots/merchant-drilldown.png)
+   ![Merchant drill-down](screenshots/merchant-drilldown.png) ![Payments](screenshots/merchant-drilldown-payments.png)
 
 ## 5. Fixture vs real
 
@@ -87,14 +93,14 @@ To build a settlement yourself instead, create an outing at `/new` with a "Commi
 |---|---|---|
 | Payments | **FIXTURE** simulator (persistent, with failure injection), labelled "Fixture, not real PayPal" | PayPal **sandbox** via Orders v2 and Payments v2, set `PAYPAL_CLIENT_ID`, `PAYPAL_CLIENT_SECRET` (and `PAYPAL_WEBHOOK_ID` for webhooks) |
 | AI | **FIXTURE** deterministic parser, labelled; never shown as model output | Anthropic Claude via `OUTINGS_ANTHROPIC_API_KEY` (optional `OUTINGS_AI_MODEL`, default `claude-sonnet-5-5`) |
-| AG Studio | Trial mode (evaluation watermark off localhost) | `AG_STUDIO_LICENSE_KEY` |
+| AG Studio | Trial mode (evaluation watermark off localhost). The Studio agent panel is available only with the Anthropic key | `AG_STUDIO_LICENSE_KEY` |
 | Seeded outings | All flagged `isFixture`, created through the real fixture provider and real `decideSettlement` | n/a |
 | Deadline scenarios (`/demo`) | `isFixture` outings opened, consented and authorized through the real services; settled by the real worker; failures injected into the simulator | Still FIXTURE (scenarios never use PayPal sandbox) |
 | Deadline job, settlement, splitting, consent, access control | Real code in both modes | Same |
 
 `GET /api/health` reports the active modes without secrets.
 
-To use real sandbox payments: create a sandbox REST app (Business merchant) and at least two Personal buyer accounts in the PayPal Developer Dashboard, set the variables above, and set `APP_BASE_URL` to the URL PayPal can redirect back to. The proof script is `npx tsx scripts/paypal-smoke.ts` (authorize $20, capture $10, void, refund). It writes redacted evidence to `docs/evidence/`.
+To use real sandbox payments: create a sandbox REST app (Business merchant) and at least two Personal buyer accounts in the PayPal Developer Dashboard, set the variables above, and set `APP_BASE_URL` to the URL PayPal can redirect back to. The proof script is `npx tsx scripts/paypal-smoke.ts` (authorize $20, capture $10, void, refund). It writes redacted evidence to `docs/evidence/`. The matching check for Claude is `npx tsx scripts/ai-smoke.ts`, run by the owner with `OUTINGS_ANTHROPIC_API_KEY` set; no run is recorded yet.
 
 ## 6. What has and has not been verified
 
@@ -103,7 +109,8 @@ Read [HANDOFF_TO_CODEX.md](HANDOFF_TO_CODEX.md) for the authoritative status mat
 - **Automated tests** cover the domain rules, the settlement engine and the PayPal adapter (the adapter against a mocked `fetch` only).
 - **Not yet verified against PayPal:** nothing has been exercised against the PayPal sandbox from the build environment. Under-capture ($20 authorization, $10 capture) and remainder release, redirect-return parameters, webhook signature verification, and the `PayPal-Mock-Response` header are all unverified. The list is in [research/PAYPAL.md](research/PAYPAL.md) section 14. TODO: update this section after running the smoke script.
 - **Not yet verified against Anthropic:** no runtime key was available while building; tests use a mocked SDK. TODO: record a real call.
-- **Browser end-to-end tests** and the **independent audit** of the payment code were still in progress when this guide was written.
+- **Verified in the build environment (FIXTURE modes only):** 296 Vitest tests in 22 files, Playwright specs (karaoke settle, holdout cancel, organizer cancel, demo hub, capture-failure compensation), eslint and `tsc` clean, `next build` passes. Two independent audits are done and their fixes have regression tests in `tests/audit` and `tests/audit2`.
+- **Not verified:** the real PayPal sandbox and real Claude (`scripts/ai-smoke.ts` has not been run). TODO: hosted URL, demo video URL and AG Studio trial expiry are not recorded.
 
 ## 7. Where the hard parts are in the code
 
