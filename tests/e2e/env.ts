@@ -9,6 +9,9 @@ export const E2E_BASE_URL = process.env.E2E_BASE_URL ?? `http://localhost:${E2E_
 export const E2E_ENV: Record<string, string> = {
   DATABASE_URL: process.env.E2E_DATABASE_URL ?? process.env.DATABASE_URL ?? "postgres://outings:outings@localhost:5432/outings",
   DEMO_FIXTURES_ENABLED: "true",
+  // The e2e server is a production build (`next start`): allow the /demo "Process due work now" button
+  // (POST /api/demo/tick, demo mode only). It only ever processes work that is already due.
+  DEMO_ALLOW_PUBLIC_TICK: "true",
   // Test-only values (not secrets). A reused server must have been started with the same CRON_SECRET.
   SESSION_SECRET: process.env.SESSION_SECRET ?? "4f1c2b7e9a0d3c5e8f6a1b2c3d4e5f60718293a4b5c6d7e8f9a0b1c2d3e4f5a6",
   CRON_SECRET: process.env.CRON_SECRET ?? "e2e-cron-secret",

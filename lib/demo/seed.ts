@@ -51,6 +51,7 @@ import { settleJobKey } from "../jobs/queue";
 import { FixtureOutingsAi } from "../ai/fixture";
 import type { SettlementRoster } from "../settlement/snapshot";
 import { aggregateVotes, commitStatement, type StoredBriefExtraction, type StoredProposal, type StoredReveal } from "../services/outings";
+import { authorizeRequestId, orderRequestId } from "../services/payments";
 import { checkAvailability, zonedParts, zonedTimeToUtc } from "../services/catalogue";
 
 import { DEMO_BUDGET_TITLE, DEMO_MAIN_TITLE, DEMO_MERCHANT_NAME, DEMO_MERCHANT_SLUG, DEMO_TIMEZONE } from "./constants";
@@ -228,8 +229,15 @@ export async function deleteFixtureOutings(db: Db): Promise<number> {
     const conditions = [inArray(sql`${data}->>'outingId'`, ids)];
     if (attemptIds.length) {
       conditions.push(inArray(sql`${data}->>'customId'`, attemptIds));
+      // Seeded holds use seed-* request ids; scenario holds go through the real payments service.
       const requestIds = attemptIds.flatMap((id) =>
-        [`seed-order-${id}`, `seed-authorize-${id}`, ...(["CAPTURE", "VOID", "REFUND"] as const).map((k) => operationRequestId(k, id))].map((r) => `REQ:${r}`),
+        [
+          `seed-order-${id}`,
+          `seed-authorize-${id}`,
+          orderRequestId(id),
+          authorizeRequestId(id),
+          ...(["CAPTURE", "VOID", "REFUND"] as const).map((k) => operationRequestId(k, id)),
+        ].map((r) => `REQ:${r}`),
       );
       conditions.push(and(eq(fixtureProviderObjects.kind, "REQUEST"), inArray(fixtureProviderObjects.id, requestIds))!);
     }
@@ -244,7 +252,7 @@ export async function deleteFixtureOutings(db: Db): Promise<number> {
 /* Builders                                                                   */
 /* -------------------------------------------------------------------------- */
 
-interface PersonSpec {
+export interface PersonSpec {
   key: string;
   name: string;
   organizer?: boolean;
@@ -260,13 +268,18 @@ interface PersonSpec {
   voteMinor?: number;
 }
 
-interface OutingSpec {
+export interface OutingSpec {
   key: string;
   title: string;
   brief: string;
   status: OutingStatus;
   createdAt: Date;
   people: PersonSpec[];
+  /**
+   * Budget agreed and offering selected, collection NOT opened (status PROPOSED). Used by the demo
+   * scenarios, which then open collection through the real `openCollection` service.
+   */
+  proposal?: { merchant: Merchant; offering: Offering; proposedBudgetMinor: number };
   /** Collection (omit for pre-collection demo outings). */
   collection?: {
     merchant: Merchant;
@@ -279,7 +292,7 @@ interface OutingSpec {
   };
 }
 
-interface SeededOuting {
+export interface SeededOuting {
   outing: Outing;
   quote: QuoteVersion | null;
   people: Map<string, Participant>;
@@ -307,10 +320,12 @@ async function fixtureExtraction(brief: string, now: Date, categories: string[])
   };
 }
 
-async function seedOuting(db: Db, spec: OutingSpec, secret: string): Promise<SeededOuting> {
+export async function seedOuting(db: Db, spec: OutingSpec, secret: string): Promise<SeededOuting> {
   const categories = [...new Set(CATALOGUE.map((c) => c.category))];
   const extraction = await fixtureExtraction(spec.brief, spec.createdAt, categories);
   const c = spec.collection;
+  /** Budget agreed + offering chosen: every collection, or a PROPOSED-only outing. */
+  const agreed = c ?? spec.proposal;
   const quoteId = c ? crypto.randomUUID() : null;
 
   const [outing] = await db
@@ -338,7 +353,9 @@ async function seedOuting(db: Db, spec: OutingSpec, secret: string): Promise<See
             deadlineAt: c.deadlineAt,
             collectionOpenedAt: c.openedAt,
           }
-        : {}),
+        : spec.proposal
+          ? { selectedOfferingId: spec.proposal.offering.id, proposedBudgetMinor: spec.proposal.proposedBudgetMinor }
+          : {}),
     })
     .returning();
   await db.insert(aiRuns).values({
@@ -400,7 +417,7 @@ async function seedOuting(db: Db, spec: OutingSpec, secret: string): Promise<See
   let quote: QuoteVersion | null = null;
   const consentRows = new Map<string, Consent>();
   const attemptRows = new Map<string, PaymentAttempt>();
-  if (c && quoteId) {
+  if (agreed) {
     // Reveal + proposal history so the hub's earlier stages are consistent.
     const votes = spec.people.filter((p) => p.voteMinor !== undefined).map((p) => p.voteMinor!);
     if (votes.length >= 3) {
@@ -417,7 +434,7 @@ async function seedOuting(db: Db, spec: OutingSpec, secret: string): Promise<See
     const proposal: StoredProposal = {
       ranked: [
         {
-          offeringId: c.offering.id,
+          offeringId: agreed.offering.id,
           fit: "GREAT",
           reasons: ["Fixture ranker: category matches the brief.", "Fixture ranker: fixed total, so more attendees lower each share."],
           concerns: [],
@@ -427,15 +444,16 @@ async function seedOuting(db: Db, spec: OutingSpec, secret: string): Promise<See
       source: "FIXTURE",
       model: null,
       warnings: [],
-      budgetMinor: c.proposedBudgetMinor,
+      budgetMinor: agreed.proposedBudgetMinor,
       createdAt: new Date(spec.createdAt.getTime() + 25 * MIN).toISOString(),
     };
     await db.update(outings).set({ proposal }).where(eq(outings.id, outing.id));
     await audit(db, outing.id, `PARTICIPANT:${organizer.id}`, "BUDGET_AGREED", new Date(spec.createdAt.getTime() + 25 * MIN), {
-      proposedBudgetMinor: c.proposedBudgetMinor,
+      proposedBudgetMinor: agreed.proposedBudgetMinor,
       aiSource: "FIXTURE",
     });
-
+  }
+  if (c && quoteId) {
     const all = [...people.values()];
     const terms = buildCommitmentTerms({
       outingId: outing.id,
@@ -788,6 +806,7 @@ export interface DemoOutingSummary {
   title: string;
   status: OutingStatus;
   cleanup: CleanupState;
+  cancelReasons: string[];
   /** Everyone on the outing, organizer first, so the demo hub can open any stage as anyone. */
   personas: DemoPersona[];
 }
@@ -858,7 +877,7 @@ export async function listDemoState(db: Db): Promise<DemoState> {
   const merchant = await db.query.merchants.findFirst({ where: eq(merchants.slug, DEMO_MERCHANT_SLUG) });
   const summaries: DemoOutingSummary[] = [];
   for (const o of fixtureOutings) {
-    summaries.push({ outingId: o.id, title: o.title, status: o.status, cleanup: o.cleanup, personas: await personasFor(db, o) });
+    summaries.push({ outingId: o.id, title: o.title, status: o.status, cleanup: o.cleanup, cancelReasons: o.cancelReasons, personas: await personasFor(db, o) });
   }
   return {
     outingId: main?.id ?? null,
