@@ -252,7 +252,7 @@ test("karaoke for Maya: plan, vote privately, commit, settle at the deadline, me
     await expect(page.getByText("Fixture payments · not real PayPal")).toBeVisible();
     // FIXTURE-paid outings are never presented as real PayPal sandbox money.
     await expect(page.getByRole("button", { name: /^Fixture \(not real PayPal\)/ })).toHaveAttribute("aria-pressed", "true");
-    await expect(page.getByText("Captured (confirmed bookings)")).toBeVisible();
+    await expect(page.getByText("Captured (confirmed)", { exact: true }).first()).toBeVisible({ timeout: 30_000 });
     await expect(page.getByText("Maya's birthday karaoke").first()).toBeVisible({ timeout: 30_000 });
     await expect(page.getByText("Confirmed", { exact: true }).first()).toBeVisible();
     // AG Studio renders charts asynchronously; wait until no widget is still loading.
