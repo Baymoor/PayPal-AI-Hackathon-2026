@@ -7,7 +7,6 @@ import { handlePaypalWebhook, redactWebhookPayload } from "@/lib/webhooks/paypal
 import { FakeProvider } from "./fake-provider";
 import { buildOuting, payers, resolverFor } from "./builders";
 
-// eslint-disable-next-line react-hooks/rules-of-hooks -- vitest lifecycle helper, not a React hook
 const getDb = useTestDb();
 
 function configured(webhookId: string | undefined) {

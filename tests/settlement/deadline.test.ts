@@ -10,7 +10,6 @@ import { readRoster } from "@/lib/settlement/snapshot";
 import { FakeProvider } from "./fake-provider";
 import { buildOuting, HOUR, loadAttempts, loadOps, loadOuting, loadSnapshot, payers, resolverFor } from "./builders";
 
-// eslint-disable-next-line react-hooks/rules-of-hooks -- vitest lifecycle helper, not a React hook
 const getDb = useTestDb();
 const W = "test-worker";
 

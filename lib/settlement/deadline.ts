@@ -116,7 +116,7 @@ export async function runDeadlineSettlement(
   for (const attempt of attempts) {
     if (!RECONCILABLE.has(attempt.status)) continue;
     try {
-      const r = await reconcileAttempt(db, resolveProvider, { attemptId: attempt.id, now, workerId, deadlineAt: outing.deadlineAt });
+      const r = await reconcileAttempt(db, resolveProvider, { attemptId: attempt.id, now, workerId, deadlineAt: outing.deadlineAt, deferLateVoid: true });
       if (r.read === "FAILED" || r.note) reconcileNotes.push(`${attempt.id}: ${r.read}${r.note ? ` (${r.note})` : ""}`);
     } catch (err) {
       // Fail closed for this person: the attempt keeps whatever (unverified) state it had.

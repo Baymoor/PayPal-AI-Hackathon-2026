@@ -3,6 +3,7 @@ import { eq, sql } from "drizzle-orm";
 import { useTestDb } from "../helpers/db";
 import { paymentAttempts, paymentOperations } from "@/lib/db/schema";
 import { planPaymentOperation } from "@/lib/payments/plan";
+import { resetPaymentProviders, setPaymentProviderOverride } from "@/lib/payments";
 import { enqueueJob, settleJobKey } from "@/lib/jobs/queue";
 import { runWorkerTick } from "@/lib/jobs/runner";
 import { runDeadlineSettlement } from "@/lib/settlement/deadline";
@@ -10,7 +11,6 @@ import { processDueOperations, recomputeCleanup } from "@/lib/settlement/operati
 import { FakeProvider } from "./fake-provider";
 import { buildOuting, loadAttempts, loadOps, loadOuting, payers, resolverFor } from "./builders";
 
-// eslint-disable-next-line react-hooks/rules-of-hooks -- vitest lifecycle helper, not a React hook
 const getDb = useTestDb();
 const W = "ops-worker";
 const noBackoff = () => 0;
@@ -391,7 +391,14 @@ describe("holds that appear after the roster is frozen", () => {
     fake.seedAuthorization({ authorizationId: "auth-tina", orderId: tina.orderId!, amountMinor: 2000, createTime: new Date(deadlineAt.getTime() + 30_000), customId: tina.attemptId });
 
     await enqueueJob(db, { kind: "RECONCILE_PAYMENT", outingId: built.outingId, runAt: new Date(), dedupeKey: `reconcile:${tina.attemptId}`, payload: { paymentAttemptId: tina.attemptId } });
-    const tick = await runWorkerTick(db, resolverFor(fake), { workerId: W });
+    // The pre-authorization stage is delegated to lib/services/payments, which resolves providers via lib/payments.
+    setPaymentProviderOverride("PAYPAL", fake);
+    let tick;
+    try {
+      tick = await runWorkerTick(db, resolverFor(fake), { workerId: W });
+    } finally {
+      resetPaymentProviders();
+    }
     expect(tick.errors).toEqual([]);
 
     const attempts = await loadAttempts(db, built.outingId);

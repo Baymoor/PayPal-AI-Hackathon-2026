@@ -15,6 +15,7 @@ import type { Db, Tx } from "../db/client";
 import type { PaymentStatus } from "../domain/types";
 import type { AuthorizationView } from "../payments/provider";
 import { planPaymentOperation } from "../payments/plan";
+import { reconcilePaymentAttempt } from "../services/payments";
 import { recordAudit } from "../audit";
 import { assertPaymentPath, lockAttempt, moveAttempt, patchAttempt, truncateError, type AttemptPatch } from "./attempts";
 import { plannedCaptureFor, readRoster } from "./snapshot";
@@ -26,6 +27,11 @@ export interface ReconcileAttemptOptions {
   workerId: string;
   /** Deadline used to flag late authorizations; defaults to the outing's stored deadline. */
   deadlineAt?: Date | null;
+  /**
+   * Deadline pass only: leave a late hold AUTHORIZED so `decideSettlement` records
+   * LATE_AUTHORIZATION and plans the void itself. Everywhere else a late hold is voided at once.
+   */
+  deferLateVoid?: boolean;
 }
 
 export interface ReconcileAttemptResult {
@@ -165,7 +171,7 @@ async function markReadFailure(db: Db, attempt: PaymentAttempt, message: string,
 export async function voidIfNotOnRoster(
   db: Db,
   attemptId: string,
-  ctx: { now: Date; workerId: string },
+  ctx: { now: Date; workerId: string; deferLateVoid?: boolean },
 ): Promise<boolean> {
   // Cheap pre-check without locks; the locked re-read below is authoritative.
   const peek = await db.query.paymentAttempts.findFirst({ where: eq(paymentAttempts.id, attemptId), columns: { outingId: true, status: true } });
@@ -178,7 +184,8 @@ export async function voidIfNotOnRoster(
     const attempt = await lockAttempt(tx, attemptId);
     if (!attempt || attempt.status !== "AUTHORIZED") return false;
     const snapshot = await tx.query.settlementSnapshots.findFirst({ where: eq(settlementSnapshots.outingId, outing.id) });
-    if (!snapshot && outing.status === "COLLECTING") return false;
+    const lateHold = attempt.late && !ctx.deferLateVoid;
+    if (!snapshot && outing.status === "COLLECTING" && !lateHold) return false;
     if (snapshot && plannedCaptureFor(readRoster(snapshot), attempt.id)) return false;
     await planVoid(tx, attempt, ctx.now);
     await recordAudit(tx, {
@@ -234,6 +241,20 @@ export async function reconcileAttempt(
       read = "OK";
       ({ attempt, note } = await applyAuthorizationView(db, attempt.id, res.authorization, deadlineAt, now));
     }
+  } else if (attempt.status === "UNKNOWN") {
+    // An order-creation or authorize call whose outcome we never saw. The payments service owns
+    // that stage (it can re-send authorize with its own stable request id): no order -> FAILED,
+    // order without authorization -> re-authorize if still admissible, else FAILED; an
+    // authorization found is recorded through its race rule (late -> VOID).
+    const outcome = await reconcilePaymentAttempt(db, { paymentAttemptId: attempt.id, now });
+    if (outcome === "PENDING") {
+      read = "FAILED";
+      note = "provider unreachable; attempt stays UNKNOWN";
+    } else {
+      read = "OK";
+      note = `payments service reconciled: ${outcome}`;
+    }
+    attempt = (await db.query.paymentAttempts.findFirst({ where: eq(paymentAttempts.id, attempt.id) })) ?? attempt;
   } else if (attempt.providerOrderId && ORDER_STAGE.has(attempt.status)) {
     const res = await provider.getOrder(attempt.providerOrderId);
     if (!res.ok) {
@@ -265,9 +286,6 @@ export async function reconcileAttempt(
         });
       }
     }
-  } else if (attempt.status === "UNKNOWN") {
-    // Nothing at the provider can be addressed: no order, no authorization. Nothing is held.
-    note = "no provider handle to reconcile";
   }
 
   // Refunds that were pending: poll the refund itself.
@@ -294,7 +312,7 @@ export async function reconcileAttempt(
     }
   }
 
-  const plannedVoid = await voidIfNotOnRoster(db, attempt.id, { now, workerId: opts.workerId });
+  const plannedVoid = await voidIfNotOnRoster(db, attempt.id, { now, workerId: opts.workerId, deferLateVoid: opts.deferLateVoid });
   if (plannedVoid) attempt = (await db.query.paymentAttempts.findFirst({ where: eq(paymentAttempts.id, attempt.id) })) ?? attempt;
   return { attempt, read, note, plannedVoid };
 }
