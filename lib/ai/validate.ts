@@ -203,7 +203,7 @@ const NUMERIC_FIELDS = new Set([
   "capturedTotalMinor",
   "refundedTotalMinor",
 ]);
-const BOOLEAN_FIELDS = new Set(["closesToday", "cleanup", "isFixture"]);
+const BOOLEAN_FIELDS = new Set(["closesToday", "isFixture"]);
 
 export function validateDashboardQuery(raw: DashboardQuery): Validated<DashboardQuery> {
   const warnings: string[] = [];
