@@ -27,3 +27,19 @@ Optional: a PayPal sandbox **webhook** pointing at `https://<host>/api/webhooks/
 - Sandbox only: the PayPal base URL is hard-coded to `api-m.sandbox.paypal.com`.
 - Never enable live credentials, auto-reload or paid tiers without the owner's explicit decision.
 - AG Studio licence key: configuration only; follow AG Grid's trial/distribution terms.
+
+## Docker
+
+```bash
+docker build -t outings .
+```
+
+```bash
+docker run --env-file .env.production -p 3000:3000 outings
+```
+
+```bash
+docker run --env-file .env.production outings npm run worker
+```
+
+`tsx` (used by `db:migrate` and `worker`) is a devDependency and is included because the image installs all dependencies.
