@@ -1,26 +1,63 @@
 @import "tailwindcss";
+@import "./theme.css";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html {
+  background: var(--color-cream);
+  -webkit-text-size-adjust: 100%;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--color-cream);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  font-size: 1rem;
+  line-height: 1.5rem;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  overflow-x: clip;
+}
+
+h1, h2, h3, .font-display {
+  font-family: var(--font-display);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+/* Focus ring: never removed. */
+:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+  border-radius: inherit;
+}
+.on-dark :focus-visible {
+  box-shadow: 0 0 0 3px #14213D, 0 0 0 5px #FBF6F1;
+}
+
+::selection { background: var(--color-blush); }
+
+/* Skeleton pulse honours reduced motion. */
+@keyframes outings-pulse { 50% { opacity: 0.55; } }
+.skeleton {
+  background: #EFE6DC;
+  border-radius: 12px;
+  animation: outings-pulse 1.6s ease-in-out infinite;
+}
+@keyframes outings-spin { to { transform: rotate(360deg); } }
+.spin { animation: outings-spin 0.9s linear infinite; }
+@keyframes outings-pop { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+.pop-in { animation: outings-pop 0.25s ease-out both; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Diagonal pale-pink stripes for fixture regions (always with a text badge). */
+.fixture-stripes {
+  background-image: repeating-linear-gradient(135deg, rgb(251 230 241 / 0.55) 0 8px, transparent 8px 16px);
 }
