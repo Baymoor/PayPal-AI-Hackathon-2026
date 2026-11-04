@@ -107,7 +107,7 @@ function SponsorCard({ view, actions }: { view: OutingView; actions: OutingActio
   // Default to the guest of honour the brief named ("cover Maya's share"), if they are invited.
   const honour = view.brief.extraction?.guestOfHonour.name?.trim().toLowerCase() ?? "";
   const named = honour ? guests.find((g) => g.displayName.trim().toLowerCase().split(/\s+/)[0] === honour.split(/\s+/)[0]) : undefined;
-  const [picked, setChosen] = useState<string>("");
+  const [picked, setPicked] = useState<string>("");
   // Derived (not frozen at first render): guests can be invited after this card mounts.
   const chosen = guests.some((g) => g.participantId === picked) ? picked : (named ?? guests[0])?.participantId ?? "";
   const { pending, error, run } = useAction();
@@ -138,7 +138,7 @@ function SponsorCard({ view, actions }: { view: OutingView; actions: OutingActio
               disabled={!canEdit || pending !== null}
               onChange={(e) => {
                 const next = e.target.value;
-                setChosen(next);
+                setPicked(next);
                 if (sponsored) {
                   run("move", async () => {
                     await actions.patchParticipant(sponsored.participantId, { payerType: "PAYER" });

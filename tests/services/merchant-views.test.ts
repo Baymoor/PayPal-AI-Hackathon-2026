@@ -138,7 +138,7 @@ describe("merchant read models", () => {
     expect(main.closesInMinutes).toBeGreaterThan(100);
 
     const sam = by("Sam's farewell");
-    expect(sam).toMatchObject({ status: "CONFIRMED", authorizedTotalMinor: 0, allocatedTotalMinor: 10_000, capturedTotalMinor: 10_000, refundedTotalMinor: 0, recoveryStatus: "COMPLETE" });
+    expect(sam).toMatchObject({ status: "CONFIRMED", authorizedTotalMinor: 0, allocatedTotalMinor: 10_000, capturedTotalMinor: 10_000, refundedTotalMinor: 0, recoveryStatus: "NONE" }); // confirmed: nothing to clean up (same as the engine)
     const jonas = by("Jonas's 30th");
     expect(jonas).toMatchObject({ status: "CONFIRMED", capturedTotalMinor: 10_000, attendees: 6, payersAuthorized: 5 });
 

@@ -48,7 +48,6 @@ export function sanitizeText(input: string, maxLen?: number): string {
   let s = input
     .replace(/!?\[([^\]]*)\]\([^)]*\)/g, "$1") // markdown links/images -> label
     .replace(/<?\b(?:https?:\/\/|ftp:\/\/|www\.)[^\s>)]*>?/gi, "")
-    // eslint-disable-next-line no-control-regex
     .replace(/[\u0000-\u001f\u007f]+/g, " ")
     .replace(/\s{2,}/g, " ")
     .trim();

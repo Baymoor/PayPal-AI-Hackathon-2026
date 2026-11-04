@@ -79,7 +79,7 @@ export function BudgetStage({ view, actions }: { view: OutingView; actions: Outi
             loading={pending === "vote"}
             loadingLabel="Saving…"
             disabled={choice === null || (!changed && budget.myVoteMinor !== null)}
-            disabledReason={choice === null ? "Pick an amount to submit your vote." : budget.myVoteMinor !== null ? "Your vote is saved. Pick another amount to change it." : undefined}
+            disabledReason={choice === null ? "Pick an amount to submit your vote." : "Pick another amount to change it."}
           >
             {label}
           </Button>

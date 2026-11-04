@@ -66,6 +66,25 @@ npm test
 
 Integration tests need a Postgres database at `TEST_DATABASE_URL` (default `postgres://outings:outings@localhost:5432/outings_test`).
 
+End-to-end tests drive real Chromium contexts (one per person) against the **production build** in FIXTURE modes: the canonical karaoke flow from brief to deadline settlement and the merchant dashboard, a required-guest-missing cancellation with voided holds, and the `/demo` persona hub. The deadline is enforced by the server; the tests advance the worker through the scheduler endpoint (`POST /api/cron/tick`).
+
+```bash
+npm run test:e2e
+```
+
+This builds into `.next-e2e`, starts the app on port 3400, and **resets the database at `DATABASE_URL`** (migrate + `demo:reset`). `E2E_SKIP_BUILD=1` reuses an existing build; `E2E_SCREENSHOTS=1` refreshes `docs/screenshots/`.
+
+## Screenshots
+
+Captured by the e2e suite from the running app (FIXTURE payments and FIXTURE AI, labelled on every screen):
+
+| | | |
+|---|---|---|
+| ![Brief](docs/screenshots/brief.png) | ![Budget poker](docs/screenshots/budget-poker.png) | ![Invitation](docs/screenshots/invitation.png) |
+| ![Waiting](docs/screenshots/waiting.png) | ![Confirmed](docs/screenshots/confirmed.png) | ![Cancelled](docs/screenshots/cancelled.png) |
+
+Organizer and merchant views: [reveal](docs/screenshots/reveal.png) · [sponsor & open](docs/screenshots/sponsor.png) · [merchant dashboard](docs/screenshots/merchant-dashboard.png) · [drill-down](docs/screenshots/merchant-drilldown.png) · [payments](docs/screenshots/merchant-drilldown-payments.png)
+
 ## Documentation
 
 - [Product & financial spec](docs/PRODUCT_SPEC.md)

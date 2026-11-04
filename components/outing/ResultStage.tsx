@@ -170,7 +170,9 @@ export function ResultStage({ view }: { view: OutingView }) {
             <p className="flex items-start gap-2 text-small text-ink-muted">
               <CircleCheck className="mt-0.5 size-4 shrink-0" aria-hidden />
               {fixture
-                ? "Fixture payment: only your final share was captured and the rest of the simulated hold was released. No real money moved."
+                ? pay.capturedMinor < pay.authorizedMinor
+                  ? "Fixture payment: only your final share was captured and the rest of the simulated hold was released. No real money moved."
+                  : "Fixture payment: the simulator collected your final share. No real money moved."
                 : "Any unused part of your hold is released by PayPal. It can take a few days to disappear from your account."}
             </p>
           )}

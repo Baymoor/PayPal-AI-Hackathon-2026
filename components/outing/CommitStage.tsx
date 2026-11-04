@@ -29,6 +29,13 @@ export type PaymentFlag = "authorized" | "late" | "pending" | "failed" | "cancel
 function PaymentFlagBanner({ flag, view }: { flag: PaymentFlag; view: OutingView }) {
   const cap = view.estimates.capMinor ?? view.quote?.capMinor ?? null;
   if (!flag) return null;
+  // The ?payment= flag is a one-off redirect hint and stays in the URL; only show it while it still matches
+  // the server's view (e.g. never "Authorization received" after the payer withdrew).
+  const status = view.me.payment?.status;
+  const active = view.viewer.attendance !== "WITHDRAWN" && view.viewer.attendance !== "DECLINED";
+  if (flag === "authorized" && !(active && (status === "AUTHORIZED" || status === "CAPTURE_PENDING"))) return null;
+  if (flag === "pending" && !(active && (status === "APPROVAL_PENDING" || status === "UNKNOWN" || status === "CREATED"))) return null;
+  if ((flag === "failed" || flag === "cancelled" || flag === "canceled") && status === "AUTHORIZED") return null;
   if (flag === "authorized")
     return (
       <StatusBanner tone="success" title="Authorization received">
@@ -480,13 +487,20 @@ export function CommitStage({
 
 function OrganizerTools({ view, actions }: { view: OutingView; actions: OutingActions }) {
   const [confirm, setConfirm] = useState(false);
+  const [requested, setRequested] = useState(false);
   const { pending, error, run } = useAction();
   if (!view.organizer?.can.cancel) return null;
   return (
     <Card tone="blush" className="space-y-3">
       <h2 className="text-h3">Organizer tools</h2>
       <ActionErrorBanner error={error} />
-      {!confirm ? (
+      {requested ? (
+        // The cancellation is queued for the server's settlement job (it also releases holds); until it runs the
+        // outing still shows as open, so say what is happening instead of looking like nothing happened.
+        <StatusBanner tone="pending" title="Cancellation requested">
+          The server is cancelling this outing and releasing every hold. This page updates on its own.
+        </StatusBanner>
+      ) : !confirm ? (
         <Button variant="danger" onClick={() => setConfirm(true)}>
           Cancel this outing
         </Button>
@@ -497,7 +511,7 @@ function OrganizerTools({ view, actions }: { view: OutingView; actions: OutingAc
             {fixtureHold(view) ? " (fixture holds — no real money is involved)." : " by PayPal — which can take a few days to show."}
           </p>
           <div className="flex flex-wrap gap-3">
-            <Button variant="danger" loading={pending === "cancel"} loadingLabel="Cancelling…" onClick={() => run("cancel", async () => { await actions.cancel(); await actions.refresh(); })}>
+            <Button variant="danger" loading={pending === "cancel"} loadingLabel="Cancelling…" onClick={() => run("cancel", async () => { await actions.cancel(); setRequested(true); await actions.refresh(); })}>
               Yes, cancel the outing
             </Button>
             <Button variant="secondary" onClick={() => setConfirm(false)}>

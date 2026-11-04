@@ -1193,7 +1193,7 @@ async function settleAll(db: Db, s: SeededOuting, frozenAt: Date): Promise<void>
   const settledAt = new Date((t += MIN));
   await db
     .update(outings)
-    .set({ status: "CONFIRMED", frozenAt, settledAt, cleanup: "COMPLETE", updatedAt: settledAt })
+    .set({ status: "CONFIRMED", frozenAt, settledAt, cleanup: "NONE", updatedAt: settledAt })
     .where(eq(outings.id, s.outing.id));
   await audit(db, s.outing.id, "WORKER:demo-seed", "OUTING_CONFIRMED", settledAt, { payerCount: decision.payerCount, totalMinor: decision.totalMinor });
 }

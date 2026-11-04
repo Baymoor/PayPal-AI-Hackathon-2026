@@ -10,9 +10,7 @@ export type DbOrTx = Db | Tx;
 const DEFAULT_URL = "postgres://outings:outings@localhost:5432/outings";
 
 declare global {
-  // eslint-disable-next-line no-var
   var __outingsPool: Pool | undefined;
-  // eslint-disable-next-line no-var
   var __outingsDb: Db | undefined;
 }
 

@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { CalendarDays, CircleCheck, Coins, Tag, Users } from "lucide-react";
 import { LinkButton } from "@/components/ui/Button";
 import { SandboxBadge } from "@/components/ui/Badge";
@@ -5,6 +6,7 @@ import { HeroArt } from "@/components/ui/Illustrations";
 import { SiteFooter, SiteHeader } from "@/components/ui/SiteChrome";
 import { Underlined } from "@/components/ui/Swoosh";
 import { ProgressBar } from "@/components/ui/ProgressBar";
+import { PaymentSigninNotice } from "@/components/ui/PaymentSigninNotice";
 
 const STEPS = [
   { n: 1, Icon: CalendarDays, title: "Plan together", text: "Everyone suggests a total budget in private. Only the spread is revealed." },
@@ -17,6 +19,10 @@ export default function Home() {
     <>
       <SiteHeader nav />
       <main id="main" className="mx-auto w-full max-w-[1180px] flex-1 px-5 pb-6 pt-8 sm:px-6 sm:pt-12">
+        {/* Client-only query read; Suspense keeps the landing page statically rendered. */}
+        <Suspense fallback={null}>
+          <PaymentSigninNotice />
+        </Suspense>
         <div className="grid items-center gap-10 lg:grid-cols-[1.15fr_1fr]">
           <div className="space-y-6">
             <h1 className="text-[44px] leading-[48px] sm:text-[56px] sm:leading-[60px]">
