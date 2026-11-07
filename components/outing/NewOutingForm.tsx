@@ -7,8 +7,9 @@ import { Card, IconTile } from "@/components/ui/Card";
 import { TextAreaField, TextField } from "@/components/ui/Field";
 import { Stepper } from "@/components/ui/Stepper";
 import { Underlined } from "@/components/ui/Swoosh";
-import { ApiError, outingApi } from "./api";
-import { ActionErrorBanner } from "./useAction";
+import { describeError } from "@/components/errors/friendlyError";
+import { outingApi } from "./api";
+import { ActionErrorBanner, type ActionError } from "./useAction";
 
 export const SAMPLE_BRIEF =
   "A karaoke night for Maya's birthday. Six of us, Friday evening. We want a private room and to cover Maya's share.";
@@ -26,7 +27,7 @@ export function NewOutingForm() {
   const [name, setName] = useState("");
   const [brief, setBrief] = useState("");
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<{ code: string; message: string } | null>(null);
+  const [error, setError] = useState<ActionError | null>(null);
   const [touched, setTouched] = useState(false);
 
   const nameErr = touched && !name.trim() ? "Add your name so friends know who invited them." : undefined;
@@ -42,14 +43,7 @@ export function NewOutingForm() {
       const { outingId } = await outingApi.create(name.trim(), brief.trim());
       router.push(`/o/${outingId}`);
     } catch (err) {
-      const e2 = err instanceof ApiError ? err : null;
-      setError({
-        code: e2?.code ?? "UNKNOWN",
-        message:
-          e2?.status === 429
-            ? "Too many requests just now. Wait a minute and try again."
-            : (e2?.message ?? "Something went wrong. Nothing was charged by this request."),
-      });
+      setError(describeError(err, "create"));
       setBusy(false);
     }
   }

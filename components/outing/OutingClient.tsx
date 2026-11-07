@@ -1,7 +1,9 @@
 "use client";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { OutingView } from "@/lib/contracts/views";
-import { ErrorState, PageSkeleton } from "@/components/ui/States";
+import { Compass, KeyRound } from "lucide-react";
+import { describeError } from "@/components/errors/friendlyError";
+import { EmptyState, ErrorState, PageSkeleton } from "@/components/ui/States";
 import { StatusBanner } from "@/components/ui/StatusBanner";
 import { LinkButton } from "@/components/ui/Button";
 import { ApiError, outingApi, type OutingActions } from "./api";
@@ -9,6 +11,50 @@ import { OutingScreen } from "./OutingScreen";
 import { PageFrame } from "./Shell";
 
 const POLL_MS = 10_000;
+
+function HomeAndDemoLinks() {
+  return (
+    <div className="mt-2 flex flex-wrap justify-center gap-3">
+      <LinkButton href="/" variant="secondary">
+        Back to home
+      </LinkButton>
+      <LinkButton href="/demo" variant="link">
+        Try the demo
+      </LinkButton>
+    </div>
+  );
+}
+
+/**
+ * Why the outing couldn't be shown. Not being signed in, or a dead link, is a normal situation, so it gets
+ * a calm card; red is reserved for real failures. We never say "you have not been charged" here: we
+ * couldn't load the outing, so we don't know (a confirmed outing has captured payments).
+ */
+function FatalLoadState({ error, onRetry }: { error: ApiError; onRetry: () => void }) {
+  if (error.status === 401 || error.status === 403) {
+    return (
+      <EmptyState icon={<KeyRound className="size-6" />} headingLevel={1} title="Open your invitation link" action={<HomeAndDemoLinks />}>
+        This outing is private to the people invited. Open the personal link the organizer sent you. It signs you in on
+        this device.
+      </EmptyState>
+    );
+  }
+  if (error.status === 404) {
+    return (
+      <EmptyState icon={<Compass className="size-6" />} headingLevel={1} title="We can’t find that outing" action={<HomeAndDemoLinks />}>
+        The link may be mistyped, or the outing was removed.
+      </EmptyState>
+    );
+  }
+  // The title names the page that failed; the copy explains why (server down, connection, our bug).
+  const friendly = describeError(error);
+  return (
+    <ErrorState title="We couldn’t load this outing" message={friendly.explanation} onRetry={onRetry}>
+      {friendly.nextStep && <p className="mt-1">{friendly.nextStep}</p>}
+      {friendly.moneyNote && <p className="mt-1 font-semibold">{friendly.moneyNote}</p>}
+    </ErrorState>
+  );
+}
 
 function shouldPoll(view: OutingView): boolean {
   const s = view.outing.status;
@@ -94,33 +140,9 @@ export function OutingClient({ id, paymentFlag }: { id: string; paymentFlag?: st
   );
 
   if (fatal) {
-    const unauth = fatal.status === 401 || fatal.status === 403;
-    const missing = fatal.status === 404;
     return (
       <PageFrame back={{ href: "/", label: "Back to home" }}>
-        <ErrorState
-          title={unauth ? "Open your invitation link" : missing ? "We can't find that outing" : "We couldn't load this outing"}
-          message={
-            unauth
-              ? "This page is private to the people invited. Open the personal link the organizer sent you — it signs you in on this device."
-              : missing
-                ? "The link may be mistyped or the outing was removed."
-                : fatal.message
-          }
-          safe="You have not been charged."
-          onRetry={unauth || missing ? undefined : load}
-        >
-          {(unauth || missing) && (
-            <div className="mt-4 flex flex-wrap gap-3">
-              <LinkButton href="/" variant="secondary">
-                Back to home
-              </LinkButton>
-              <LinkButton href="/demo" variant="link">
-                Try the demo
-              </LinkButton>
-            </div>
-          )}
-        </ErrorState>
+        <FatalLoadState error={fatal} onRetry={load} />
       </PageFrame>
     );
   }

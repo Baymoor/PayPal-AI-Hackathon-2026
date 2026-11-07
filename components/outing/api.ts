@@ -6,10 +6,19 @@ export class ApiError extends Error {
     readonly code: string,
     readonly status: number,
     message: string,
+    /** From the Retry-After header (429 / 503), so error copy can say how long to wait. */
+    readonly retryAfterSeconds?: number,
   ) {
     super(message);
     this.name = "ApiError";
   }
+}
+
+/** Retry-After in seconds; the HTTP-date form is ignored (our server only sends seconds). */
+function parseRetryAfter(value: string | null): number | undefined {
+  if (!value) return undefined;
+  const seconds = Number(value);
+  return Number.isFinite(seconds) && seconds > 0 ? seconds : undefined;
 }
 
 export async function request<T = unknown>(path: string, init: RequestInit & { json?: unknown } = {}): Promise<T> {
@@ -24,7 +33,9 @@ export async function request<T = unknown>(path: string, init: RequestInit & { j
       body: json !== undefined ? JSON.stringify(json) : rest.body,
     });
   } catch {
-    throw new ApiError("NETWORK", 0, "We couldn't reach the server. Check your connection and try again.");
+    // A dropped write may still have reached the server, so its outcome is unknown; a dropped read changed nothing.
+    const isRead = (rest.method ?? "GET").toUpperCase() === "GET";
+    throw new ApiError(isRead ? "NETWORK_READ" : "NETWORK", 0, "We couldn't reach the server. Check your connection and try again.");
   }
   let body: unknown = null;
   const text = await res.text();
@@ -41,6 +52,7 @@ export async function request<T = unknown>(path: string, init: RequestInit & { j
       err?.code ?? (res.status === 401 ? "UNAUTHORIZED" : res.status === 404 ? "NOT_FOUND" : "HTTP_" + res.status),
       res.status,
       err?.message ?? `Request failed (${res.status})`,
+      parseRetryAfter(res.headers.get("retry-after")),
     );
   }
   return body as T;
@@ -93,14 +105,4 @@ export interface OutingActions {
   withdraw(): Promise<void>;
   cancel(): Promise<void>;
   refresh(): Promise<void>;
-}
-
-/** Human message for an API error; TERMS_CHANGED gets the mandated copy. */
-export function describeError(e: unknown): { code: string; message: string } {
-  if (e instanceof ApiError) {
-    if (e.code === "TERMS_CHANGED") return { code: e.code, message: "The terms changed — please review again." };
-    if (e.code === "UNAUTHORIZED") return { code: e.code, message: "Open your invitation link to continue." };
-    return { code: e.code, message: e.message };
-  }
-  return { code: "UNKNOWN", message: "Something went wrong. Nothing was charged by this request." };
 }

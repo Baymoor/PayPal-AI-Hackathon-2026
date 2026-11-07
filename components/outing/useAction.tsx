@@ -1,12 +1,9 @@
 "use client";
 import { useCallback, useRef, useState } from "react";
-import { describeError } from "./api";
+import { describeError, type FriendlyError } from "@/components/errors/friendlyError";
 import { StatusBanner } from "@/components/ui/StatusBanner";
 
-export interface ActionError {
-  code: string;
-  message: string;
-}
+export type ActionError = FriendlyError;
 
 /** Tracks which async action is running and the last error. One action at a time per hook. */
 export function useAction() {
@@ -22,7 +19,8 @@ export function useAction() {
     try {
       return await fn();
     } catch (e) {
-      setError(describeError(e));
+      // The key decides the money reassurance: only the action tells us what is true about money.
+      setError(describeError(e, key));
       return undefined;
     } finally {
       busy.current = false;
@@ -33,16 +31,17 @@ export function useAction() {
   return { pending, error, run, clear: () => setError(null) };
 }
 
+/** What happened, what to do next, and what it means for money: in that order, in plain words. */
 export function ActionErrorBanner({ error, className }: { error: ActionError | null; className?: string }) {
-  // Keep the live region mounted so announcements fire when content appears.
+  // Keep the live region mounted so announcements fire when content appears. The banner inside is not a
+  // second live region, so screen readers announce the error once.
   return (
     <div aria-live="assertive" className={className}>
       {error && (
-        <StatusBanner tone={error.code === "TERMS_CHANGED" ? "warning" : "danger"} title={error.code === "UNAUTHORIZED" ? "Open your invitation link" : undefined}>
-          {error.message}
-          {error.code !== "TERMS_CHANGED" && error.code !== "UNAUTHORIZED" && (
-            <span className="block font-semibold">Nothing was charged by this request.</span>
-          )}
+        <StatusBanner tone={error.tone} title={error.title} live={false}>
+          <p>{error.explanation}</p>
+          {error.nextStep && <p className="mt-1">{error.nextStep}</p>}
+          {error.moneyNote && <p className="mt-1 font-semibold">{error.moneyNote}</p>}
         </StatusBanner>
       )}
     </div>

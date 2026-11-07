@@ -12,7 +12,8 @@ import type { OutingView } from "@/lib/contracts/views";
 import { AiSourceBadge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
-import { describeError, request, type OutingActions } from "./api";
+import { describeError, errorSummary } from "@/components/errors/friendlyError";
+import { request, type OutingActions } from "./api";
 import { formatWhenFull, isoToZonedLocal } from "./format";
 import { ActionErrorBanner, useAction } from "./useAction";
 
@@ -67,7 +68,7 @@ async function applyDraft(view: OutingView, actions: OutingActions, res: PlanDra
         await actions.select(d.offeringId);
         offeringApplied = true;
       } catch (e) {
-        notApplied.push(`${d.offeringName ?? "Offering"}: ${describeError(e).message}`);
+        notApplied.push(`${d.offeringName ?? "Offering"}: ${errorSummary(describeError(e, "draft"))}`);
       }
     }
   }
@@ -88,7 +89,7 @@ async function applyDraft(view: OutingView, actions: OutingActions, res: PlanDra
         await actions.patchParticipant(target, { payerType: "SPONSORED" });
         sponsorApplied = true;
       } catch (e) {
-        notApplied.push(`Sponsored guest: ${describeError(e).message}`);
+        notApplied.push(`Sponsored guest: ${errorSummary(describeError(e, "draft"))}`);
       }
     }
   }
