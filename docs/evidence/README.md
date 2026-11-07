@@ -1,6 +1,15 @@
 # PayPal sandbox evidence
 
-**Status: nothing in this folder is verified until the project owner runs the smoke test below with real sandbox credentials.** The Outings PayPal adapter (`lib/payments/paypal.ts`) was written from the official OpenAPI specs (see `docs/research/PAYPAL.md`) and is unit-tested only against a mocked `fetch`; the build containers cannot reach `api-m.sandbox.paypal.com`. A JSON file appears here only after a real run.
+**Status (7 Nov 2026): the adapter is verified against the PayPal REST sandbox.** The owner ran the smoke test below on their machine with a real sandbox REST app (Merchant type, default sandbox Business and Personal accounts, no account settings changed). Every expectation passed across two runs:
+
+| File | Flows | Result |
+|---|---|---|
+| `paypal-sandbox-2026-11-07T18-32-58-025Z.json` | refund | authorize $20 → capture $20 → refund $20 → GET refund `COMPLETED`. (The capture and void flows in this run timed out waiting for buyer approval, the first time the owner used the sandbox checkout; they were re-run below.) |
+| `paypal-sandbox-2026-11-07T19-00-35-045Z.json` | capture, void | **under-capture works**: authorize $20 → capture $10 with `final_capture: true` `COMPLETED`; replaying the capture with the same `PayPal-Request-Id` returns the same capture; the authorization then reads `CAPTURED` (remainder released by PayPal, no void needed). Void → `VOIDED`; capture after void → HTTP 422 `AUTHORIZATION_VOIDED`. |
+
+Findings: `underCaptureSupported: true`, `captureReplayIdempotent: true`, `authorizationStatusAfterFinalPartialCapture: CAPTURED`, `remainderNeededExplicitVoid: false`, `captureAfterVoidIssue: AUTHORIZATION_VOIDED`, `refundStatus: COMPLETED`; sandbox authorizations are valid for 29 days.
+
+**Not covered yet:** `--mock-decline` (negative testing), webhook signature verification against real deliveries, and a full outing run through the app itself in `PAYPAL_SANDBOX` mode. The smoke test exercises the same adapter code the app uses (`lib/payments/paypal.ts`), not the app's HTTP routes or settlement worker.
 
 ## What the smoke test proves
 

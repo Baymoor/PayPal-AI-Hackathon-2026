@@ -619,13 +619,15 @@ curl -X POST https://api-m.sandbox.paypal.com/v2/payments/authorizations/AUTH_ID
 
 ## 14. Open items to confirm in sandbox (first hour of implementation)
 
-1. After capture of $10 with `final_capture: true` against a $20 authorization: GET authorization status, and whether the $10 remainder is released automatically. If not, call void.
-2. Whether the sandbox Business account needs any partial-capture setting.
-3. Create order with `experience_context` + AUTHORIZE: exact `status` (`PAYER_ACTION_REQUIRED` vs `CREATED`) and link rel (`payer-action` vs `approve`).
-4. Return-URL query params (`token`, `PayerID`).
-5. Which of capture / void / refund accept `PayPal-Mock-Response`; actual response for void on VOIDED / CAPTURED authorization.
-6. Exact 422 issue codes for: authorize with unapproved order, authorize twice, capture after void, capture after expiry.
-7. Idempotency replay status codes on authorize / capture (200 vs 201) and what happens with a reused key on a different payload.
+Results from the owner's sandbox runs on 7 Nov 2026 (`scripts/paypal-smoke.ts`; evidence in `docs/evidence/`, summary in `docs/evidence/README.md`) are marked **Sandbox 7 Nov**.
+
+1. After capture of $10 with `final_capture: true` against a $20 authorization: GET authorization status, and whether the $10 remainder is released automatically. If not, call void. **Sandbox 7 Nov: answered.** The $10 capture is `COMPLETED`, the authorization reads `CAPTURED` (not `PARTIALLY_CAPTURED`), and no void is needed for the remainder.
+2. Whether the sandbox Business account needs any partial-capture setting. **Sandbox 7 Nov: not needed** for the default sandbox Business account; under-capture worked with no settings changed.
+3. Create order with `experience_context` + AUTHORIZE: exact `status` (`PAYER_ACTION_REQUIRED` vs `CREATED`) and link rel (`payer-action` vs `approve`). **Sandbox 7 Nov: status is `PAYER_ACTION_REQUIRED`**; an approval link was returned and worked (the adapter prefers `payer-action`, falls back to `approve`; which rel was used is not recorded).
+4. Return-URL query params (`token`, `PayerID`). **Sandbox 7 Nov: partly observed.** The cancel redirect carried `?token=<order id>` (seen in the browser); the return redirect's parameters were not recorded.
+5. Which of capture / void / refund accept `PayPal-Mock-Response`; actual response for void on VOIDED / CAPTURED authorization. Still open (`--mock-decline` not run yet).
+6. Exact 422 issue codes for: authorize with unapproved order, authorize twice, capture after void, capture after expiry. **Sandbox 7 Nov: capture after void → HTTP 422 `AUTHORIZATION_VOIDED`** (the adapter already handles this code). The others are still open.
+7. Idempotency replay status codes on authorize / capture (200 vs 201) and what happens with a reused key on a different payload. **Sandbox 7 Nov: replaying a capture with the same `PayPal-Request-Id` returns the same capture** (HTTP status not recorded); reuse with a different payload is still open.
 8. Webhook event names list from https://developer.paypal.com/api/rest/webhooks/event-names, and whether the webhook `resource` for capture events carries `supplementary_data.related_ids.authorization_id`.
 9. Allow `developer.paypal.com` in the session network settings if a follow-up pass should read the docs directly.
 

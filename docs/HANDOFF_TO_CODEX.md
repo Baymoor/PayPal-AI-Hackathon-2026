@@ -6,7 +6,8 @@
 
 - Repository: https://github.com/Baymoor/PayPal-AI-Hackathon-2026
 - Branch: `claude/wizardly-rubin-16wxoj` — everything committed and pushed; no PR opened (owner asked for milestone pushes). Run `git log -1` for the exact HEAD.
-- The app boots with no external keys (labelled FIXTURE payments + FIXTURE AI). Real PayPal sandbox and real Claude are implemented but **not yet exercised** against the live services (the cloud container could not reach PayPal and had no runtime Anthropic key).
+- The app boots with no external keys (labelled FIXTURE payments + FIXTURE AI). The cloud container could not reach PayPal and had no runtime Anthropic key. On 7 Nov 2026 the owner's local run **verified the PayPal adapter against the PayPal sandbox** (`scripts/paypal-smoke.ts`; see `docs/evidence/README.md`). Still **not exercised**: a full outing through the app in `PAYPAL_SANDBOX` mode, and real Claude.
+- Local development (since 7 Nov 2026) happens on the owner's Windows machine: branches `main` (submission) and `development` (integration) on GitHub; agents work in their own git worktrees and merge into `development`.
 
 ## 2. Feature status
 
@@ -19,7 +20,7 @@ Legend: **REAL_SANDBOX** = exercised against PayPal sandbox · **REAL_AI** = exe
 | Job queue, payment operation outbox planner, audit log | IMPLEMENTED | `lib/jobs/queue.ts`, `lib/payments/plan.ts` |
 | Signed cookie sessions, hashed invite tokens, access checks | IMPLEMENTED | `lib/auth/*`, `lib/services/access.ts`, tests/access |
 | Settlement engine (freeze, reconcile, sequential capture, compensation, void/refund recovery, worker, cron route, webhooks) | IMPLEMENTED | `lib/settlement/*`, `lib/jobs/*`, tests/settlement (concurrent workers, timeouts) |
-| PayPal REST adapter (sandbox, server-only redirect approval) | IMPLEMENTED — **not verified against PayPal** | tested with mocked fetch only; cloud container cannot reach PayPal |
+| PayPal REST adapter (sandbox, server-only redirect approval) | **REAL_SANDBOX** (adapter level) | 7 Nov 2026 smoke runs: authorize, $10-of-$20 final capture, idempotent replay, void, refund all pass against the sandbox; app routes/worker in `PAYPAL_SANDBOX` mode not yet run end to end |
 | FIXTURE payment simulator (persistent, failure injection) | FIXTURE_ONLY | labelled "Fixture — not real PayPal" |
 | Outing services, read models, HTTP API, demo seed | IMPLEMENTED | tests/services; worker settles the seeded demo |
 | AI (Anthropic structured output + labelled fixture) | IMPLEMENTED — **REAL_AI not verified** | no runtime key in container; mocked SDK tests |
@@ -37,7 +38,8 @@ Legend: **REAL_SANDBOX** = exercised against PayPal sandbox · **REAL_AI** = exe
 | Third audit: code added after audit 2 (demo scenarios, /setup, AI plan draft, headers, hardening) (Fable) | DONE | 1 medium (scenario button rewrote the shared catalogue) + 1 low (HSTS at runtime) fixed with tests (tests/audit3); AI draft no longer overrides organizer choices |
 | Security headers (nonce CSP, HSTS in prod, frame/sniff/permissions) | DONE | `proxy.ts`, `lib/security/headers.ts`; 0 CSP violations across pages in a production build |
 | Raw demo footage | DELIVERED TO OWNER (not in repo) | 6 Playwright-recorded clips from the production build + shot list, FIXTURE labels visible |
-| PayPal sandbox proof (auth → $10 under-capture → void → refund) | NOT VERIFIED | run `npx tsx scripts/paypal-smoke.ts` locally with sandbox credentials |
+| PayPal sandbox proof (auth → $10 under-capture → void → refund) | **DONE (REAL_SANDBOX)** | `docs/evidence/paypal-sandbox-2026-11-07T*.json`; authorization reads `CAPTURED` after the final partial capture, so PayPal releases the remainder (no void needed). `--mock-decline` not run |
+| Database resilience (dropped idle connections, connect timeout, 503 on outages) | DONE | `lib/db/client.ts`, `lib/transient-errors.ts`, `lib/http.ts`; `tests/db/connection-resilience.test.ts` (real Postgres connection kill) |
 | Deployment + scheduler | DOCUMENTED, NOT DEPLOYED | `docs/DEPLOYMENT.md`, `render.yaml` |
 
 ## 3. Commands
@@ -70,7 +72,9 @@ npm run typecheck && npm test
 E2E_DATABASE_URL=postgres://outings:outings@localhost:5432/outings_e2e npm run test:e2e   # Playwright against a production build (wipes that db)
 ```
 
-Last results (cloud session, 4 Nov 2026): `npx tsc --noEmit` clean · `npx eslint .` 0 problems · `npx vitest run` 28 files / **346 passed** · `npm run test:e2e` **6/6 passed** (karaoke settle, holdout cancel, organizer cancel, demo hub, capture-failure compensation, big-group $10-from-$20 under-capture) · `next build` passes.
+Last results (owner's Windows 11 machine, Postgres 16 in Docker, 7 Nov 2026): `tsc` clean · eslint clean · `npx vitest run` 29 files / **361 passed** · `npm run test:e2e` **6/6 passed** · `docker build` succeeds.
+
+Earlier results (cloud session, 4 Nov 2026): `npx tsc --noEmit` clean · `npx eslint .` 0 problems · `npx vitest run` 28 files / **346 passed** · `npm run test:e2e` **6/6 passed** (karaoke settle, holdout cancel, organizer cancel, demo hub, capture-failure compensation, big-group $10-from-$20 under-capture) · `next build` passes.
 
 First local run with real keys: sign in at `/merchant/login`, open **`/setup`** — it shows which env vars are set (names only) and has buttons to test PayPal sandbox OAuth and a real Claude call.
 
@@ -80,13 +84,13 @@ First local run with real keys: sign in at `/merchant/login`, open **`/setup`** 
 
 ## 5. PayPal capabilities
 
-Proven against sandbox: **none yet** (network policy of the cloud container blocks PayPal hosts). Unverified until the owner runs the smoke script: AUTHORIZE order creation, buyer approval via redirect, authorize, under-capture with `final_capture=true` ($20 → $10), void, refund, webhook signature verification, `PayPal-Mock-Response` negative testing. See `docs/research/PAYPAL.md` §14 for the exact list.
+Proven against sandbox (owner's machine, 7 Nov 2026; `docs/evidence/README.md`): OAuth, AUTHORIZE order creation (status `PAYER_ACTION_REQUIRED`), buyer approval via redirect, authorize ($20, 29-day validity), under-capture with `final_capture=true` ($20 → $10, authorization then `CAPTURED`, remainder released automatically), idempotent capture replay on the same `PayPal-Request-Id`, void (`VOIDED`; capture afterwards → 422 `AUTHORIZATION_VOIDED`), full capture and refund (`COMPLETED`). Still unverified: webhook signature verification, `PayPal-Mock-Response` negative testing, and the app's own routes and worker in `PAYPAL_SANDBOX` mode. See `docs/research/PAYPAL.md` §14.
 
 ## 6. Known gaps and next tasks
 
 ### Next five tasks (priority order)
 
-1. **Prove PayPal sandbox.** Create the sandbox REST app + 2 Personal buyers, set `PAYPAL_CLIENT_ID/SECRET`, run `npx tsx scripts/paypal-smoke.ts` (and `--mock-decline`). Fix any adapter mismatches (unverified assumptions listed below), commit the redacted evidence in `docs/evidence/`, then run one full outing in `PAYPAL_SANDBOX` mode with two buyers and flip the status rows to REAL_SANDBOX.
+1. **Prove PayPal sandbox.** Adapter part DONE on 7 Nov 2026 (smoke script, evidence committed; no adapter mismatches found). Remaining: run one full outing through the app in `PAYPAL_SANDBOX` mode with two buyers (needs a second sandbox Personal account), and optionally `--mock-decline`.
 2. **Prove real Claude.** Set `OUTINGS_ANTHROPIC_API_KEY`, run `npx tsx scripts/ai-smoke.ts`, commit the evidence, create one outing through `/new` with the real model.
 3. **Deploy** (Render blueprint `render.yaml` or the `Dockerfile`): Postgres, web, worker (or a scheduler on `/api/cron/tick`), HTTPS `APP_BASE_URL`, PayPal webhook → `/api/webhooks/paypal` with `PAYPAL_WEBHOOK_ID`, AG Studio trial key. Prove a deadline settles with every browser closed on the hosted URL; keep it free and up through **15 Dec 2026**.
 4. **Submission:** record the < 3 min video from `docs/DEMO_SCRIPT.md` (label fixture footage; show real sandbox/Claude only if actually recorded), fill the TODOs in `docs/HACKATHON_SUBMISSION.md`, make the repo public, submit on Devpost by **11 Nov** (hard deadline 12 Nov 21:00 CET).
@@ -94,7 +98,7 @@ Proven against sandbox: **none yet** (network policy of the cloud container bloc
 
 ### Unverified PayPal assumptions (see docs/research/PAYPAL.md §14)
 
-`payer-action` vs `approve` link selection; `token` query parameter on return; authorization status/remainder after a partial `final_capture`; exact issue-code names (e.g. PREVIOUSLY_CAPTURED, AUTHORIZATION_ALREADY_CAPTURED); `PayPal-Mock-Response` support on capture/void/refund; idempotency retention window (designed for 6 h).
+Answered on 7 Nov 2026: authorization status/remainder after a partial `final_capture` (`CAPTURED`, remainder released); capture after void (`AUTHORIZATION_VOIDED`); capture replay idempotency. Still open: which approval link rel was used (`payer-action` vs `approve`, both accepted); `token`/`PayerID` on the return redirect (the cancel redirect carries `token`); other issue-code names (e.g. PREVIOUSLY_CAPTURED, AUTHORIZATION_ALREADY_CAPTURED); `PayPal-Mock-Response` support on capture/void/refund; idempotency retention window (designed for 6 h).
 
 ### Known limitations / minor defects
 

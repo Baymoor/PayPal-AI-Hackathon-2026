@@ -44,7 +44,7 @@ Payments go directly to the experience merchant; the organizer never receives th
 | AI | Anthropic Claude with structured outputs, validated by zod; labelled deterministic fixture when no key is set |
 | Merchant UI | AG Studio with AG Grid (Community for the drill-down grid) |
 | Worker | `npm run worker` loop, or an authenticated `POST /api/cron/tick` from any scheduler |
-| Tests | 346 Vitest tests in 28 files against a real Postgres database, plus Playwright end-to-end specs (see [TESTING.md](TESTING.md)) |
+| Tests | 361 Vitest tests in 29 files against a real Postgres database, plus Playwright end-to-end specs (see [TESTING.md](TESTING.md)) |
 
 The money logic lives in a small pure domain layer (integer minor units, equal split, cap, terms hash, settle-or-cancel decision) so it can be tested exhaustively. Provider calls never run inside a database transaction, and every provider mutation has a durable outbox row with a stable request id.
 
@@ -53,12 +53,12 @@ The money logic lives in a small pure domain layer (integer minor units, equal s
 PayPal authorization is the product, not a checkout button bolted on at the end.
 
 - **Authorize, then capture later.** Authorizations let a person commit without being charged until the group is confirmed. That is exactly the "I am in, if you are in" semantics a group booking needs.
-- **Cap versus share.** The hold is the maximum share; the capture is the real allocated share. Capturing less than the authorized amount with `final_capture` is how the design lets the share fall when more friends join. **TODO: confirm under-capture ($20 authorization, $10 capture) and remainder release in the PayPal sandbox by running `scripts/paypal-smoke.ts`; until then this is implemented and unit-tested against mocks but not verified against PayPal.**
+- **Cap versus share.** The hold is the maximum share; the capture is the real allocated share. Capturing less than the authorized amount with `final_capture` is how the design lets the share fall when more friends join. Verified in the PayPal sandbox: a $20 authorization captured at $10 with `final_capture: true` completes, the authorization then reads `CAPTURED`, and PayPal releases the remaining $10 with no extra call ([evidence](evidence/README.md)).
 - **Void and refund.** Cancellation voids holds; partial capture failure refunds completed captures.
 - **Idempotency and unknown outcomes.** Timeouts are treated as UNKNOWN and reconciled by reading PayPal state before any retry, with the same `PayPal-Request-Id`.
 - **Webhooks** are signature-verified, deduplicated by event id, and only trigger a re-read of provider state.
 
-Status today: the adapter is implemented from the official OpenAPI specs and tested with a mocked `fetch`. **TODO: PayPal sandbox proof (evidence file in `docs/evidence/`).**
+Status today: the adapter is implemented from the official OpenAPI specs, tested with a mocked `fetch`, and verified against the PayPal REST sandbox with `scripts/paypal-smoke.ts`: authorize, $10-of-$20 final capture, idempotent capture replay on the same `PayPal-Request-Id`, void (a capture afterwards is refused with `AUTHORIZATION_VOIDED`), and full capture plus refund. Redacted evidence is in [`docs/evidence/`](evidence/README.md). **TODO: record one full outing through the app in `PAYPAL_SANDBOX` mode before showing it in the video; webhook signature verification and negative testing are not yet verified.**
 
 ## How AI is used, and not used
 
@@ -97,7 +97,7 @@ AG Studio runs under its evaluation trial. **TODO: add the trial licence key to 
 - Two independent audits (payments/settlement; privacy/access/consent) whose confirmed defects were fixed with regression tests in `tests/audit` and `tests/audit2`.
 - Hardening beyond the happy path: rate limiting keyed on `TRUSTED_PROXY_HOPS`, the PayPal payee read from the merchant row, merchant timezone carried in rows, merchant sessions that expire after 12 h, and no organizer cancel after the deadline.
 - A compensation path that can be watched in one click and is covered by a browser test (`tests/e2e/compensation.spec.ts`).
-- Current verified results: 346 Vitest tests (28 files) pass; Playwright specs for the karaoke settle, holdout cancel, organizer cancel, demo hub and capture-failure compensation; eslint and `tsc` clean; `next build` passes. All of it runs in FIXTURE modes.
+- Current verified results: 361 Vitest tests (29 files) pass; 6 Playwright end-to-end tests (karaoke settle, holdout cancel, organizer cancel, demo hub, capture-failure compensation, big-group under-capture) pass; eslint and `tsc` clean; `next build` passes. These run in FIXTURE modes. Separately, the PayPal adapter is verified against the PayPal sandbox by `scripts/paypal-smoke.ts`.
 
 ## What we learned
 
@@ -129,4 +129,4 @@ Complete and honest, per hackathon rules.
 
 **Services**
 
-- PayPal sandbox only; no real money moves. PayPal sandbox calls verified: **TODO**.
+- PayPal sandbox only; no real money moves. PayPal sandbox calls verified (7 Nov 2026, `scripts/paypal-smoke.ts`): authorize, under-capture with `final_capture`, capture replay, void, capture-after-void refusal, capture, refund. Full in-app `PAYPAL_SANDBOX` outing: **TODO**.

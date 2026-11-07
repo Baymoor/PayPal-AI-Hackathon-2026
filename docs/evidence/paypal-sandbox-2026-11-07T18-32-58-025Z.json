@@ -1,0 +1,133 @@
+{
+  "tool": "scripts/paypal-smoke.ts",
+  "environment": "PayPal REST sandbox",
+  "apiBase": "https://api-m.sandbox.paypal.com",
+  "runAt": "2026-11-07T18:32:58.025Z",
+  "mockDecline": false,
+  "redaction": "ids truncated to first 3 / last 4 chars; no buyer emails, names, tokens, secrets or approval links are stored",
+  "flows": [
+    {
+      "name": "under-capture: authorize $20, capture $10 with final_capture",
+      "steps": [
+        {
+          "step": "create AUTHORIZE order",
+          "at": "2026-11-07T18:33:00.210Z",
+          "ok": true,
+          "data": {
+            "orderRef": "9B7…4922",
+            "providerStatus": "PAYER_ACTION_REQUIRED",
+            "hasApproveLink": true
+          }
+        },
+        {
+          "step": "buyer approval",
+          "at": "2026-11-07T18:43:00.428Z",
+          "ok": false,
+          "data": {
+            "orderStatus": "PAYER_ACTION_REQUIRED"
+          }
+        }
+      ]
+    },
+    {
+      "name": "void: authorize $20, then void",
+      "steps": [
+        {
+          "step": "create AUTHORIZE order",
+          "at": "2026-11-07T18:43:01.937Z",
+          "ok": true,
+          "data": {
+            "orderRef": "531…9018",
+            "providerStatus": "PAYER_ACTION_REQUIRED",
+            "hasApproveLink": true
+          }
+        },
+        {
+          "step": "buyer approval",
+          "at": "2026-11-07T18:53:05.671Z",
+          "ok": false,
+          "data": {
+            "orderStatus": "PAYER_ACTION_REQUIRED"
+          }
+        }
+      ]
+    },
+    {
+      "name": "refund: authorize $20, capture $20, refund $20",
+      "steps": [
+        {
+          "step": "create AUTHORIZE order",
+          "at": "2026-11-07T18:53:07.108Z",
+          "ok": true,
+          "data": {
+            "orderRef": "6FN…290G",
+            "providerStatus": "PAYER_ACTION_REQUIRED",
+            "hasApproveLink": true
+          }
+        },
+        {
+          "step": "buyer approval",
+          "at": "2026-11-07T19:00:02.683Z",
+          "ok": true,
+          "data": {
+            "orderStatus": "APPROVED"
+          }
+        },
+        {
+          "step": "authorize order",
+          "at": "2026-11-07T19:00:04.579Z",
+          "ok": true,
+          "data": {
+            "authorizationRef": "0UX…8829",
+            "status": "CREATED",
+            "amountMinor": 2000,
+            "customIdMatches": true,
+            "createTime": "2026-11-07T19:00:03.000Z",
+            "expirationTime": "2026-12-06T19:00:03.000Z",
+            "validityDays": 29
+          },
+          "expectation": "authorization CREATED for exactly 2000 minor units",
+          "met": true
+        },
+        {
+          "step": "capture $20",
+          "at": "2026-11-07T19:00:06.284Z",
+          "ok": true,
+          "data": {
+            "captureRef": "3NK…6327",
+            "status": "COMPLETED"
+          },
+          "expectation": "capture COMPLETED",
+          "met": true
+        },
+        {
+          "step": "refund $20",
+          "at": "2026-11-07T19:00:08.186Z",
+          "ok": true,
+          "data": {
+            "refundRef": "0JM…211L",
+            "status": "COMPLETED",
+            "amountMinor": 2000
+          },
+          "expectation": "refund COMPLETED or PENDING for 2000",
+          "met": true
+        },
+        {
+          "step": "GET refund",
+          "at": "2026-11-07T19:00:09.121Z",
+          "ok": true,
+          "data": {
+            "status": "COMPLETED"
+          }
+        }
+      ]
+    }
+  ],
+  "findings": {
+    "refundStatus": "COMPLETED",
+    "failedSteps": [
+      "under-capture: authorize $20, capture $10 with final_capture / buyer approval",
+      "void: authorize $20, then void / buyer approval"
+    ]
+  }
+}
