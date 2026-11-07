@@ -16,10 +16,10 @@ describe("describeError", () => {
     expect(e.explanation).toBe("The venue closes at 23:00");
   });
 
-  it("never shows developer validation text", () => {
-    const zodText = "organizerName: Invalid input: expected string, received number";
-    const e = describeError(new ApiError("INVALID_INPUT", 400, zodText), "create");
-    expect(e.explanation).not.toContain("organizerName");
+  it("shows the server's INVALID_INPUT message, which is human for schema and service failures alike", () => {
+    const e = describeError(new ApiError("INVALID_INPUT", 400, "Add at least one name"), "invite");
+    expect(e.explanation).toBe("Add at least one name");
+    expect(e.nextStep).toBeUndefined();
   });
 
   it("does not echo the useless 'Request failed (502)' of a response without a JSON body", () => {

@@ -95,12 +95,10 @@ export const ERROR_COPY: Readonly<Record<string, ErrorCopy>> = {
     nextStep: "Refresh the page and try again.",
     tone: "danger",
   },
-  // The server's validation text is written for developers ("brief: Invalid input: expected string…").
-  INVALID_INPUT: {
-    title: "Some details didn't look right",
-    explanation: "We couldn't accept what was sent.",
-    nextStep: "Check what you entered and try again.",
-  },
+  // The server's message is human for both kinds (lib/http.ts): schema failures say "Some of the details
+  // sent weren't in the expected format. Check what you entered and try again."; service checks say what
+  // to fix ("Add at least one name"). So show it as is, with no next step that would repeat it.
+  INVALID_INPUT: { title: "Some details didn't look right" },
 
   // --- Access ---------------------------------------------------------------------------------------
   UNAUTHORIZED: {
