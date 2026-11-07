@@ -50,12 +50,23 @@ function PaymentFlagBanner({ flag, reason, view }: { flag: PaymentFlag; reason?:
         Late authorizations are not accepted. Any hold will be released — you have not been charged.
       </StatusBanner>
     );
-  if (flag === "pending")
+  if (flag === "pending") {
+    // Only UNKNOWN resolves by itself: reconciliation asks the provider and records the hold. An approval that
+    // was never completed (CREATED / APPROVAL_PENDING) holds nothing and stays that way until the person
+    // authorizes again, so telling them "you don't need to pay again" there would make them miss the deadline.
+    if (status === "UNKNOWN")
+      return (
+        <StatusBanner tone="pending" title={fixtureHold(view) ? "Still confirming the simulated approval" : "Still confirming with PayPal"}>
+          We haven&apos;t verified your authorization yet. This page updates on its own — you don&apos;t need to pay again.
+        </StatusBanner>
+      );
     return (
-      <StatusBanner tone="pending" title={fixtureHold(view) ? "Still confirming the simulated approval" : "Still confirming with PayPal"}>
-        We haven&apos;t verified your authorization yet. This page updates on its own — you don&apos;t need to pay again.
+      <StatusBanner tone="warning" title="Your approval wasn’t completed">
+        <p>No payment hold was placed and nothing was charged.</p>
+        <p className="mt-1">To join, use Review &amp; authorize again. It takes you back to the payment page.</p>
       </StatusBanner>
     );
+  }
   if (flag === "failed") {
     const why = describePaymentFailureReason(reason);
     return (

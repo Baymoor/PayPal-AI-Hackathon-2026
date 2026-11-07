@@ -251,6 +251,25 @@ export const FIXTURES: Record<string, { label: string; view: OutingView }> = {
     label: "Invitation — ?payment=failed banner",
     view: collecting(),
   },
+  // The two ?payment=pending cases: only UNKNOWN resolves by itself; an uncompleted approval holds nothing.
+  "invitation-approval-incomplete": {
+    label: "Invitation — ?payment=pending, approval not completed (no hold)",
+    view: collecting({
+      me: {
+        payment: { ...authorizedPayment, status: "APPROVAL_PENDING", authorizedMinor: 0, verified: false, authorizationRef: null },
+        can: { ...emptyCan, consent: true, authorize: true, decline: true },
+      },
+    }),
+  },
+  "invitation-confirming": {
+    label: "Invitation — ?payment=pending, still confirming (UNKNOWN)",
+    view: collecting({
+      me: {
+        payment: { ...authorizedPayment, status: "UNKNOWN", authorizedMinor: 0, verified: false, authorizationRef: null },
+        can: { ...emptyCan, decline: true },
+      },
+    }),
+  },
   waiting: {
     label: "Waiting — $20 authorized, est. $10",
     view: collecting({
@@ -306,6 +325,11 @@ export const FIXTURES: Record<string, { label: string; view: OutingView }> = {
 };
 
 export const FIXTURE_KEYS = Object.keys(FIXTURES);
-export const FIXTURE_FLAGS: Record<string, string> = { "invitation-late": "failed", waiting: "authorized" };
+export const FIXTURE_FLAGS: Record<string, string> = {
+  "invitation-late": "failed",
+  "invitation-approval-incomplete": "pending",
+  "invitation-confirming": "pending",
+  waiting: "authorized",
+};
 /** `?reason=` that accompanies a failed flag (a lower-cased error code from the PayPal return route). */
 export const FIXTURE_REASONS: Record<string, string> = { "invitation-late": "provider_unavailable" };
