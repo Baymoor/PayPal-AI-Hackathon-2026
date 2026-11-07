@@ -16,12 +16,15 @@ export function OutingScreen({
   actions,
   clockOffsetMs,
   paymentFlag,
+  paymentReason,
   notice,
 }: {
   view: OutingView;
   actions: OutingActions;
   clockOffsetMs: number;
   paymentFlag?: PaymentFlag;
+  /** Lower-cased error code from a failed payment redirect; explained only if it's a known code. */
+  paymentReason?: string;
   notice?: React.ReactNode;
 }) {
   const stage = view.outing.stage;
@@ -33,7 +36,10 @@ export function OutingScreen({
   else if (stage === "BRIEF") body = <BriefStage view={view} actions={actions} />;
   else if (stage === "BUDGET") body = <BudgetStage view={view} actions={actions} />;
   else if (stage === "INVITE") body = <ProposalStage view={view} actions={actions} />;
-  else body = <CommitStage view={view} actions={actions} clockOffsetMs={clockOffsetMs} paymentFlag={paymentFlag} />;
+  else
+    body = (
+      <CommitStage view={view} actions={actions} clockOffsetMs={clockOffsetMs} paymentFlag={paymentFlag} paymentReason={paymentReason} />
+    );
 
   return (
     <PageFrame wide={wide} back={{ href: "/", label: "Back to home" }}>

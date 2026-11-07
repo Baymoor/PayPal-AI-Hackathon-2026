@@ -1,25 +1,9 @@
 /** Thin client for the documented HTTP API (docs/CONTRACTS.md). Errors carry the server's `{error:{code,message}}`. */
 import type { OutingView } from "@/lib/contracts/views";
+import { apiErrorFromResponse, networkError } from "@/components/errors/apiError";
 
-export class ApiError extends Error {
-  constructor(
-    readonly code: string,
-    readonly status: number,
-    message: string,
-    /** From the Retry-After header (429 / 503), so error copy can say how long to wait. */
-    readonly retryAfterSeconds?: number,
-  ) {
-    super(message);
-    this.name = "ApiError";
-  }
-}
-
-/** Retry-After in seconds; the HTTP-date form is ignored (our server only sends seconds). */
-function parseRetryAfter(value: string | null): number | undefined {
-  if (!value) return undefined;
-  const seconds = Number(value);
-  return Number.isFinite(seconds) && seconds > 0 ? seconds : undefined;
-}
+// Re-exported so existing `import { ApiError } from "./api"` call sites keep working.
+export { ApiError } from "@/components/errors/apiError";
 
 export async function request<T = unknown>(path: string, init: RequestInit & { json?: unknown } = {}): Promise<T> {
   const { json, headers, ...rest } = init;
@@ -33,9 +17,7 @@ export async function request<T = unknown>(path: string, init: RequestInit & { j
       body: json !== undefined ? JSON.stringify(json) : rest.body,
     });
   } catch {
-    // A dropped write may still have reached the server, so its outcome is unknown; a dropped read changed nothing.
-    const isRead = (rest.method ?? "GET").toUpperCase() === "GET";
-    throw new ApiError(isRead ? "NETWORK_READ" : "NETWORK", 0, "We couldn't reach the server. Check your connection and try again.");
+    throw networkError(rest.method);
   }
   let body: unknown = null;
   const text = await res.text();
@@ -46,15 +28,7 @@ export async function request<T = unknown>(path: string, init: RequestInit & { j
       body = null;
     }
   }
-  if (!res.ok) {
-    const err = (body as { error?: { code?: string; message?: string } } | null)?.error;
-    throw new ApiError(
-      err?.code ?? (res.status === 401 ? "UNAUTHORIZED" : res.status === 404 ? "NOT_FOUND" : "HTTP_" + res.status),
-      res.status,
-      err?.message ?? `Request failed (${res.status})`,
-      parseRetryAfter(res.headers.get("retry-after")),
-    );
-  }
+  if (!res.ok) throw apiErrorFromResponse(res, body);
   return body as T;
 }
 

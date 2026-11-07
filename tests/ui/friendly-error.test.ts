@@ -3,10 +3,11 @@
  * about their money. Copy wording itself is not asserted (it is meant to be tuned freely).
  */
 import { describe, expect, it } from "vitest";
-import { describeError, describeErrorFacts } from "@/components/errors/friendlyError";
+import { describeError, describeErrorFacts, describePaymentFailureReason } from "@/components/errors/friendlyError";
 import { describeWait } from "@/components/errors/errorCopy";
 import { CONSERVATIVE_MONEY_NOTE, moneyContextForAction } from "@/components/errors/moneyNote";
-import { ApiError } from "@/components/outing/api";
+import { ApiError } from "@/components/errors/apiError";
+import { describeMerchantCode, describeMerchantError } from "@/components/merchant/MerchantError";
 
 describe("describeError", () => {
   it("keeps the server's message for codes without copy, so specifics are never lost", () => {
@@ -61,6 +62,36 @@ describe("money notes", () => {
     expect(moneyContextForAction("scenario:holdout")).toBe("demo");
     expect(moneyContextForAction("persona:123")).toBe("demo");
     expect(moneyContextForAction(undefined)).toBe("unknown");
+  });
+});
+
+describe("describePaymentFailureReason (from the editable ?reason= URL)", () => {
+  it("explains a known code", () => {
+    expect(describePaymentFailureReason("provider_unavailable")?.code).toBe("PROVIDER_UNAVAILABLE");
+  });
+
+  it("explains nothing for unknown, prototype-like or server-message-only codes", () => {
+    for (const reason of ["<script>", "constructor", "__proto__", "tostring", "merchant_unavailable", ""]) {
+      expect(describePaymentFailureReason(reason)).toBeNull();
+    }
+    expect(describePaymentFailureReason(undefined)).toBeNull();
+  });
+});
+
+describe("merchant wording", () => {
+  it("treats UNAUTHORIZED as an expired dashboard session, not a missing invitation", () => {
+    const e = describeMerchantError(new ApiError("UNAUTHORIZED", 401, "Merchant sign-in required"));
+    expect(e.title).not.toMatch(/invitation/i);
+    expect(e.moneyNote).toBeUndefined();
+  });
+
+  it("lets a screen override the shared copy (drill-down 404)", () => {
+    const e = describeMerchantError(new ApiError("NOT_FOUND", 404, "Outing not found"), { NOT_FOUND: { title: "Custom" } });
+    expect(e.title).toBe("Custom");
+  });
+
+  it("explains client-detected failures by code", () => {
+    expect(describeMerchantCode("UNSAFE_FILTER").explanation).toMatch(/nothing was applied/);
   });
 });
 

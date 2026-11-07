@@ -1,28 +1,22 @@
 import type { MerchantBookingRow, MerchantOutingDetail } from "@/lib/contracts/views";
 import type { DashboardQuery } from "@/lib/ai/types";
+import { apiErrorFromResponse, networkError } from "@/components/errors/apiError";
 import { parseDashboardQuery } from "./query";
 
-export class ApiError extends Error {
-  constructor(readonly status: number, message: string) {
-    super(message);
-    this.name = "ApiError";
-  }
-}
+// Same error type as the consumer client, so components/errors can explain merchant failures by code too.
+export { ApiError } from "@/components/errors/apiError";
 
 async function request<T>(url: string, init?: RequestInit): Promise<T> {
   let res: Response;
   try {
     res = await fetch(url, { ...init, headers: { "content-type": "application/json", ...(init?.headers ?? {}) }, credentials: "same-origin" });
   } catch {
-    throw new ApiError(0, "Could not reach the server. Check your connection and try again.");
+    throw networkError(init?.method);
   }
   const text = await res.text();
   let body: unknown = null;
   try { body = text ? JSON.parse(text) : null; } catch { /* non-JSON body */ }
-  if (!res.ok) {
-    const msg = (body as { error?: { message?: string } } | null)?.error?.message;
-    throw new ApiError(res.status, msg ?? (res.status === 404 ? "This endpoint is not available yet." : `Request failed (${res.status}).`));
-  }
+  if (!res.ok) throw apiErrorFromResponse(res, body);
   return body as T;
 }
 

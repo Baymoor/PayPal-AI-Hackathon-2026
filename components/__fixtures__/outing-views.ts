@@ -307,3 +307,5 @@ export const FIXTURES: Record<string, { label: string; view: OutingView }> = {
 
 export const FIXTURE_KEYS = Object.keys(FIXTURES);
 export const FIXTURE_FLAGS: Record<string, string> = { "invitation-late": "failed", waiting: "authorized" };
+/** `?reason=` that accompanies a failed flag (a lower-cased error code from the PayPal return route). */
+export const FIXTURE_REASONS: Record<string, string> = { "invitation-late": "provider_unavailable" };

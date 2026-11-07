@@ -7,6 +7,8 @@ export const metadata: Metadata = { title: "Your outing", robots: { index: false
 // (cookie session) and polled while the outing is open.
 export const dynamic = "force-dynamic";
 
+const firstParam = (value: string | string[] | undefined): string | undefined => (Array.isArray(value) ? value[0] : value);
+
 export default async function OutingPage({
   params,
   searchParams,
@@ -16,6 +18,8 @@ export default async function OutingPage({
 }) {
   const { id } = await params;
   const sp = await searchParams;
-  const flag = Array.isArray(sp.payment) ? sp.payment[0] : sp.payment;
-  return <OutingClient id={id} paymentFlag={flag} />;
+  const flag = firstParam(sp.payment);
+  // Set by the PayPal return/cancel routes on failure; the client only explains known codes.
+  const reason = firstParam(sp.reason);
+  return <OutingClient id={id} paymentFlag={flag} paymentReason={reason} />;
 }

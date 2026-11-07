@@ -63,7 +63,7 @@ function shouldPoll(view: OutingView): boolean {
   return true;
 }
 
-export function OutingClient({ id, paymentFlag }: { id: string; paymentFlag?: string }) {
+export function OutingClient({ id, paymentFlag, paymentReason }: { id: string; paymentFlag?: string; paymentReason?: string }) {
   const [view, setView] = useState<OutingView | null>(null);
   const [offset, setOffset] = useState(0);
   const [fatal, setFatal] = useState<ApiError | null>(null);
@@ -161,6 +161,7 @@ export function OutingClient({ id, paymentFlag }: { id: string; paymentFlag?: st
       actions={actions}
       clockOffsetMs={offset}
       paymentFlag={paymentFlag}
+      paymentReason={paymentReason}
       notice={
         stale ? (
           <StatusBanner tone="warning" title="Reconnecting…">

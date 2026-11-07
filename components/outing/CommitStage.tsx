@@ -1,6 +1,7 @@
 "use client";
 import { CalendarDays, Check, Clock, MapPin, UserX, Users } from "lucide-react";
 import { useState } from "react";
+import { describePaymentFailureReason } from "@/components/errors/friendlyError";
 import type { OutingView } from "@/lib/contracts/views";
 import { formatMoney } from "@/lib/domain/money";
 import { Avatar } from "@/components/ui/Avatar";
@@ -26,7 +27,8 @@ export function fixtureHold(view: OutingView): boolean {
 
 export type PaymentFlag = "authorized" | "late" | "pending" | "failed" | "cancelled" | string | undefined;
 
-function PaymentFlagBanner({ flag, view }: { flag: PaymentFlag; view: OutingView }) {
+/** `reason` is the lower-cased error code a failed payment redirect carries (`?payment=failed&reason=…`). */
+function PaymentFlagBanner({ flag, reason, view }: { flag: PaymentFlag; reason?: string; view: OutingView }) {
   const cap = view.estimates.capMinor ?? view.quote?.capMinor ?? null;
   if (!flag) return null;
   // The ?payment= flag is a one-off redirect hint and stays in the URL; only show it while it still matches
@@ -54,12 +56,22 @@ function PaymentFlagBanner({ flag, view }: { flag: PaymentFlag; view: OutingView
         We haven&apos;t verified your authorization yet. This page updates on its own — you don&apos;t need to pay again.
       </StatusBanner>
     );
-  if (flag === "failed")
+  if (flag === "failed") {
+    const why = describePaymentFailureReason(reason);
     return (
       <StatusBanner tone="danger" title="Authorization didn’t go through">
-        You have not been charged. You can review and try again while commitments are open.
+        {why && (
+          <p>
+            {why.title}. {why.explanation}
+          </p>
+        )}
+        <p className={why ? "mt-1" : undefined}>
+          {why?.nextStep ?? "You can review and try again while commitments are open."}
+        </p>
+        <p className="mt-1 font-semibold">You have not been charged.</p>
       </StatusBanner>
     );
+  }
   if (flag === "cancelled" || flag === "canceled")
     return (
       <StatusBanner tone="info" title="You left before authorizing">
@@ -284,11 +296,13 @@ export function CommitStage({
   actions,
   clockOffsetMs,
   paymentFlag,
+  paymentReason,
 }: {
   view: OutingView;
   actions: OutingActions;
   clockOffsetMs: number;
   paymentFlag?: PaymentFlag;
+  paymentReason?: string;
 }) {
   const { pending, error, run } = useAction();
   const [reviewing, setReviewing] = useState(false);
@@ -316,7 +330,7 @@ export function CommitStage({
     return (
       <div className="space-y-6">
         <ModeRow view={view} />
-        <PaymentFlagBanner flag={paymentFlag} view={view} />
+        <PaymentFlagBanner flag={paymentFlag} reason={paymentReason} view={view} />
         <WaitingPanel view={view} actions={actions} clockOffsetMs={clockOffsetMs} />
         {view.organizer?.can.cancel && <OrganizerTools view={view} actions={actions} />}
       </div>
@@ -358,7 +372,7 @@ export function CommitStage({
         </ul>
       </div>
 
-      <PaymentFlagBanner flag={paymentFlag} view={view} />
+      <PaymentFlagBanner flag={paymentFlag} reason={paymentReason} view={view} />
 
       <Card>
         <MoneyRows>

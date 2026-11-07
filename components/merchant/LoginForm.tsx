@@ -2,13 +2,15 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ApiError, fetchHealth, merchantDemoLogin, merchantLogin } from "./api";
+import type { FriendlyError } from "@/components/errors/friendlyError";
+import { fetchHealth, merchantDemoLogin, merchantLogin } from "./api";
+import { describeMerchantError, MerchantErrorText } from "./MerchantError";
 
 export function LoginForm() {
   const router = useRouter();
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState<"password" | "demo" | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<FriendlyError | null>(null);
   const [demo, setDemo] = useState(false);
 
   useEffect(() => {
@@ -24,7 +26,9 @@ export function LoginForm() {
       router.push("/merchant");
       router.refresh();
     } catch (e) {
-      setError(e instanceof ApiError && e.status === 401 ? "That password was not accepted." : e instanceof Error ? e.message : "Sign-in failed.");
+      const friendly = describeMerchantError(e);
+      // When the demo button is on screen, it's the obvious way in, so point there instead.
+      setError(demo && friendly.code === "LOGIN_DISABLED" ? { ...friendly, nextStep: "Use Open demo merchant dashboard below instead." } : friendly);
       setBusy(null);
     }
   }
@@ -39,7 +43,7 @@ export function LoginForm() {
             <label htmlFor="m-pw">Dashboard password</label>
             <input id="m-pw" type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} aria-describedby={error ? "m-err" : undefined} required />
           </div>
-          {error && <p id="m-err" className="m-error" role="alert">{error}</p>}
+          {error && <p id="m-err" className="m-error" role="alert"><MerchantErrorText error={error} /></p>}
           <button className="m-btn m-btn-primary" type="submit" disabled={busy !== null || !password} style={{ width: "100%" }}>
             {busy === "password" ? "Signing in..." : "Sign in"}
           </button>

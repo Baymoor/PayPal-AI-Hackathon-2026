@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { FIXTURES, FIXTURE_FLAGS, FIXTURE_KEYS } from "@/components/__fixtures__/outing-views";
+import { FIXTURES, FIXTURE_FLAGS, FIXTURE_KEYS, FIXTURE_REASONS } from "@/components/__fixtures__/outing-views";
 import { OutingScreen } from "@/components/outing/OutingScreen";
 import type { OutingActions } from "@/components/outing/api";
 import { ApiError } from "@/components/outing/api";
@@ -45,7 +45,7 @@ function PreviewScreen({ selected, entry }: { selected: string; entry: (typeof F
       <div className="bg-ink px-4 py-1.5 text-center text-small text-cream">
         Dev preview · {entry.label} · <Link href="/dev/preview" className="underline">all states</Link>
       </div>
-      <OutingScreen view={entry.view} actions={actions} clockOffsetMs={offset} paymentFlag={FIXTURE_FLAGS[selected]} />
+      <OutingScreen view={entry.view} actions={actions} clockOffsetMs={offset} paymentFlag={FIXTURE_FLAGS[selected]} paymentReason={FIXTURE_REASONS[selected]} />
     </>
   );
 }

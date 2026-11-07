@@ -7,7 +7,18 @@ import { AgGridReact } from "ag-grid-react";
 import type { ColDef, ICellRendererParams } from "ag-grid-community";
 import { AlertTriangle, ArrowLeft, RotateCcw } from "lucide-react";
 import type { MerchantOperationRow, MerchantOutingDetail, MerchantParticipantRow } from "@/lib/contracts/views";
+import { errorSentence, type CopyOverrides, type FriendlyError } from "@/components/errors/friendlyError";
 import { ApiError, fetchOutingDetail, retryOperation } from "./api";
+import { describeMerchantError, MerchantErrorText } from "./MerchantError";
+
+/** A 404 here also covers outings booked with another merchant (we don't reveal which). */
+const DETAIL_COPY: CopyOverrides = {
+  NOT_FOUND: {
+    title: "We can't find that outing",
+    explanation: "It doesn't exist, or it isn't booked with your merchant account.",
+    nextStep: "Go back to the bookings list and open it from there.",
+  },
+};
 import { makeFixtureBookings, makeFixtureDetail } from "./__fixtures__/bookings";
 import { outingsGridTheme } from "./gridTheme";
 import { formatInstant, formatMoney, merchantTz, redactRef } from "./format";
@@ -30,7 +41,7 @@ function toneRenderer<T>(text: (d: T) => string | null, tone: (d: T) => Paramete
 export default function OutingDetailClient({ outingId, fixtures }: { outingId: string; fixtures: boolean }) {
   const router = useRouter();
   const [detail, setDetail] = useState<MerchantOutingDetail | null>(null);
-  const [error, setError] = useState<{ status: number; message: string } | null>(null);
+  const [error, setError] = useState<FriendlyError | null>(null);
   const [retrying, setRetrying] = useState<MerchantOperationRow | null>(null);
   const [retryBusy, setRetryBusy] = useState(false);
   const [notice, setNotice] = useState<{ tone: "info" | "danger"; text: string } | null>(null);
@@ -42,7 +53,7 @@ export default function OutingDetailClient({ outingId, fixtures }: { outingId: s
     try {
       if (fixtures) {
         const b = makeFixtureBookings().find((r) => r.outingId === outingId);
-        if (!b) throw new ApiError(404, "Outing not found in fixtures.");
+        if (!b) throw new ApiError("NOT_FOUND", 404, "Outing not found in fixtures.");
         setDetail(makeFixtureDetail(b));
       } else {
         setDetail(await fetchOutingDetail(outingId));
@@ -53,7 +64,7 @@ export default function OutingDetailClient({ outingId, fixtures }: { outingId: s
         router.replace("/merchant/login");
         return;
       }
-      setError({ status: e instanceof ApiError ? e.status : 0, message: e instanceof Error ? e.message : "Could not load this outing." });
+      setError(describeMerchantError(e, DETAIL_COPY));
     }
   }, [fixtures, outingId, router]);
 
@@ -79,7 +90,7 @@ export default function OutingDetailClient({ outingId, fixtures }: { outingId: s
       setRetrying(null);
       await load();
     } catch (e) {
-      setNotice({ tone: "danger", text: e instanceof Error ? e.message : "Retry failed." });
+      setNotice({ tone: "danger", text: errorSentence(describeMerchantError(e)) });
       setRetrying(null);
     } finally {
       setRetryBusy(false);
@@ -139,7 +150,7 @@ export default function OutingDetailClient({ outingId, fixtures }: { outingId: s
         <Link href={backHref} className="m-back"><ArrowLeft size={16} aria-hidden /> Back to bookings</Link>
         <div className="m-banner" role="alert" data-tone="danger">
           <AlertTriangle size={18} aria-hidden />
-          <span>{error.status === 404 ? "This outing was not found, or it is not booked with your merchant account." : error.message} <button className="m-btn m-btn-sm" onClick={() => void load()}>Try again</button></span>
+          <span><MerchantErrorText error={error} /> <button className="m-btn m-btn-sm" onClick={() => void load()}>Try again</button></span>
         </div>
       </div>
     );

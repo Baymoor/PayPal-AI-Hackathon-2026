@@ -5,7 +5,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AlertTriangle, Info, RefreshCw, Sparkles } from "lucide-react";
 import type { MerchantBookingRow } from "@/lib/contracts/views";
+import type { FriendlyError } from "@/components/errors/friendlyError";
 import { ApiError, fetchBookings } from "./api";
+import { describeMerchantError, MerchantErrorText } from "./MerchantError";
 import { makeFixtureBookings } from "./__fixtures__/bookings";
 import { applyDashboardQuery } from "./query";
 import { SAVED_VIEWS, applySavedView, type SavedViewId } from "./savedViews";
@@ -44,7 +46,7 @@ export default function DashboardClient({ licenseKey, fixtures, aiEnabled }: Das
   const paymentMode = usePaymentMode();
   // Re-label by provider: only PayPal-provider rows are "sandbox"; FIXTURE-paid outings are fixtures too.
   const rows = useMemo(() => (rawRows ? labelRows(rawRows, paymentMode) : null), [rawRows, paymentMode]);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<FriendlyError | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [segment, setSegment] = useState<Segment | null>(null);
   const [applied, setApplied] = useState<AppliedQuery | null>(null);
@@ -69,7 +71,7 @@ export default function DashboardClient({ licenseKey, fixtures, aiEnabled }: Das
         router.replace("/merchant/login");
         return;
       }
-      setError(e instanceof Error ? e.message : "Could not load bookings.");
+      setError(describeMerchantError(e));
     } finally {
       setRefreshing(false);
     }
@@ -173,7 +175,7 @@ export default function DashboardClient({ licenseKey, fixtures, aiEnabled }: Das
       {error && (
         <div className="m-banner" role="alert" data-tone="danger">
           <AlertTriangle size={18} aria-hidden />
-          <span>{error} <button type="button" className="m-btn m-btn-sm" onClick={() => void load()}>Try again</button></span>
+          <span><MerchantErrorText error={error} /> <button type="button" className="m-btn m-btn-sm" onClick={() => void load()}>Try again</button></span>
         </div>
       )}
 

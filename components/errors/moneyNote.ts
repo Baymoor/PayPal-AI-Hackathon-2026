@@ -21,6 +21,8 @@ export type MoneyContext =
   | "cancelOuting"
   /** Demo hub buttons (scenarios, "Process due work now"): these DO move test money (fixture or sandbox). */
   | "demo"
+  /** Merchant dashboard (sign-in, loading, questions, operation retries). Merchants aren't being charged. */
+  | "dashboard"
   /** An action we haven't classified: fall back to the most conservative statement. */
   | "unknown";
 
@@ -49,6 +51,7 @@ const CONTEXT_BY_ACTION: Readonly<Record<string, MoneyContext>> = {
   scenario: "demo",
   tick: "demo",
   merchant: "demo",
+  dashboard: "dashboard",
 };
 
 export function moneyContextForAction(actionKey: string | undefined): MoneyContext {
@@ -88,6 +91,10 @@ export function moneyNoteFor(context: MoneyContext): string | undefined {
       return "Cancelling never charges anyone.";
     case "demo":
       return "Demo actions use test money only. No real money moves.";
+    case "dashboard":
+      // A "nothing was charged" line means nothing to a merchant, and a dropped operation retry may in
+      // fact have been queued; the drill-down shows each operation's real state instead.
+      return undefined;
     case "unknown":
       return CONSERVATIVE_MONEY_NOTE;
     default: {

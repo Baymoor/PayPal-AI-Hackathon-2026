@@ -227,6 +227,24 @@ export const ERROR_COPY: Readonly<Record<string, ErrorCopy>> = {
     nextStep: "Try again in a few minutes.",
     tone: "danger",
   },
+  // Coming back from the payment page with a reply that doesn't match the attempt (?payment=failed&reason=…).
+  MISSING_TOKEN: {
+    title: "The payment page's reply didn't match",
+    explanation: "What came back from the payment page was incomplete, so we didn't use it.",
+    nextStep: "Start again from Review & authorize.",
+    tone: "danger",
+  },
+  ORDER_MISMATCH: {
+    title: "The payment page's reply didn't match",
+    explanation: "What came back from the payment page belongs to a different attempt, so we didn't use it.",
+    nextStep: "Start again from Review & authorize.",
+    tone: "danger",
+  },
+  NO_ORDER: {
+    title: "This attempt never reached the payment provider",
+    explanation: "The payment attempt was created but never sent on, so there is nothing to confirm.",
+    nextStep: "Start again from Review & authorize.",
+  },
   NOT_A_PAYER: {
     title: "Your share is covered",
     explanation: "The group is paying for you, so there's nothing for you to authorize.",
@@ -356,6 +374,42 @@ export const ERROR_COPY: Readonly<Record<string, ErrorCopy>> = {
   // Server text already says "Nothing changed; you can fill in the form yourself."
   AI_UNAVAILABLE: { title: "The assistant couldn't help just now", tone: "pending" },
   AI_OUTPUT_INVALID: { title: "The assistant's suggestion couldn't be used" },
+};
+
+/** Merchant dashboard codes. Money notes are hidden there: merchants aren't the ones being charged. */
+export const MERCHANT_ERROR_COPY: Readonly<Record<string, ErrorCopy>> = {
+  LOGIN_DISABLED: {
+    title: "Password sign-in isn't set up here",
+    explanation: "This deployment doesn't have a dashboard password.",
+    nextStep: "Ask whoever runs it to set one.",
+    tone: "info",
+  },
+  INVALID_PASSWORD: {
+    title: "That password didn't work",
+    explanation: "It doesn't match this dashboard's password.",
+    nextStep: "Check it and try again.",
+  },
+  MERCHANT_NOT_SEEDED: {
+    title: "The merchant isn't set up yet",
+    explanation: "There's no merchant account in the database yet.",
+    nextStep: "Whoever runs this deployment needs to run the seed script (npm run db:seed).",
+    tone: "danger",
+  },
+  NOT_RETRYABLE: { title: "This operation can't be retried", tone: "info" },
+  INVALID_QUESTION: { title: "Type a question first" },
+  // Client-side: the assistant's answer didn't parse into one of the dashboard's read-only filters.
+  UNSAFE_FILTER: {
+    title: "We couldn't turn that into a filter",
+    explanation: "The answer didn't match the filters this dashboard supports, so nothing was applied.",
+    nextStep: "Try rephrasing it, or use the example.",
+  },
+  // Same code as for participants, different situation: an expired merchant session, not a missing invite.
+  UNAUTHORIZED: {
+    title: "Your dashboard session has ended",
+    explanation: "Merchant sign-ins expire after a while, for security.",
+    nextStep: "Sign in again to continue.",
+    tone: "info",
+  },
 };
 
 /** Used for codes not in the map: keeps the server's message, which is better than a vague guess. */

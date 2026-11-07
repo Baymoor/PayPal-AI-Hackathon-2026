@@ -3,7 +3,9 @@
 import { useState } from "react";
 import { Search, Sparkles, X } from "lucide-react";
 import type { DashboardQuery } from "@/lib/ai/types";
+import type { FriendlyError } from "@/components/errors/friendlyError";
 import { askDashboard, ApiError, type AskResult } from "./api";
+import { describeMerchantCode, describeMerchantError, MerchantErrorText } from "./MerchantError";
 import { fixtureAsk } from "./__fixtures__/bookings";
 import { describeFilter, FIELD_LABEL } from "./query";
 import { Badge } from "./Badge";
@@ -28,7 +30,7 @@ export function AskBox({ applied, onApply, onClear, fixtures }: {
 }) {
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<FriendlyError | null>(null);
 
   async function submit(question: string) {
     const q = question.trim();
@@ -41,7 +43,8 @@ export function AskBox({ applied, onApply, onClear, fixtures }: {
         : await askDashboard(q);
       onApply({ ...res, question: q, id: Date.now() });
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : "That question could not be turned into a safe filter. Try rephrasing it.");
+      // Anything that isn't an HTTP failure is the answer failing validation into a read-only filter.
+      setError(e instanceof ApiError ? describeMerchantError(e) : describeMerchantCode("UNSAFE_FILTER"));
     } finally {
       setBusy(false);
     }
@@ -72,7 +75,7 @@ export function AskBox({ applied, onApply, onClear, fixtures }: {
         Read-only: your question only becomes filters on this page. It can never capture, void, refund or retry a payment.
       </p>
       <div aria-live="polite">
-        {error && <p className="m-error" role="alert">{error}</p>}
+        {error && <p className="m-error" role="alert"><MerchantErrorText error={error} /></p>}
         {applied && (
           <>
             <div className="m-chips">
