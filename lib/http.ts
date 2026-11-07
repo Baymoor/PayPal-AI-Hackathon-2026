@@ -42,10 +42,30 @@ export function errorResponse(err: unknown): Response {
   if (err instanceof PolicyError) return json({ error: { code: err.code, message: err.message } }, { status: 422 });
   if (err instanceof MoneyError) return json({ error: { code: "INVALID_MONEY", message: err.message } }, { status: 422 });
   if (err instanceof IllegalTransitionError) return json({ error: { code: "INVALID_STATE", message: err.message } }, { status: 409 });
-  if (err instanceof ZodError) return json({ error: { code: "INVALID_INPUT", message: err.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; ") } }, { status: 400 });
+  if (err instanceof ZodError) return invalidInputResponse(err);
   if (isTransientConnectionError(err)) return temporarilyUnavailableResponse(err);
   console.error("[outings] unhandled error", err instanceof Error ? err.message : err);
   return json({ error: { code: "INTERNAL", message: "Something went wrong. Nothing was charged by this request." } }, { status: 500 });
+}
+
+/**
+ * A request body failed schema validation. People get a sentence; the paths of
+ * the offending fields stay machine-readable in `fields` for API clients and
+ * debugging (Zod's own wording, e.g. "expected string, received number", is
+ * developer text and never reaches the message).
+ */
+function invalidInputResponse(err: ZodError): Response {
+  const fields = [...new Set(err.issues.map((issue) => issue.path.join(".")).filter((path) => path.length > 0))];
+  return json(
+    {
+      error: {
+        code: "INVALID_INPUT",
+        message: "Some of the details sent weren't in the expected format. Check what you entered and try again.",
+        fields,
+      },
+    },
+    { status: 400 },
+  );
 }
 
 /**

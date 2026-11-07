@@ -3,11 +3,13 @@
  * The buyer cancelled at PayPal: the attempt is abandoned (no hold exists).
  * Without a participant session for the attempt's outing the browser is sent
  * to a neutral page: a valid attempt id alone never reveals which outing it is for.
+ * Malformed and unknown attempt ids land on the same page (a browser navigation
+ * never gets JSON, and the response does not reveal whether an attempt id exists).
  */
 import { eq } from "drizzle-orm";
 import { getDb } from "@/lib/db/client";
 import { paymentAttempts } from "@/lib/db/schema";
-import { handle, notFound, ServiceError } from "@/lib/http";
+import { handle, ServiceError } from "@/lib/http";
 import { assertUuid, requireParticipant } from "@/lib/services/access";
 import { cancelApproval, paymentRedirectPath } from "@/lib/services/payments";
 
@@ -20,13 +22,19 @@ function redirect(location: string): Response {
 
 export const GET = handle(async (req: Request) => {
   const url = new URL(req.url);
-  const attemptId = assertUuid(url.searchParams.get("attempt") ?? "", "payment attempt");
+  let attemptId: string;
+  try {
+    attemptId = assertUuid(url.searchParams.get("attempt") ?? "", "payment attempt");
+  } catch (err) {
+    if (err instanceof ServiceError) return redirect(SIGN_IN_REDIRECT);
+    throw err;
+  }
   const db = getDb();
   const attempt = await db.query.paymentAttempts.findFirst({
     where: eq(paymentAttempts.id, attemptId),
     columns: { outingId: true },
   });
-  if (!attempt) throw notFound("Payment attempt not found");
+  if (!attempt) return redirect(SIGN_IN_REDIRECT);
 
   // Session first: nothing below may redirect to /o/<outingId> for a caller without a session for that outing.
   let participantId: string;
