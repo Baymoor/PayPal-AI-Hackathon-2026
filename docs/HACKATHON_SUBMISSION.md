@@ -58,7 +58,7 @@ PayPal authorization is the product, not a checkout button bolted on at the end.
 - **Idempotency and unknown outcomes.** Timeouts are treated as UNKNOWN and reconciled by reading PayPal state before any retry, with the same `PayPal-Request-Id`.
 - **Webhooks** are signature-verified, deduplicated by event id, and only trigger a re-read of provider state.
 
-Status today: the adapter is implemented from the official OpenAPI specs, tested with a mocked `fetch`, and verified against the PayPal REST sandbox with `scripts/paypal-smoke.ts`: authorize, $10-of-$20 final capture, idempotent capture replay on the same `PayPal-Request-Id`, void (a capture afterwards is refused with `AUTHORIZATION_VOIDED`), and full capture plus refund. Redacted evidence is in [`docs/evidence/`](evidence/README.md). **TODO: record one full outing through the app in `PAYPAL_SANDBOX` mode before showing it in the video; webhook signature verification and negative testing are not yet verified.**
+Status today: the adapter is implemented from the official OpenAPI specs, tested with a mocked `fetch`, and verified against the PayPal REST sandbox with `scripts/paypal-smoke.ts`: authorize, $10-of-$20 final capture, idempotent capture replay on the same `PayPal-Request-Id`, void (a capture afterwards is refused with `AUTHORIZATION_VOIDED`), and full capture plus refund. One full outing then ran through the app itself in `PAYPAL_SANDBOX` mode: three friends each approved a $50 hold through the app's PayPal redirect, and at the deadline the server captured $33.34, $33.33 and $33.33 (exactly $100.00) without anyone taking an action; PayPal's own records match the app's for every payer. Redacted evidence is in [`docs/evidence/`](evidence/README.md). Not yet verified: webhook signature verification (PayPal cannot deliver webhooks to a local machine) and negative testing.
 
 ## How AI is used, and not used
 
@@ -97,7 +97,7 @@ AG Studio runs under its evaluation trial. **TODO: add the trial licence key to 
 - Two independent audits (payments/settlement; privacy/access/consent) whose confirmed defects were fixed with regression tests in `tests/audit` and `tests/audit2`.
 - Hardening beyond the happy path: rate limiting keyed on `TRUSTED_PROXY_HOPS`, the PayPal payee read from the merchant row, merchant timezone carried in rows, merchant sessions that expire after 12 h, and no organizer cancel after the deadline.
 - A compensation path that can be watched in one click and is covered by a browser test (`tests/e2e/compensation.spec.ts`).
-- Current verified results: 361 Vitest tests (29 files) pass; 6 Playwright end-to-end tests (karaoke settle, holdout cancel, organizer cancel, demo hub, capture-failure compensation, big-group under-capture) pass; eslint and `tsc` clean; `next build` passes. These run in FIXTURE modes. Separately, the PayPal adapter is verified against the PayPal sandbox by `scripts/paypal-smoke.ts`.
+- Current verified results: 361 Vitest tests (29 files) pass; 6 Playwright end-to-end tests (karaoke settle, holdout cancel, organizer cancel, demo hub, capture-failure compensation, big-group under-capture) pass; eslint and `tsc` clean; `next build` passes. These run in FIXTURE modes. Separately, against the real PayPal sandbox: the adapter passes `scripts/paypal-smoke.ts`, and one full outing settled through the app with three under-captures that PayPal's records confirm.
 
 ## What we learned
 
@@ -129,4 +129,4 @@ Complete and honest, per hackathon rules.
 
 **Services**
 
-- PayPal sandbox only; no real money moves. PayPal sandbox calls verified (7 Nov 2026, `scripts/paypal-smoke.ts`): authorize, under-capture with `final_capture`, capture replay, void, capture-after-void refusal, capture, refund. Full in-app `PAYPAL_SANDBOX` outing: **TODO**.
+- PayPal sandbox only; no real money moves. PayPal sandbox calls verified (7 Nov 2026, `scripts/paypal-smoke.ts`): authorize, under-capture with `final_capture`, capture replay, void, capture-after-void refusal, capture, refund. Full in-app `PAYPAL_SANDBOX` outing verified the same day: three $50 holds, $33.34/$33.33/$33.33 captured at the deadline, matched against PayPal by `scripts/paypal-verify-outing.ts`.
