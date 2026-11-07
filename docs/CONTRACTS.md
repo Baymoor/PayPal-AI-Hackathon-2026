@@ -42,6 +42,11 @@ This is the coordination contract for parallel implementation. Domain rules: `do
 
 ## HTTP API (JSON; errors `{ error: { code, message } }`)
 
+Error extras (additive; clients must ignore unknown keys):
+- `INVALID_INPUT` from schema validation (400) also carries `fields: string[]`, the dot-joined paths of the invalid fields; its `message` is a plain-language sentence, never validator wording. `INVALID_INPUT` thrown by services keeps its specific message and has no `fields`.
+- `TEMPORARILY_UNAVAILABLE` (503) comes with a `retry-after` header (seconds) when the database or another backing service is briefly unreachable; the request changed nothing.
+- PayPal `return` / `cancel` routes are browser navigations and always answer with a redirect, never JSON: missing session, malformed or unknown `attempt` → `/?payment=signin`; a refused approval → `/o/<id>?payment=failed&reason=<lowercased error code>`.
+
 Participant (cookie `outings_p`):
 
 | Method & path | Who | Effect |

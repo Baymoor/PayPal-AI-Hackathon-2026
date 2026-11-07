@@ -140,9 +140,19 @@ describe("approval return / cancel / fixture routes", () => {
     expect((await getDb().query.paymentAttempts.findFirst({ where: eq(paymentAttempts.id, started.paymentAttemptId) }))!.status).toBe("FAILED");
   });
 
-  it("unknown / malformed attempt ids are 404", async () => {
-    expect((await returnRoute(req("/api/payments/paypal/return?attempt=nope&token=x"))).status).toBe(404);
-    expect((await returnRoute(req("/api/payments/paypal/return?attempt=00000000-0000-4000-8000-000000000000&token=x"))).status).toBe(404);
+  it("unknown / malformed attempt ids redirect to the neutral sign-in page (no JSON, no existence oracle)", async () => {
+    const urls = [
+      "/api/payments/paypal/return?attempt=nope&token=x",
+      "/api/payments/paypal/return?attempt=00000000-0000-4000-8000-000000000000&token=x",
+      "/api/payments/paypal/cancel?attempt=nope&token=x",
+      "/api/payments/paypal/cancel?attempt=00000000-0000-4000-8000-000000000000&token=x",
+    ];
+    for (const url of urls) {
+      const route = url.includes("/return") ? returnRoute : cancelRoute;
+      const res = await route(req(url));
+      expect(res.status, url).toBe(303);
+      expect(res.headers.get("location"), url).toBe("/?payment=signin");
+    }
   });
 });
 

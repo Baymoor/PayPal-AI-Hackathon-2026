@@ -1,0 +1,86 @@
+{
+  "tool": "scripts/paypal-verify-outing.ts (read-only)",
+  "environment": "PayPal REST sandbox",
+  "apiBase": "https://api-m.sandbox.paypal.com",
+  "checkedAt": "2026-11-07T20:40:51.139Z",
+  "redaction": "ids truncated to first 3 / last 4 chars; people shown as roles; no names, emails, tokens or secrets",
+  "outing": {
+    "status": "CONFIRMED",
+    "deadlineAt": "2026-11-07T20:25:00.000Z",
+    "decision": "SETTLE",
+    "totalMinor": 10000
+  },
+  "payers": [
+    {
+      "role": "organizer",
+      "authorizationRef": "2R9…7140",
+      "app": {
+        "status": "CAPTURED",
+        "authorizedMinor": 5000,
+        "capturedMinor": 3334
+      },
+      "paypal": {
+        "status": "CAPTURED",
+        "authorizedMinor": 5000,
+        "captures": [
+          {
+            "captureRef": "2DC…4836",
+            "status": "COMPLETED",
+            "amountMinor": 3334,
+            "finalCapture": true
+          }
+        ]
+      },
+      "appMatchesPaypal": true
+    },
+    {
+      "role": "invitee 1",
+      "authorizationRef": "5KT…003W",
+      "app": {
+        "status": "CAPTURED",
+        "authorizedMinor": 5000,
+        "capturedMinor": 3333
+      },
+      "paypal": {
+        "status": "CAPTURED",
+        "authorizedMinor": 5000,
+        "captures": [
+          {
+            "captureRef": "5FT…893R",
+            "status": "COMPLETED",
+            "amountMinor": 3333,
+            "finalCapture": true
+          }
+        ]
+      },
+      "appMatchesPaypal": true
+    },
+    {
+      "role": "invitee 2",
+      "authorizationRef": "5T0…401T",
+      "app": {
+        "status": "CAPTURED",
+        "authorizedMinor": 5000,
+        "capturedMinor": 3333
+      },
+      "paypal": {
+        "status": "CAPTURED",
+        "authorizedMinor": 5000,
+        "captures": [
+          {
+            "captureRef": "2C5…8459",
+            "status": "COMPLETED",
+            "amountMinor": 3333,
+            "finalCapture": true
+          }
+        ]
+      },
+      "appMatchesPaypal": true
+    }
+  ],
+  "findings": {
+    "allMatch": true,
+    "authorizedTotalMinor": 15000,
+    "capturedTotalMinor": 10000
+  }
+}

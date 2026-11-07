@@ -1,0 +1,159 @@
+{
+  "tool": "scripts/paypal-smoke.ts",
+  "environment": "PayPal REST sandbox",
+  "apiBase": "https://api-m.sandbox.paypal.com",
+  "runAt": "2026-11-07T19:00:35.045Z",
+  "mockDecline": false,
+  "redaction": "ids truncated to first 3 / last 4 chars; no buyer emails, names, tokens, secrets or approval links are stored",
+  "flows": [
+    {
+      "name": "under-capture: authorize $20, capture $10 with final_capture",
+      "steps": [
+        {
+          "step": "create AUTHORIZE order",
+          "at": "2026-11-07T19:00:36.336Z",
+          "ok": true,
+          "data": {
+            "orderRef": "3RR…835G",
+            "providerStatus": "PAYER_ACTION_REQUIRED",
+            "hasApproveLink": true
+          }
+        },
+        {
+          "step": "buyer approval",
+          "at": "2026-11-07T19:08:41.354Z",
+          "ok": true,
+          "data": {
+            "orderStatus": "APPROVED"
+          }
+        },
+        {
+          "step": "authorize order",
+          "at": "2026-11-07T19:08:43.304Z",
+          "ok": true,
+          "data": {
+            "authorizationRef": "6YJ…640G",
+            "status": "CREATED",
+            "amountMinor": 2000,
+            "customIdMatches": true,
+            "createTime": "2026-11-07T19:08:42.000Z",
+            "expirationTime": "2026-12-06T19:08:42.000Z",
+            "validityDays": 29
+          },
+          "expectation": "authorization CREATED for exactly 2000 minor units",
+          "met": true
+        },
+        {
+          "step": "capture $10 (final_capture=true)",
+          "at": "2026-11-07T19:08:45.445Z",
+          "ok": true,
+          "data": {
+            "captureRef": "216…522E",
+            "status": "COMPLETED",
+            "amountMinor": 1000,
+            "finalCapture": true
+          },
+          "expectation": "capture of 1000 COMPLETED (or PENDING)",
+          "met": true
+        },
+        {
+          "step": "replay capture with the same PayPal-Request-Id",
+          "at": "2026-11-07T19:08:46.737Z",
+          "ok": true,
+          "data": {
+            "sameCapture": true
+          },
+          "expectation": "idempotent replay returns the same capture",
+          "met": true
+        },
+        {
+          "step": "GET authorization after final partial capture",
+          "at": "2026-11-07T19:08:48.137Z",
+          "ok": true,
+          "data": {
+            "status": "CAPTURED"
+          }
+        }
+      ]
+    },
+    {
+      "name": "void: authorize $20, then void",
+      "steps": [
+        {
+          "step": "create AUTHORIZE order",
+          "at": "2026-11-07T19:08:49.443Z",
+          "ok": true,
+          "data": {
+            "orderRef": "34N…593S",
+            "providerStatus": "PAYER_ACTION_REQUIRED",
+            "hasApproveLink": true
+          }
+        },
+        {
+          "step": "buyer approval",
+          "at": "2026-11-07T19:09:36.911Z",
+          "ok": true,
+          "data": {
+            "orderStatus": "APPROVED"
+          }
+        },
+        {
+          "step": "authorize order",
+          "at": "2026-11-07T19:09:38.591Z",
+          "ok": true,
+          "data": {
+            "authorizationRef": "9NX…580E",
+            "status": "CREATED",
+            "amountMinor": 2000,
+            "customIdMatches": true,
+            "createTime": "2026-11-07T19:09:37.000Z",
+            "expirationTime": "2026-12-06T19:09:37.000Z",
+            "validityDays": 29
+          },
+          "expectation": "authorization CREATED for exactly 2000 minor units",
+          "met": true
+        },
+        {
+          "step": "void authorization",
+          "at": "2026-11-07T19:09:39.525Z",
+          "ok": true,
+          "data": {
+            "providerStatus": "VOIDED"
+          },
+          "expectation": "void succeeds",
+          "met": true
+        },
+        {
+          "step": "GET authorization after void",
+          "at": "2026-11-07T19:09:40.566Z",
+          "ok": true,
+          "data": {
+            "status": "VOIDED"
+          },
+          "expectation": "status VOIDED",
+          "met": true
+        },
+        {
+          "step": "capture after void (must fail)",
+          "at": "2026-11-07T19:09:41.241Z",
+          "ok": false,
+          "data": {},
+          "kind": "DECLINED",
+          "code": "AUTHORIZATION_VOIDED",
+          "httpStatus": 422,
+          "debugId": "f530068a874f6",
+          "expectation": "capture after void is refused",
+          "met": true
+        }
+      ]
+    }
+  ],
+  "findings": {
+    "underCaptureSupported": true,
+    "captureReplayIdempotent": true,
+    "authorizationStatusAfterFinalPartialCapture": "CAPTURED",
+    "remainderNeededExplicitVoid": false,
+    "captureAfterVoidIssue": "AUTHORIZATION_VOIDED",
+    "failedSteps": []
+  }
+}

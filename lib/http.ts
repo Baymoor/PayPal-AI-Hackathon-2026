@@ -3,6 +3,10 @@ import { ZodError, type ZodType } from "zod";
 import { MoneyError } from "./domain/money";
 import { PolicyError } from "./domain/policy";
 import { IllegalTransitionError } from "./domain/state-machine";
+import { isTransientConnectionError } from "./transient-errors";
+
+/** How long we ask clients to wait before retrying after a transient outage. */
+const TRANSIENT_RETRY_AFTER_SECONDS = 30;
 
 export class ServiceError extends Error {
   constructor(
@@ -38,9 +42,47 @@ export function errorResponse(err: unknown): Response {
   if (err instanceof PolicyError) return json({ error: { code: err.code, message: err.message } }, { status: 422 });
   if (err instanceof MoneyError) return json({ error: { code: "INVALID_MONEY", message: err.message } }, { status: 422 });
   if (err instanceof IllegalTransitionError) return json({ error: { code: "INVALID_STATE", message: err.message } }, { status: 409 });
-  if (err instanceof ZodError) return json({ error: { code: "INVALID_INPUT", message: err.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; ") } }, { status: 400 });
+  if (err instanceof ZodError) return invalidInputResponse(err);
+  if (isTransientConnectionError(err)) return temporarilyUnavailableResponse(err);
   console.error("[outings] unhandled error", err instanceof Error ? err.message : err);
   return json({ error: { code: "INTERNAL", message: "Something went wrong. Nothing was charged by this request." } }, { status: 500 });
+}
+
+/**
+ * A request body failed schema validation. People get a sentence; the paths of
+ * the offending fields stay machine-readable in `fields` for API clients and
+ * debugging (Zod's own wording, e.g. "expected string, received number", is
+ * developer text and never reaches the message).
+ */
+function invalidInputResponse(err: ZodError): Response {
+  const fields = [...new Set(err.issues.map((issue) => issue.path.join(".")).filter((path) => path.length > 0))];
+  return json(
+    {
+      error: {
+        code: "INVALID_INPUT",
+        message: "Some of the details sent weren't in the expected format. Check what you entered and try again.",
+        fields,
+      },
+    },
+    { status: 400 },
+  );
+}
+
+/**
+ * A backing service (usually the database) was briefly unreachable. Say what
+ * happened in plain words and when to retry; the request changed nothing.
+ */
+function temporarilyUnavailableResponse(err: unknown): Response {
+  console.warn("[outings] request failed: a backing service was unreachable", err instanceof Error ? err.message : err);
+  return json(
+    {
+      error: {
+        code: "TEMPORARILY_UNAVAILABLE",
+        message: `Outings couldn't reach one of its own services for a moment, so this request didn't go through and nothing changed. This is usually brief; please try again in about ${TRANSIENT_RETRY_AFTER_SECONDS} seconds.`,
+      },
+    },
+    { status: 503, headers: { "retry-after": String(TRANSIENT_RETRY_AFTER_SECONDS) } },
+  );
 }
 
 /** Wrap a route handler so thrown errors become JSON responses. */

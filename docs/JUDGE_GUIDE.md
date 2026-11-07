@@ -114,11 +114,12 @@ To use real sandbox payments: create a sandbox REST app (Business merchant) and 
 
 Read [HANDOFF_TO_CODEX.md](HANDOFF_TO_CODEX.md) for the authoritative status matrix. In short:
 
-- **Automated tests** cover the domain rules, the settlement engine and the PayPal adapter (the adapter against a mocked `fetch` only).
-- **Not yet verified against PayPal:** nothing has been exercised against the PayPal sandbox from the build environment. Under-capture ($20 authorization, $10 capture) and remainder release, redirect-return parameters, webhook signature verification, and the `PayPal-Mock-Response` header are all unverified. The list is in [research/PAYPAL.md](research/PAYPAL.md) section 14. TODO: update this section after running the smoke script.
-- **Not yet verified against Anthropic:** no runtime key was available while building; tests use a mocked SDK. TODO: record a real call.
-- **Verified in the build environment (FIXTURE modes only):** 346 Vitest tests in 28 files, Playwright specs (karaoke settle, holdout cancel, organizer cancel, demo hub, capture-failure compensation), eslint and `tsc` clean, `next build` passes. Two independent audits are done and their fixes have regression tests in `tests/audit` and `tests/audit2`.
-- **Not verified:** the real PayPal sandbox and real Claude (`scripts/ai-smoke.ts` has not been run). TODO: hosted URL, demo video URL and AG Studio trial expiry are not recorded.
+- **Automated tests** cover the domain rules, the settlement engine and the PayPal adapter (the adapter against a mocked `fetch`).
+- **Verified against the PayPal sandbox (7 Nov 2026):** `scripts/paypal-smoke.ts` drives the app's real adapter: authorize $20, capture $10 with `final_capture` (the authorization then reads `CAPTURED` and the remainder is released), idempotent capture replay, void (capture afterwards refused with `AUTHORIZATION_VOIDED`), full capture and refund. Then one **full outing through the app in `PAYPAL_SANDBOX` mode**: three payers approved $50 holds through the app's redirect flow (minimum payers 2), and one scheduler tick after the deadline captured $33.34/$33.33/$33.33 and confirmed the booking; `scripts/paypal-verify-outing.ts` read every authorization back from PayPal and they match. Redacted evidence: [evidence/README.md](evidence/README.md).
+- **Not yet verified against PayPal:** webhook signature verification against real deliveries, and the `PayPal-Mock-Response` header. Open items: [research/PAYPAL.md](research/PAYPAL.md) section 14.
+- **Not yet verified against Anthropic:** tests use a mocked SDK. TODO: record a real call (`scripts/ai-smoke.ts`).
+- **Verified locally (FIXTURE modes):** 361 Vitest tests in 29 files against Postgres 16, 6 Playwright end-to-end tests (karaoke settle, holdout cancel, organizer cancel, demo hub, capture-failure compensation, big-group under-capture), eslint and `tsc` clean, `next build` and `docker build` pass. Three independent audits are done and their fixes have regression tests in `tests/audit`, `tests/audit2` and `tests/audit3`.
+- TODO: hosted URL, demo video URL and AG Studio trial expiry are not recorded.
 
 ## 7. Where the hard parts are in the code
 

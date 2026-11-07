@@ -63,7 +63,8 @@ Open http://localhost:3000 (consumer) and http://localhost:3000/merchant (dashbo
 
 1. In the PayPal Developer Dashboard create a sandbox REST app (Business merchant) and at least two Personal buyer accounts.
 2. Set `PAYPAL_CLIENT_ID`, `PAYPAL_CLIENT_SECRET` (and `PAYPAL_WEBHOOK_ID` for webhooks) in `.env.local`.
-3. Run the sandbox proof script: `npx tsx scripts/paypal-smoke.ts` (authorize $20 → capture $10 → void → refund), which writes redacted evidence to `docs/evidence/`.
+3. Run the sandbox proof script: `npx tsx scripts/paypal-smoke.ts` (authorize $20 → capture $10 → void → refund), which writes redacted evidence to `docs/evidence/`. Approve each printed link as the sandbox **Personal** account, not the Business one (PayPal refuses a merchant paying itself); a private browser window avoids reusing a Business login. Each approval waits 10 minutes by default (`--approval-timeout=900` for 15).
+4. After a real outing settles, `npx tsx scripts/paypal-verify-outing.ts <outingId>` reads each authorization back from PayPal and checks it against the app's records (read-only; writes redacted evidence).
 
 ### Real AI
 
@@ -120,7 +121,7 @@ Organizer and merchant views: [reveal](docs/screenshots/reveal.png) · [sponsor 
 
 ## Known limitations
 
-- PayPal sandbox flows are implemented against the official API specs but **have not yet been exercised against PayPal** from the build environment (see the handoff for the verification checklist).
+- Verified against the PayPal sandbox: the adapter (authorize, $10-of-$20 final capture, void, refund) and one full outing through the app ($50 holds, $33.34/$33.33/$33.33 captured at the deadline) ([evidence](docs/evidence/README.md)). Webhook signature verification and negative testing are not yet verified (see the handoff).
 - One merchant, one currency (USD), fixed-total pricing for shared bookings.
 - AG Studio is commercial software used under its evaluation trial; AG Grid Community is MIT.
 

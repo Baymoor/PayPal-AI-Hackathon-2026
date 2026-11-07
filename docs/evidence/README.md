@@ -1,6 +1,38 @@
 # PayPal sandbox evidence
 
-**Status: nothing in this folder is verified until the project owner runs the smoke test below with real sandbox credentials.** The Outings PayPal adapter (`lib/payments/paypal.ts`) was written from the official OpenAPI specs (see `docs/research/PAYPAL.md`) and is unit-tested only against a mocked `fetch`; the build containers cannot reach `api-m.sandbox.paypal.com`. A JSON file appears here only after a real run.
+**Status (7 Nov 2026): the adapter is verified against the PayPal REST sandbox.** The owner ran the smoke test below on their machine with a real sandbox REST app (Merchant type, default sandbox Business and Personal accounts, no account settings changed). Every expectation passed across two runs:
+
+| File | Flows | Result |
+|---|---|---|
+| `paypal-sandbox-2026-11-07T18-32-58-025Z.json` | refund | authorize $20 → capture $20 → refund $20 → GET refund `COMPLETED`. (The capture and void flows in this run timed out waiting for buyer approval, the first time the owner used the sandbox checkout; they were re-run below.) |
+| `paypal-sandbox-2026-11-07T19-00-35-045Z.json` | capture, void | **under-capture works**: authorize $20 → capture $10 with `final_capture: true` `COMPLETED`; replaying the capture with the same `PayPal-Request-Id` returns the same capture; the authorization then reads `CAPTURED` (remainder released by PayPal, no void needed). Void → `VOIDED`; capture after void → HTTP 422 `AUTHORIZATION_VOIDED`. |
+
+Findings: `underCaptureSupported: true`, `captureReplayIdempotent: true`, `authorizationStatusAfterFinalPartialCapture: CAPTURED`, `remainderNeededExplicitVoid: false`, `captureAfterVoidIssue: AUTHORIZATION_VOIDED`, `refundStatus: COMPLETED`; sandbox authorizations are valid for 29 days.
+
+The smoke test exercises the same adapter code the app uses (`lib/payments/paypal.ts`). The app's own routes and settlement worker were verified separately, below.
+
+## Full outing through the app (`PAYPAL_SANDBOX` mode)
+
+**Status (7 Nov 2026): verified.** File: `paypal-outing-2026-11-07T20-40-51-139Z.json`.
+
+On the owner's machine (`npm run dev`, PayPal sandbox credentials set, fixture AI) one outing went through the whole product flow: brief → budget poker (3 votes) → reveal → $100 karaoke quote with **minimum payers 2**, so each payer's cap was **$50** → organizer and two invitees each authorized $50 through the app's own PayPal redirect (`/api/payments/paypal/return`, which requires PayPal's `token` parameter, so the return redirect carries it). After the deadline one scheduler tick (`POST /api/cron/tick`, what a cron or the worker sends) settled it with no participant action:
+
+| Payer | Authorized | Captured (`final_capture`) | Released by PayPal |
+|---|---|---|---|
+| organizer | $50.00 | $33.34 | $16.66 |
+| invitee 1 | $50.00 | $33.33 | $16.67 |
+| invitee 2 | $50.00 | $33.33 | $16.67 |
+| **total** | **$150.00** | **$100.00** | **$50.00** |
+
+Decision `SETTLE`, outing `CONFIRMED`, 3 capture operations, 0 errors. `scripts/paypal-verify-outing.ts` (read-only) then read every authorization back from PayPal: each is `CAPTURED` with one final capture of exactly the amount the app recorded (`allMatch: true`). That is the product's core promise, "the hold is your maximum; you pay only your real share", observed end to end against PayPal.
+
+Reproduce after any real outing settles:
+
+```bash
+npx tsx scripts/paypal-verify-outing.ts <outingId> --database-url=<the app's DATABASE_URL>
+```
+
+**Not covered yet:** `--mock-decline` (negative testing) and webhook signature verification against real deliveries (no `PAYPAL_WEBHOOK_ID` locally, and PayPal cannot deliver webhooks to `localhost`).
 
 ## What the smoke test proves
 

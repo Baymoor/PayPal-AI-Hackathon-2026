@@ -7,11 +7,14 @@
  * The session must belong to the participant who owns the attempt. Without a
  * participant session for the attempt's outing the browser is sent to a
  * neutral page: a valid attempt id alone never reveals which outing it is for.
+ * Malformed and unknown attempt ids land on the same page, because this is a
+ * browser navigation (never answer it with JSON) and one landing for all three
+ * cases means the response does not reveal whether an attempt id exists.
  */
 import { eq } from "drizzle-orm";
 import { getDb } from "@/lib/db/client";
 import { paymentAttempts } from "@/lib/db/schema";
-import { badRequest, handle, notFound, ServiceError } from "@/lib/http";
+import { badRequest, handle, ServiceError } from "@/lib/http";
 import { assertUuid, requireParticipant } from "@/lib/services/access";
 import { completeApproval, paymentRedirectPath } from "@/lib/services/payments";
 
@@ -24,14 +27,20 @@ function redirect(location: string): Response {
 
 export const GET = handle(async (req: Request) => {
   const url = new URL(req.url);
-  const attemptId = assertUuid(url.searchParams.get("attempt") ?? "", "payment attempt");
+  let attemptId: string;
+  try {
+    attemptId = assertUuid(url.searchParams.get("attempt") ?? "", "payment attempt");
+  } catch (err) {
+    if (err instanceof ServiceError) return redirect(SIGN_IN_REDIRECT);
+    throw err;
+  }
   const token = url.searchParams.get("token");
   const db = getDb();
   const attempt = await db.query.paymentAttempts.findFirst({
     where: eq(paymentAttempts.id, attemptId),
     columns: { outingId: true },
   });
-  if (!attempt) throw notFound("Payment attempt not found");
+  if (!attempt) return redirect(SIGN_IN_REDIRECT);
 
   // Session first: nothing below may redirect to /o/<outingId> for a caller without a session for that outing.
   let participantId: string;
