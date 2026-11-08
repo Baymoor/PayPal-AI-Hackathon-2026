@@ -42,7 +42,7 @@ import type {
   QuoteView,
 } from "../contracts/views";
 import {
-  BUDGET_OPTIONS_MINOR,
+  budgetOptionsFor,
   collectionWindowOpen,
   isActiveParticipant,
   isPreCollection,
@@ -380,6 +380,7 @@ export async function buildOutingView(
       cleanup: outing.cleanup,
       paymentMode: cfg.paymentMode,
       aiMode: cfg.aiMode,
+      demoMode: cfg.demoFixturesEnabled,
     },
     viewer: {
       participantId: viewer.id,
@@ -398,7 +399,7 @@ export async function buildOutingView(
     budget: {
       round: outing.budgetRound,
       unit: "TOTAL",
-      options: [...BUDGET_OPTIONS_MINOR],
+      options: budgetOptionsFor(outing),
       myVoteMinor: myVote?.amountMinor ?? null,
       votedCount: voters.size,
       invitedCount: active.length,

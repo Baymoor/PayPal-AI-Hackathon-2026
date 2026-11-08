@@ -19,7 +19,7 @@ Friends turn a group plan into an approved, fairly shared booking. AI translates
 
 ## 2. Budget poker
 
-- Question: "What TOTAL budget would you be comfortable proposing for this outing?" Options $50, $75, $100, $150, $200, Custom (TOTAL unit; never mix TOTAL and per-person in one summary).
+- Question: "What TOTAL budget would you be comfortable proposing for this outing?" Five amounts sized to the outing (AI-suggested from the brief, validated by the server, with a deterministic fallback ladder; $50, $75, $100, $150, $200 when nothing better is known), Custom (TOTAL unit; never mix TOTAL and per-person in one summary).
 - Votes are private to the voter until reveal — **enforced by the API**, not CSS.
 - Reveal shows an **aggregate distribution** (no names), only with ≥ 3 votes.
 - A vote/proposal is **not** a payment authorization, merchant price or binding acceptance. A majority cannot authorize someone else's money. AI may summarize; the organizer chooses a merchant-supported quote; everyone reviews their own terms.

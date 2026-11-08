@@ -115,7 +115,7 @@ export function BudgetStage({ view, actions }: { view: OutingView; actions: Outi
         </div>
       </section>
 
-      {org?.addInvitees && <InvitePanel actions={actions} />}
+      {org?.addInvitees && <InvitePanel view={view} actions={actions} />}
 
       {view.viewer.isOrganizer && org && (
         <Card tone="blush" className="space-y-3">

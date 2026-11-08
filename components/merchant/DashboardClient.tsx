@@ -38,9 +38,11 @@ export interface DashboardClientProps {
   fixtures: boolean;
   /** Studio AI assistant is only offered when the server can serve it. */
   aiEnabled: boolean;
+  /** The signed-in merchant's name (demo sign-in can pick any demo venue); null when unknown. */
+  merchantName?: string | null;
 }
 
-export default function DashboardClient({ licenseKey, fixtures, aiEnabled }: DashboardClientProps) {
+export default function DashboardClient({ licenseKey, fixtures, aiEnabled, merchantName = null }: DashboardClientProps) {
   const router = useRouter();
   const [rawRows, setRows] = useState<MerchantBookingRow[] | null>(null);
   const paymentMode = usePaymentMode();
@@ -122,7 +124,7 @@ export default function DashboardClient({ licenseKey, fixtures, aiEnabled }: Das
         <div>
           <h1 className="m-h1">Bookings</h1>
           <p className="m-sub">
-            Group bookings for The Sound Room. Authorized holds are not revenue.
+            Group bookings for {merchantName ?? "your venue"}. Authorized holds are not revenue.
             {loadedAt && <> Updated {loadedAt.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}.</>}
           </p>
         </div>

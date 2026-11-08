@@ -82,7 +82,7 @@ function base(over: DeepPartial<OutingView> = {}): OutingView {
       id: "11111111-1111-4111-8111-111111111111", title: "Maya's birthday karaoke",
       brief: "A karaoke night for Maya's birthday. Six of us, Friday evening. We want a private room and to cover Maya's share.",
       status: "BUDGETING", stage: "BUDGET", isFixture: true, currency: "USD", displayTimezone: "America/New_York",
-      activityAt: null, deadlineAt: null, serverNow: SERVER_NOW, cancelReasons: [], cleanup: "NONE", paymentMode: "FIXTURE", aiMode: "FIXTURE",
+      activityAt: null, deadlineAt: null, serverNow: SERVER_NOW, cancelReasons: [], cleanup: "NONE", paymentMode: "FIXTURE", aiMode: "FIXTURE", demoMode: true,
     },
     viewer: { participantId: "p2", displayName: "Ben", role: "INVITEE", payerType: "PAYER", required: true, attendance: "PENDING", isOrganizer: false },
     brief,

@@ -6,7 +6,8 @@ import { useState } from "react";
 import { merchantLogout } from "./api";
 import { usePaymentMode } from "./modes";
 
-export function MerchantHeader() {
+/** `merchantName`: the signed-in merchant, resolved on the server; a generic label without a session. */
+export function MerchantHeader({ merchantName = null }: { merchantName?: string | null }) {
   const pathname = usePathname();
   const router = useRouter();
   const [busy, setBusy] = useState(false);
@@ -31,7 +32,7 @@ export function MerchantHeader() {
         <Link href="/merchant" className="m-brand">
           Outings<span>.</span>
         </Link>
-        <span className="m-merchant">The Sound Room · Merchant</span>
+        <span className="m-merchant">{merchantName ? `${merchantName} · Merchant` : "Merchant"}</span>
         <span className="m-header-sp" />
         {paymentMode === "PAYPAL_SANDBOX" && <span className="m-badge" data-tone="navy">PayPal sandbox</span>}
         {paymentMode === "FIXTURE" && <span className="m-badge" data-tone="fixture">Fixture payments · not real PayPal</span>}

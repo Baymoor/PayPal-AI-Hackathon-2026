@@ -83,9 +83,21 @@ What is real and what is simulated here:
 
 To build a settlement yourself instead, create an outing at `/new` with a "Commit by" time 1 to 2 minutes ahead (the minimum window is 1 minute), have the required people commit, and let `npm run worker` run (`npm run worker:once` runs a single tick).
 
+### 3b. Plan your own outing in one browser (starters and judge mode)
+
+No invitation links or private windows needed. Demo mode only.
+
+1. Open **`/new`** and click a starter: *Karaoke for Maya's birthday*, *Movie night*, *Wine tasting with the girlies*, *Gym session at the new gym with the boys* or *Padel doubles*. It fills in the brief, and you can edit it. Each starter matches a fictional venue with one price for the whole group (for example a $60 padel court for four, or a $240 wine tasting table for up to eight).
+2. The budget vote amounts fit the outing. In FIXTURE mode, for example, padel offers $30 to $120 and wine tasting $150 to $600. The AI may suggest them, but the server only accepts five valid amounts that include any budget the brief states. Otherwise it builds them from the brief or the venue's price, and records which basis it used.
+3. On the invite step, tap names from **Demo friends** (or **Add all**) instead of typing them. Invitation links are still created and still work.
+4. The **"Demo: acting as …"** bar on the outing page lists everyone with what they still need to do ("needs to vote", "needs to commit"). Press **Switch** to become that person, and follow the **Next:** line ("Next: switch to Ben and vote"). Votes stay private: the bar shows who has voted, never the amount.
+5. To see the booking from the venue's side, sign in at **`/merchant/login`** and pick that venue in the demo login.
+
+With PayPal sandbox keys configured, a real approval still needs the sandbox *buyer* login on PayPal's page. Don't switch people while PayPal's page is open: the return only completes for the person who started the payment, so switch back to them if you did.
+
 ## 4. The merchant dashboard (AG Studio)
 
-1. Open **`/merchant`** and use the one-click **demo login** (demo mode only; otherwise the password is `MERCHANT_DASHBOARD_PASSWORD`).
+1. Open **`/merchant`** and use the one-click **demo login** (demo mode only; otherwise the password is `MERCHANT_DASHBOARD_PASSWORD`). Pick a venue in the demo login to see its bookings; The Sound Room holds the seeded outings and scenarios.
 2. The dashboard is a two-page AG Studio report. Switch pages with the **Bookings / Money** tabs.
    - **Bookings** page: KPI value widgets (open, closing today, captured, refunds pending), bookings by status, money by stage, the custom **Booking Readiness** widget (how close each open outing is to being bookable), and an AG Grid bookings table. Clicking a bar, slice or readiness row cross-filters everything on the page, including the KPIs.
    - **Money** page: KPIs, the custom **Money flow** widget (per outing, where each authorized dollar went: kept, refund due, refunded, still on hold), captured vs refunded, and holds outstanding. Authorized holds are never counted as revenue. After running the capture-failure scenario (3a), find that outing here: it shows captured money moving into refund due, then refunded.
@@ -118,7 +130,7 @@ Read [HANDOFF_TO_CODEX.md](HANDOFF_TO_CODEX.md) for the authoritative status mat
 - **Verified against the PayPal sandbox (7 Nov 2026):** `scripts/paypal-smoke.ts` drives the app's real adapter: authorize $20, capture $10 with `final_capture` (the authorization then reads `CAPTURED` and the remainder is released), idempotent capture replay, void (capture afterwards refused with `AUTHORIZATION_VOIDED`), full capture and refund. Then one **full outing through the app in `PAYPAL_SANDBOX` mode**: three payers approved $50 holds through the app's redirect flow (minimum payers 2), and one scheduler tick after the deadline captured $33.34/$33.33/$33.33 and confirmed the booking; `scripts/paypal-verify-outing.ts` read every authorization back from PayPal and they match. Redacted evidence: [evidence/README.md](evidence/README.md).
 - **Not yet verified against PayPal:** webhook signature verification against real deliveries, and the `PayPal-Mock-Response` header. Open items: [research/PAYPAL.md](research/PAYPAL.md) section 14.
 - **Not yet verified against Anthropic:** tests use a mocked SDK. TODO: record a real call (`scripts/ai-smoke.ts`).
-- **Verified locally (FIXTURE modes):** 361 Vitest tests in 29 files against Postgres 16, 6 Playwright end-to-end tests (karaoke settle, holdout cancel, organizer cancel, demo hub, capture-failure compensation, big-group under-capture), eslint and `tsc` clean, `next build` and `docker build` pass. Three independent audits are done and their fixes have regression tests in `tests/audit`, `tests/audit2` and `tests/audit3`.
+- **Verified locally (FIXTURE modes):** 440 Vitest tests in 35 files against Postgres 16, 6 Playwright end-to-end tests (karaoke settle, holdout cancel, organizer cancel, demo hub, capture-failure compensation, big-group under-capture), eslint and `tsc` clean, `next build` and `docker build` pass. Three independent audits are done and their fixes have regression tests in `tests/audit`, `tests/audit2` and `tests/audit3`.
 - TODO: hosted URL, demo video URL and AG Studio trial expiry are not recorded.
 
 ## 7. Where the hard parts are in the code

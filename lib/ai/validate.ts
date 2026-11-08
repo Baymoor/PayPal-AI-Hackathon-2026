@@ -24,12 +24,13 @@ import {
   type ValidatedPlanDraft,
 } from "./types";
 import type { Offering } from "../db/schema";
+import { MAX_BUDGET_MINOR, validateBudgetOptions } from "../domain/budget-options";
 import { PolicyError, validateCommitmentDeadline } from "../domain/policy";
 import { MAX_COMMITMENT_WINDOW_MS } from "../domain/types";
 // The same pure timezone/availability helpers openCollection uses on the server.
 import { checkAvailability, zonedParts, zonedTimeToUtc } from "../services/catalogue";
 
-export const MAX_BUDGET_MINOR = 10_000_000;
+export { MAX_BUDGET_MINOR };
 
 /** Model output was unusable (bad JSON, schema failure, refusal, truncation). */
 export class AiOutputError extends Error {
@@ -131,6 +132,8 @@ export function validateBrief(raw: BriefExtraction, opts: BriefValidationOptions
     .filter((r) => r.text.length > 0);
   if (summary.length === 0) summary.push({ icon: "note", text: title.slice(0, 80) });
 
+  const voteTotals = validVoteTotals(b.suggestedVoteTotalsMinor ?? null, warnings);
+
   const output: BriefExtraction = {
     title,
     activityIdeas: cleanList(b.activityIdeas, 60),
@@ -146,8 +149,18 @@ export function validateBrief(raw: BriefExtraction, opts: BriefValidationOptions
     needs: cleanList(b.needs, 60),
     uncertainties: cleanList(b.uncertainties, 120),
     summary,
+    suggestedVoteTotalsMinor: voteTotals,
   };
   return { output, warnings };
+}
+
+/** Suggested vote amounts that pass the budget-option rules; anything else is dropped with a warning, never adjusted. */
+function validVoteTotals(suggestion: number[] | null, warnings: string[]): number[] | null {
+  if (suggestion === null) return null;
+  const check = validateBudgetOptions(suggestion);
+  if (check.ok) return check.optionsMinor;
+  warnings.push(`Dropped suggested vote amounts: ${check.reason}.`);
+  return null;
 }
 
 /* ------------------------------- proposals ---------------------------------- */

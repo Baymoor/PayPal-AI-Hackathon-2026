@@ -59,6 +59,9 @@ export const outingApi = {
   pay: (id: string) => request<{ approveUrl: string }>(`/api/outings/${id}/payments`, { method: "POST" }),
   withdraw: (id: string) => request(`/api/outings/${id}/withdraw`, { method: "POST" }),
   cancel: (id: string) => request(`/api/outings/${id}/cancel`, { method: "POST" }),
+  /** Demo mode only: act as another participant of an outing this browser is already part of. */
+  switchPersona: (participantId: string) =>
+    request<{ outingId: string; participantId: string }>("/api/demo/persona", { method: "POST", json: { participantId } }),
 };
 
 /** The action surface the presentational screens use. OutingClient wires it to the API; the dev preview stubs it. */

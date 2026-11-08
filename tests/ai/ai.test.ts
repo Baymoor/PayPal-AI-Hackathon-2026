@@ -274,3 +274,63 @@ describe("AnthropicOutingsAi (mocked client)", () => {
     expect(s.additionalProperties).toBe(false);
   });
 });
+
+describe("suggested budget-vote amounts", () => {
+  const briefJson = {
+    title: "Wine tasting", activityIdeas: ["Wine tasting"], categories: ["wine-tasting"],
+    dateWindow: { description: "Thursday evening", dayOfWeek: "THU", partOfDay: "EVENING" },
+    groupSize: { count: 6, isEstimate: false }, budget: { amountMinor: 30000, unit: "TOTAL" },
+    guestOfHonour: { name: null, coverTheirShare: false }, prefersFixedTotal: true,
+    needs: [], uncertainties: [], summary: [{ icon: "activity", text: "Wine tasting" }],
+  };
+  const brief = "Wine tasting for six on Thursday evening, $300 total";
+  const reply = (obj: unknown) => ({ stop_reason: "end_turn", content: [{ type: "text", text: JSON.stringify(obj) }] });
+  const make = (obj: unknown) => {
+    const create = vi.fn().mockResolvedValue(reply(obj));
+    resetConfigForTests(loadConfig(env({ OUTINGS_ANTHROPIC_API_KEY: "sk-test" })));
+    return { create, ai: new AnthropicOutingsAi({ client: { messages: { create } } }) };
+  };
+
+  it("asks the model for the field (required, nullable, no unsupported keywords) and keeps a valid suggestion", async () => {
+    const { create, ai } = make({ ...briefJson, suggestedVoteTotalsMinor: [15000, 20000, 30000, 40000, 50000] });
+    const r = await ai.extractBrief({ brief, now: NOW, timezone: "UTC" });
+    expect(r.output.suggestedVoteTotalsMinor).toEqual([15000, 20000, 30000, 40000, 50000]);
+    const schema = create.mock.calls[0][0].output_config.format.schema;
+    expect(schema.required).toContain("suggestedVoteTotalsMinor");
+    expect(JSON.stringify(schema.properties.suggestedVoteTotalsMinor)).toMatch(/"null"/);
+    expect(JSON.stringify(schema)).not.toMatch(/"default"/);
+    expect(create.mock.calls[0][0].system).toMatch(/suggestedVoteTotalsMinor/);
+  });
+
+  it("drops an invalid suggestion with a warning instead of discarding the whole brief", async () => {
+    const r = await make({ ...briefJson, suggestedVoteTotalsMinor: [30000, 20000, 10000.5] }).ai.extractBrief({ brief, now: NOW, timezone: "UTC" });
+    expect(r.output.title).toBe("Wine tasting");
+    expect(r.output.suggestedVoteTotalsMinor).toBeNull();
+    expect(r.warnings.join(" ")).toMatch(/Dropped suggested vote amounts/);
+    // An older-shaped reply without the field still parses (stored extractions predate it too).
+    expect((await make(briefJson).ai.extractBrief({ brief, now: NOW, timezone: "UTC" })).output.suggestedVoteTotalsMinor).toBeNull();
+  });
+
+  it("never sends the suggestion to the ranking prompt", async () => {
+    const { create, ai } = make({ ranked: [], note: "n" });
+    const extraction = BriefExtractionSchema.parse({ ...briefJson, suggestedVoteTotalsMinor: [15000, 20000, 30000, 40000, 50000] });
+    await ai.proposeOfferings({ extraction, catalogue, agreedBudgetMinor: 30000, groupSize: 6 });
+    expect(create.mock.calls[0][0].messages[0].content).not.toMatch(/suggestedVoteTotals/);
+  });
+
+  it("the fixture parser recognises the starter themes and never suggests amounts", async () => {
+    const ai = new FixtureOutingsAi();
+    for (const [text, category] of [
+      ["Movie night for eight of us", "cinema"],
+      ["Watch a film together", "cinema"],
+      ["Wine tasting with the girlies", "wine-tasting"],
+      ["Gym session at the new gym", "fitness"],
+      ["Workout with the boys", "fitness"],
+      ["Padel doubles on Sunday", "padel"],
+    ] as const) {
+      const out = (await ai.extractBrief({ brief: text, now: NOW, timezone: "UTC" })).output;
+      expect(out.categories, text).toContain(category);
+      expect(out.suggestedVoteTotalsMinor).toBeNull();
+    }
+  });
+});

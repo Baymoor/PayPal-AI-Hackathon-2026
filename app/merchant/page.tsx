@@ -2,6 +2,7 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { MERCHANT_COOKIE, merchantSessionFromCookieValue } from "@/lib/auth/session";
 import DashboardClient from "@/components/merchant/DashboardClient";
+import { signedInMerchantName } from "./signed-in-merchant";
 
 export const dynamic = "force-dynamic";
 
@@ -23,5 +24,7 @@ export default async function MerchantDashboardPage({ searchParams }: { searchPa
   const aiEnabled =
     (hasModel && (!licenseKey || process.env.AG_STUDIO_AI_LICENSED === "true")) ||
     (process.env.NODE_ENV !== "production" && fixtures && sp.ai === "1"); // dev-only preview of the panel
-  return <DashboardClient licenseKey={licenseKey} fixtures={fixtures} aiEnabled={aiEnabled} />;
+  // Fixture rows are all The Sound Room's; a real session names whichever venue it is scoped to.
+  const merchantName = fixtures ? "The Sound Room" : await signedInMerchantName();
+  return <DashboardClient licenseKey={licenseKey} fixtures={fixtures} aiEnabled={aiEnabled} merchantName={merchantName} />;
 }

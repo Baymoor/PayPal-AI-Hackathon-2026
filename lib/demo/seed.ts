@@ -1,7 +1,8 @@
 /**
  * Demo seed: one experience merchant ("The Sound Room"), a small catalogue,
- * and clearly synthetic FIXTURE outings (isFixture = true) for the demo and
- * the merchant dashboard.
+ * four fictional demo venues for the /new starters (lib/demo/venues.ts), and
+ * clearly synthetic FIXTURE outings (isFixture = true) for the demo and the
+ * merchant dashboard.
  *
  * Honesty rules
  * - Every seeded outing is `isFixture`; every seeded payment uses the FIXTURE
@@ -25,7 +26,6 @@ import {
   fixtureProviderObjects,
   jobs,
   merchants,
-  offerings,
   outings,
   participants,
   paymentAttempts,
@@ -55,6 +55,7 @@ import { authorizeRequestId, orderRequestId } from "../services/payments";
 import { checkAvailability, zonedParts, zonedTimeToUtc } from "../services/catalogue";
 
 import { DEMO_BUDGET_TITLE, DEMO_MAIN_TITLE, DEMO_MERCHANT_NAME, DEMO_MERCHANT_SLUG, DEMO_TIMEZONE } from "./constants";
+import { seedDemoVenues, upsertVenue } from "./venues";
 
 export { DEMO_BUDGET_TITLE, DEMO_MAIN_TITLE, DEMO_MERCHANT_NAME, DEMO_MERCHANT_SLUG, DEMO_TIMEZONE };
 
@@ -130,55 +131,12 @@ const CATALOGUE = [
 
 export type CatalogueSlug = (typeof CATALOGUE)[number]["slug"];
 
+/**
+ * Upsert The Sound Room and its catalogue by slug. Payee handling (PAYPAL_MERCHANT_ID,
+ * coalesced with a manually set value) is documented on `upsertVenue`.
+ */
 export async function seedCatalogue(db: Db): Promise<{ merchant: Merchant; offerings: Record<string, Offering> }> {
-  // Payee: PayPal orders for this merchant's outings are paid to
-  // merchants.paypal_merchant_id (lib/services/payments.ts). The demo merchant
-  // gets PAYPAL_MERCHANT_ID when it is set (sandbox credentials configured) and
-  // stays null otherwise, so PayPal pays the API caller's own sandbox account.
-  // To point it at a separate sandbox business account without the env var:
-  //   UPDATE merchants SET paypal_merchant_id = '<merchant id or email>' WHERE slug = 'the-sound-room';
-  // Re-seeding keeps a value set that way unless PAYPAL_MERCHANT_ID overrides it.
-  const envPayee = config().paypal?.merchantId ?? null;
-  const [merchant] = await db
-    .insert(merchants)
-    .values({
-      slug: DEMO_MERCHANT_SLUG,
-      name: DEMO_MERCHANT_NAME,
-      timezone: DEMO_TIMEZONE,
-      paypalMerchantId: envPayee,
-    })
-    .onConflictDoUpdate({
-      target: merchants.slug,
-      set: { name: DEMO_MERCHANT_NAME, timezone: DEMO_TIMEZONE, paypalMerchantId: sql`coalesce(excluded.paypal_merchant_id, "merchants"."paypal_merchant_id")` },
-    })
-    .returning();
-  const result: Record<string, Offering> = {};
-  for (const item of CATALOGUE) {
-    const [row] = await db
-      .insert(offerings)
-      .values({ merchantId: merchant.id, ...item, currency: "USD", active: true })
-      .onConflictDoUpdate({
-        target: [offerings.merchantId, offerings.slug],
-        set: {
-          name: item.name,
-          category: item.category,
-          description: item.description,
-          location: item.location,
-          pricingModel: item.pricingModel,
-          priceMinor: item.priceMinor,
-          currency: "USD",
-          minAttendees: item.minAttendees,
-          capacity: item.capacity,
-          durationMinutes: item.durationMinutes,
-          tags: item.tags,
-          availability: item.availability,
-          active: true,
-        },
-      })
-      .returning();
-    result[item.slug] = row;
-  }
-  return { merchant, offerings: result };
+  return upsertVenue(db, { slug: DEMO_MERCHANT_SLUG, name: DEMO_MERCHANT_NAME, timezone: DEMO_TIMEZONE, offerings: CATALOGUE });
 }
 
 /* -------------------------------------------------------------------------- */
@@ -905,6 +863,8 @@ export async function seedDemo(db: Db, opts: { now?: Date; secret?: string } = {
   const now = opts.now ?? new Date();
   const secret = opts.secret ?? config().sessionSecret;
   const { merchant, offerings: cat } = await seedCatalogue(db);
+  // The fictional venues behind the /new starters (movie night, wine, gym, padel).
+  await seedDemoVenues(db);
   await deleteFixtureOutings(db);
   const tz = merchant.timezone;
   const ago = (ms: number) => new Date(now.getTime() - ms);

@@ -72,9 +72,15 @@ Participant (cookie `outings_p`):
 | `POST /api/outings/:id/cancel` | organizer | cancel (voids holds) |
 | `GET /i/:token` | anyone with link | verify hashed token → set session → redirect `/o/:id` |
 
-Merchant (cookie `outings_m`): `POST /api/merchant/login {password}`, `POST /api/merchant/demo-login` (demo only), `POST /api/merchant/logout`, `GET /api/merchant/bookings` → `MerchantBookingRow[]`, `GET /api/merchant/outings/:id` → `MerchantOutingDetail`, `POST /api/merchant/operations/:opId/retry` (re-queue an existing FAILED/UNKNOWN op only), `POST /api/merchant/ai/query {question}` → validated `DashboardQuery` (read-only).
+Merchant (cookie `outings_m`): `POST /api/merchant/login {password}`, `POST /api/merchant/demo-login {venue?}` (demo only; `venue` is one of the five demo venue slugs, default The Sound Room; any other slug is 404), `POST /api/merchant/logout`, `GET /api/merchant/bookings` → `MerchantBookingRow[]`, `GET /api/merchant/outings/:id` → `MerchantOutingDetail`, `POST /api/merchant/operations/:opId/retry` (re-queue an existing FAILED/UNKNOWN op only), `POST /api/merchant/ai/query {question}` → validated `DashboardQuery` (read-only).
 
-System: `POST /api/cron/tick` (`Authorization: Bearer $CRON_SECRET`) runs due jobs and due payment operations; `POST /api/webhooks/paypal` verifies + dedupes + reconciles; `GET /api/health` → `publicModeSummary()`; `POST /api/demo/reset` and `GET /api/demo/personas` (demo only; both return `{outingId, personas, budgetOutingId, budgetPersonas, merchant, outings}`), `POST /api/demo/persona {participantId}` (demo only, fixture outings only).
+System: `POST /api/cron/tick` (`Authorization: Bearer $CRON_SECRET`) runs due jobs and due payment operations; `POST /api/webhooks/paypal` verifies + dedupes + reconciles; `GET /api/health` → `publicModeSummary()`; `POST /api/demo/reset` and `GET /api/demo/personas` (demo only; both return `{outingId, personas, budgetOutingId, budgetPersonas, merchant, outings}`), `POST /api/demo/persona {participantId}` (demo only; any participant of a fixture outing, or, in judge mode, any participant of an outing this browser's session already holds; every refusal is the same 404; audited as `DEMO_PERSONA_SWITCHED` with ids only).
+
+Demo / judge mode (`DEMO_FIXTURES_ENABLED=true` only; real deployments must set it to `false`):
+- `OutingView.outing.demoMode` tells the client to show the "acting as" bar (`components/outing/JudgeBar.tsx`, to-dos from the pure `lib/demo/judge.ts`) and the tap-to-add demo friends on the invite step. In judge mode any participant of an outing can act as any other participant of that outing, organizer included; see `lib/demo/judge-persona.ts` for the threat model.
+- `/new` shows five starter briefs (`lib/demo/starters.ts`); each maps to a fictional FIXED_TOTAL demo venue (`lib/demo/venues.ts`).
+
+Budget vote amounts: `OutingView.budget.options` is per outing. The AI may suggest five TOTAL amounts with the brief extraction; `lib/domain/budget-options.ts` accepts them only if valid (five whole-$5 amounts, strictly increasing, largest ≤ 10× smallest, including any total the brief states), else builds a ladder (0.5×, 0.75×, 1×, 1.5×, 2×) around the brief's stated total, the matching category's price, or $100. Stored with provenance in `outings.brief_extraction`; outings without stored options use $50/$75/$100/$150/$200. Votes themselves stay any positive amount up to the maximum.
 
 ## Pages
 

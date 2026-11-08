@@ -499,7 +499,7 @@ export function CommitStage({
 
       <RosterList view={view} />
       {view.organizer?.can.addInvitees && (
-        <InvitePanel actions={actions} hint="Guests added now are optional — they never block the booking." />
+        <InvitePanel view={view} actions={actions} hint="Guests added now are optional — they never block the booking." />
       )}
       {view.organizer?.can.cancel && <OrganizerTools view={view} actions={actions} />}
       <div aria-hidden className="relative my-2 text-center text-small text-ink-muted">
