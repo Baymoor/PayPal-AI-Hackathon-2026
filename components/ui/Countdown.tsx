@@ -35,18 +35,21 @@ export function Countdown({
   targetIso,
   offsetMs,
   className,
+  icon = true,
 }: {
   targetIso: string | null;
   offsetMs: number;
   className?: string;
+  /** Off when the countdown sits inside a line that already has a clock (e.g. the deadline pill). */
+  icon?: boolean;
 }) {
   const remaining = useRemainingMs(targetIso, offsetMs);
   if (!targetIso) return null;
   // Keep the same box size before hydration to avoid layout shift.
-  const text = remaining === null ? "…" : remaining <= 0 ? "Deadline passed — settling" : `${formatRemaining(remaining)} left`;
+  const text = remaining === null ? "…" : remaining <= 0 ? "Deadline passed · settling" : `${formatRemaining(remaining)} left`;
   return (
     <span role="timer" aria-live="off" className={cn("inline-flex items-center gap-1.5 tabular-nums", className)}>
-      <Clock className="size-4" aria-hidden />
+      {icon && <Clock className="size-4" aria-hidden />}
       {text}
     </span>
   );

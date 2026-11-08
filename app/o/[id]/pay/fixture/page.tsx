@@ -16,7 +16,6 @@ import { outings, paymentAttempts, quoteVersions } from "@/lib/db/schema";
 import { config } from "@/lib/env";
 import { PARTICIPANT_COOKIE, participantSessionFromCookieValue } from "@/lib/auth/session";
 import { assertCurrency, formatMoney } from "@/lib/domain/money";
-import { FIXTURE_PROVIDER_LABEL } from "@/lib/payments/fixture";
 
 export const metadata: Metadata = {
   title: "Simulated approval (fixture)",
@@ -73,11 +72,10 @@ export default async function FixtureApprovalPage({
       >
         <p className="flex items-center gap-2 text-lead font-semibold">
           <FlaskConical aria-hidden="true" className="h-5 w-5 shrink-0" />
-          FIXTURE — simulated approval, not PayPal
+          Simulated approval page
         </p>
         <p className="mt-1 text-small">
-          {FIXTURE_PROVIDER_LABEL}. This page stands in for PayPal&apos;s approval screen in demo mode. No PayPal account is
-          involved and no real or sandbox money moves.
+          This stands in for PayPal&apos;s approval screen. No PayPal account, and no real or sandbox money.
         </p>
       </div>
 

@@ -6,7 +6,7 @@
  * yet; otherwise a different suggestion is shown as a note. Times and minimum payers only pre-fill the local
  * form. Nothing is booked, consented to or charged: "Open commitments" stays the only way forward.
  */
-import { Check, Info, Sparkles, TriangleAlert } from "lucide-react";
+import { Bot, Check, Info, TriangleAlert } from "lucide-react";
 import type { PlanDraftField, PlanDraftResponse } from "@/lib/ai/types";
 import type { OutingView } from "@/lib/contracts/views";
 import { AiSourceBadge } from "@/components/ui/Badge";
@@ -45,7 +45,7 @@ export function AiPrefillFrame({ active, children }: { active: boolean; children
   return (
     <div className="rounded-[18px] border-[1.5px] border-dashed border-coral-600 bg-blush-50 p-3">
       <p className="mb-2 inline-flex items-center gap-1.5 text-[13px] font-bold text-coral-800">
-        <Sparkles className="size-3.5" aria-hidden />
+        <Bot className="size-3.5" aria-hidden />
         AI suggestion · review
       </p>
       {children}
@@ -220,12 +220,9 @@ export function PlanDraftPanel({
   return (
     <Card as="section" aria-labelledby="ai-plan-h" className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <Sparkles className="size-6 text-coral-700" aria-hidden />
-          <h2 id="ai-plan-h" className="text-h3">
-            Draft the plan with AI
-          </h2>
-        </div>
+        <h2 id="ai-plan-h" className="text-h3">
+          Draft the plan with AI
+        </h2>
         <AiSourceBadge source={source} />
       </div>
       <p className="text-ink-muted">
@@ -234,7 +231,7 @@ export function PlanDraftPanel({
       </p>
       <p className="font-semibold">{AI_REVIEW_COPY}</p>
       <Button variant="secondary" loading={pending === "draft"} loadingLabel="Drafting…" onClick={ask} disabled={!view.organizer?.can.draftPlan}>
-        <Sparkles className="size-5" aria-hidden />
+        <Bot className="size-5" aria-hidden />
         {applied ? "Ask AI again" : "Ask AI to draft the plan"}
       </Button>
       <ActionErrorBanner error={error} />

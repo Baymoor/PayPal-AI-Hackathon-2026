@@ -19,8 +19,8 @@ export type Verdict = "READY" | "AT_RISK" | "WILL_CANCEL";
 export const VERDICT_LABEL: Record<Verdict, string> = { READY: "Ready", AT_RISK: "At risk", WILL_CANCEL: "Will cancel" };
 
 export const READINESS_RULE_TEXT =
-  `Rule: ready when every required person has accepted and payers authorized >= minimum. ` +
-  `Otherwise at risk, and will cancel when ${WILL_CANCEL_MINUTES} min or less remain (or the deadline has passed).`;
+  `Ready when every required person has accepted and enough payers have authorized. ` +
+  `Will cancel when ${WILL_CANCEL_MINUTES} minutes or less remain, or the deadline has passed.`;
 
 export interface ReadinessInput {
   requiredAccepted: number;

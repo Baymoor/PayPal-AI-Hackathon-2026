@@ -7,7 +7,7 @@ import { Card } from "@/components/ui/Card";
 import { MoneyRow, MoneyRows } from "@/components/ui/MoneyRow";
 import { StatusBanner } from "@/components/ui/StatusBanner";
 import { LinkButton } from "@/components/ui/Button";
-import { formatWhenFull } from "./format";
+import { formatShortDate } from "./format";
 import { ModeRow, stepIndex } from "./Shell";
 import { fixtureHold } from "./CommitStage";
 import { Stepper } from "@/components/ui/Stepper";
@@ -59,7 +59,6 @@ export function ResultStage({ view }: { view: OutingView }) {
   const tz = outing.displayTimezone;
   const badge = paymentBadge(view);
   const fixture = fixtureHold(view);
-  const provider = fixture ? "the payment simulator" : "PayPal";
   const reasons = outing.cancelReasons.map((r) => REASONS[r]).filter(Boolean);
   const recovery =
     status === "COMPENSATING" ||
@@ -91,33 +90,37 @@ export function ResultStage({ view }: { view: OutingView }) {
       </StatusBanner>
     );
   } else if (recovery) {
+    // The headline already says "Booking not confirmed."; the banner starts at what happened.
     heading = "Booking not confirmed.";
     const done = outing.cleanup === "COMPLETE";
     banner = (
       <StatusBanner tone={done ? "info" : outing.cleanup === "NEEDS_ATTENTION" ? "danger" : "pending"} title={done ? "Refunded" : "Refund pending"}>
         {done
           ? fixture
-            ? "Booking not confirmed. A payment failed; completed fixture payments were refunded. No real money moved."
-            : "Booking not confirmed. A payment failed; completed payments were refunded. Your bank may take a few days to show it."
+            ? "A payment failed, so the completed fixture payments were refunded. No real money moved."
+            : "A payment failed, so the completed payments were refunded. Your bank may take a few days to show it."
           : outing.cleanup === "NEEDS_ATTENTION"
-            ? "Booking not confirmed. A payment failed; a refund needs manual attention. Contact the organizer or merchant."
-            : "Booking not confirmed. A payment failed; completed payments are being refunded."}
+            ? "A payment failed, and a refund needs manual attention. Contact the organizer or merchant."
+            : "A payment failed; completed payments are being refunded."}
       </StatusBanner>
     );
   } else {
+    // The reason goes in the banner (no separate one-bullet card), and the headline isn't repeated.
     heading = "Outing cancelled.";
     const c = outing.cleanup;
+    const why = reasons.length > 0 ? `${reasons.join(" ")} ` : "";
     banner = (
       <StatusBanner tone={c === "NEEDS_ATTENTION" ? "danger" : c === "COMPLETE" || c === "NONE" ? "info" : "pending"} title={c === "COMPLETE" ? "Holds released" : c === "VOID_PENDING" || status === "CANCELLING" ? "Hold release pending" : "Cancelled"}>
+        {why}
         {c === "COMPLETE"
           ? fixture
-            ? "Outing cancelled. No booking payment collected. Every simulated hold has been released (fixture — no real money)."
-            : "Outing cancelled. No booking payment collected. PayPal confirmed every hold was released; your bank may take a few days to show it."
+            ? "No booking payment was collected. Every simulated hold has been released. No real money."
+            : "No booking payment was collected. PayPal confirmed every hold was released; your bank may take a few days to show it."
           : c === "NONE"
-            ? "Outing cancelled. No booking payment collected."
+            ? "No booking payment was collected."
             : c === "NEEDS_ATTENTION"
-              ? "Outing cancelled. No booking payment collected. A hold release needs manual attention — contact the organizer."
-              : "Outing cancelled. No booking payment collected. We're releasing existing payment holds."}
+              ? "No booking payment was collected. A hold release needs manual attention; contact the organizer."
+              : "No booking payment was collected; we're releasing every hold."}
       </StatusBanner>
     );
   }
@@ -127,7 +130,6 @@ export function ResultStage({ view }: { view: OutingView }) {
       <div className="space-y-4 text-center">
         <Stepper
           current={stepIndex("RESULT")}
-          context={outing.title.toUpperCase()}
           doneLabel={status === "CONFIRMED" ? "Confirmed" : status === "SETTLING" ? "Settling" : recovery ? "Not confirmed" : "Cancelled"}
         />
         <ModeRow view={view} />
@@ -135,20 +137,10 @@ export function ResultStage({ view }: { view: OutingView }) {
         <p className="font-display text-[22px]">{outing.title}</p>
       </div>
       {banner}
-      {reasons.length > 0 && status !== "CONFIRMED" && (
-        <Card className="space-y-2">
-          <h2 className="text-h3">What happened</h2>
-          <ul className="list-disc space-y-1 pl-5">
-            {reasons.map((r) => (
-              <li key={r}>{r}</li>
-            ))}
-          </ul>
-        </Card>
-      )}
       {(pay || quote) && (
         <Card className="space-y-4">
           <MoneyRows>
-            {quote && <MoneyRow label="Fixed total" value={formatMoney(quote.totalMinor)} sub={`${quote.merchantName} · ${formatWhenFull(quote.activityAt, tz)}`} />}
+            {quote && <MoneyRow label="Fixed total" value={formatMoney(quote.totalMinor)} sub={`${quote.merchantName} · ${formatShortDate(quote.activityAt, tz)}`} />}
             {pay && <MoneyRow label="Your maximum" value={formatMoney(pay.authorizedMinor)} />}
             {status === "CONFIRMED" && me.finalShareMinor !== null && (
               <MoneyRow
@@ -163,7 +155,11 @@ export function ResultStage({ view }: { view: OutingView }) {
             )}
             {pay && pay.refundedMinor > 0 && <MoneyRow label="Refunded" value={formatMoney(pay.refundedMinor)} />}
             {badge && (
-              <MoneyRow label="Payment status" value={<StatusBadge kind={badge.kind} label={badge.label} />} sub={pay ? pay.providerLabel : undefined} />
+              <MoneyRow
+                label="Payment status"
+                value={<StatusBadge kind={badge.kind} label={badge.label} />}
+                sub={pay ? fixture ? <StatusBadge kind="fixture" className="mt-1" /> : pay.providerLabel : undefined}
+              />
             )}
           </MoneyRows>
           {status === "CONFIRMED" && pay?.status === "CAPTURED" && (
@@ -171,16 +167,17 @@ export function ResultStage({ view }: { view: OutingView }) {
               <CircleCheck className="mt-0.5 size-4 shrink-0" aria-hidden />
               {fixture
                 ? pay.capturedMinor < pay.authorizedMinor
-                  ? "Fixture payment: only your final share was captured and the rest of the simulated hold was released. No real money moved."
-                  : "Fixture payment: the simulator collected your final share. No real money moved."
+                  ? `Simulated payment. ${formatMoney(pay.capturedMinor)} captured, the remaining ${formatMoney(pay.authorizedMinor - pay.capturedMinor)} of the hold released.`
+                  : `Simulated payment. ${formatMoney(pay.capturedMinor)} captured from your hold.`
                 : "Any unused part of your hold is released by PayPal. It can take a few days to disappear from your account."}
             </p>
           )}
           {(status === "CANCELLED" || status === "CANCELLING") && pay && (pay.status === "VOID_PENDING" || pay.status === "AUTHORIZED") && (
             <p className="flex items-start gap-2 text-small text-ink-muted">
               <Hourglass className="mt-0.5 size-4 shrink-0" aria-hidden />
-              Your hold is being released by {provider}.{" "}
-              {fixture ? "No real money is involved." : "PayPal can take a few days to show it — you have not been charged."}
+              {fixture
+                ? "Simulated hold, being released. No real money."
+                : "PayPal is releasing your hold; it can take a few days to show. You have not been charged."}
             </p>
           )}
         </Card>

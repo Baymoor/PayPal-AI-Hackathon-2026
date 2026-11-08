@@ -6,7 +6,7 @@
  *
  * Honesty rules
  * - Every seeded outing is `isFixture`; every seeded payment uses the FIXTURE
- *   provider ("Fixture — not real PayPal"). Fixture authorizations/captures
+ *   provider ("Fixture · not real PayPal"). Fixture authorizations/captures
  *   are created through the real FixtureProvider so the worker can later
  *   void/capture/refund them exactly like live fixture payments.
  * - Seeded brief extractions come from the deterministic FIXTURE parser and

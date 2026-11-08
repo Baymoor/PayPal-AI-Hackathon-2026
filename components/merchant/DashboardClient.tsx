@@ -3,7 +3,7 @@
 import dynamic from "next/dynamic";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { AlertTriangle, Info, RefreshCw, Sparkles } from "lucide-react";
+import { AlertTriangle, Bot, Info, RefreshCw } from "lucide-react";
 import type { MerchantBookingRow } from "@/lib/contracts/views";
 import type { FriendlyError } from "@/components/errors/friendlyError";
 import { ApiError, fetchBookings } from "./api";
@@ -23,7 +23,7 @@ const StudioDashboard = dynamic(() => import("./StudioDashboard"), {
 });
 
 type Segment = "SANDBOX" | "FIXTURE" | "BOTH";
-const SEGMENT_LABEL: Record<Segment, string> = { SANDBOX: "PayPal sandbox", FIXTURE: "Fixture (not real PayPal)", BOTH: "Both, labelled" };
+const SEGMENT_LABEL: Record<Segment, string> = { SANDBOX: "Sandbox", FIXTURE: "Fixture", BOTH: "All" };
 
 function hash(s: string): string {
   let h = 5381;
@@ -132,7 +132,7 @@ export default function DashboardClient({ licenseKey, fixtures, aiEnabled, merch
         {fixtures && <Badge tone="fixture">Dev fixtures mode (?fixtures=1)</Badge>}
         {aiEnabled && (
           <button type="button" className="m-btn" aria-pressed={assistant} onClick={() => setAssistant((v) => !v)}>
-            <Sparkles size={16} aria-hidden /> {assistant ? "Hide assistant" : "Ask the assistant"}
+            <Bot size={16} aria-hidden /> {assistant ? "Hide assistant" : "Ask the assistant"}
           </button>
         )}
         <button type="button" className="m-btn" onClick={() => void load()} disabled={refreshing} aria-label="Refresh bookings">
@@ -158,12 +158,7 @@ export default function DashboardClient({ licenseKey, fixtures, aiEnabled, merch
           <span>Totals below combine real PayPal sandbox transactions with synthetic fixture rows. Fixture rows are labelled in the table; switch to a single source for clean totals.</span>
         </div>
       )}
-      {activeSegment === "FIXTURE" && (
-        <div className="m-banner" role="note" data-tone="fixture">
-          <Info size={18} aria-hidden />
-          <span>Fixture data: seeded synthetic bookings and outings paid with the built-in payment simulator. These are not real PayPal transactions.</span>
-        </div>
-      )}
+      {/* No banner for the fixture segment: the header badge and the per-row "Fixture" label already say it. */}
       {activeSegment === "SANDBOX" && (
         <div className="m-banner" role="note" data-tone="info">
           <Info size={18} aria-hidden />

@@ -1,5 +1,5 @@
 "use client";
-import { CalendarClock, Check, Cake, Info, Sparkles, TriangleAlert, Users } from "lucide-react";
+import { Bot, Check, Info, TriangleAlert, Users } from "lucide-react";
 import { useId, useState } from "react";
 import type { CatalogueCandidateView, OutingView } from "@/lib/contracts/views";
 import { formatMoney } from "@/lib/domain/money";
@@ -69,15 +69,10 @@ function CandidateCard({
               {formatMoney(c.priceMinor)} fixed total · up to {c.capacity} people
             </Pill>
           ) : (
-            <>
-              <Pill tone="neutral">
-                {formatMoney(c.priceMinor)} per attendee · up to {c.capacity} people
-              </Pill>
-              <span className="inline-flex items-center gap-1.5 rounded-pill bg-void-pending-bg px-3 py-1 text-[13px] font-bold text-void-pending">
-                <TriangleAlert className="size-3.5" aria-hidden />
-                Price grows with attendees
-              </span>
-            </>
+            // The "price grows with each extra guest" concern is listed below; no second pill for it.
+            <Pill tone="neutral">
+              {formatMoney(c.priceMinor)} per attendee · up to {c.capacity} people
+            </Pill>
           )}
         </span>
         {(c.reasons.length > 0 || c.concerns.length > 0) && (
@@ -104,7 +99,7 @@ function CandidateCard({
             Selected
             {aiSuggested && (
               <span className="inline-flex items-center gap-1.5 rounded-pill border-[1.5px] border-dashed border-coral-600 bg-blush-50 px-3 py-0.5 text-[13px] text-coral-800">
-                <Sparkles className="size-3.5" aria-hidden />
+                <Bot className="size-3.5" aria-hidden />
                 AI suggestion · review
               </span>
             )}
@@ -132,12 +127,9 @@ function SponsorCard({ view, actions, aiSuggested = false }: { view: OutingView;
 
   return (
     <Card as="section" aria-labelledby="sponsor-h" className="space-y-4">
-      <div className="flex items-center gap-3">
-        <Cake className="size-6 text-coral-700" aria-hidden />
-        <h2 id="sponsor-h" className="text-h3">
-          Treat someone special
-        </h2>
-      </div>
+      <h2 id="sponsor-h" className="text-h3">
+        Treat someone special
+      </h2>
       {guests.length === 0 ? (
         <p className="text-ink-muted">Invite your guests first, then you can cover one person&apos;s share.</p>
       ) : (
@@ -196,44 +188,47 @@ function SplitPreview({ view, candidate }: { view: OutingView; candidate: Catalo
   const { roster, estimates } = view;
   const sponsored = roster.people.filter((p) => p.payerType === "SPONSORED");
   const fixed = candidate?.pricingModel === "FIXED_TOTAL";
+  // The consent note sits under the card, not inside it: one level of nesting only.
   return (
-    <Card as="section" aria-labelledby="split-h" className="space-y-4">
-      <h2 id="split-h" className="text-h3">
-        Split preview
-      </h2>
-      {!candidate ? (
-        <p className="text-ink-muted">Choose an option above to preview the split.</p>
-      ) : (
-        <>
-          <MoneyRows>
-            {fixed ? (
-              <MoneyRow label="Fixed room total" value={formatMoney(candidate.priceMinor)} />
-            ) : (
-              <MoneyRow label="Price per attendee" value={formatMoney(candidate.priceMinor)} sub="Total grows with attendees" />
-            )}
-            <MoneyRow label="Attendees" value={roster.attendeeCount} />
-            <MoneyRow label="Paying participants" value={estimates.projectedPayers} />
-            {estimates.estimatedShareMinor !== null && (
-              <MoneyRow label="Each paying participant" value={formatMoney(estimates.estimatedShareMinor)} emphasis />
-            )}
-            {estimates.capMinor !== null && <MoneyRow label="Maximum anyone is asked to authorize" value={formatMoney(estimates.capMinor)} />}
-            {sponsored.map((s) => (
-              <MoneyRow
-                key={s.participantId}
-                label={`${s.displayName.split(" ")[0]} pays`}
-                value="$0"
-                valueClassName="rounded-chip bg-blush px-2 text-coral-800"
-              />
-            ))}
-          </MoneyRows>
-          <p className="text-small text-ink-muted">Equal shares can differ by one cent.</p>
-        </>
-      )}
+    <div className="space-y-3">
+      <Card as="section" aria-labelledby="split-h" className="space-y-4">
+        <h2 id="split-h" className="text-h3">
+          Split preview
+        </h2>
+        {!candidate ? (
+          <p className="text-ink-muted">Choose an option above to preview the split.</p>
+        ) : (
+          <>
+            <MoneyRows>
+              {fixed ? (
+                <MoneyRow label="Fixed room total" value={formatMoney(candidate.priceMinor)} />
+              ) : (
+                <MoneyRow label="Price per attendee" value={formatMoney(candidate.priceMinor)} sub="Total grows with attendees" />
+              )}
+              <MoneyRow label="Attendees" value={roster.attendeeCount} />
+              <MoneyRow label="Paying participants" value={estimates.projectedPayers} />
+              {estimates.estimatedShareMinor !== null && (
+                <MoneyRow label="Each paying participant" value={formatMoney(estimates.estimatedShareMinor)} emphasis />
+              )}
+              {estimates.capMinor !== null && <MoneyRow label="Maximum anyone is asked to authorize" value={formatMoney(estimates.capMinor)} />}
+              {sponsored.map((s) => (
+                <MoneyRow
+                  key={s.participantId}
+                  label={`${s.displayName.split(" ")[0]} pays`}
+                  value="$0"
+                  valueClassName="rounded-chip bg-blush px-2 text-coral-800"
+                />
+              ))}
+            </MoneyRows>
+            <p className="text-small text-ink-muted">Equal shares can differ by one cent.</p>
+          </>
+        )}
+      </Card>
       <div className="flex items-start gap-3 rounded-[18px] border border-amber-line bg-amber-bg p-4 text-amber-ink">
         <Users className="mt-0.5 size-5 shrink-0" aria-hidden />
         <p>Everyone sees and approves this split before committing. Changing who pays requires renewed consent.</p>
       </div>
-    </Card>
+    </div>
   );
 }
 
@@ -315,15 +310,10 @@ function OpenForm({
 
   return (
     <Card as="section" aria-labelledby="open-h" className="space-y-4">
-      <div className="flex items-center gap-3">
-        <CalendarClock className="size-6 text-coral-700" aria-hidden />
-        <h2 id="open-h" className="text-h3">
-          Open commitments
-        </h2>
-      </div>
-      <p className="text-ink-muted">
-        Times are in {tz}. The deadline is enforced by our server clock, at most 48 hours from now and before the activity.
-      </p>
+      <h2 id="open-h" className="text-h3">
+        Open commitments
+      </h2>
+      <p className="text-ink-muted">Times in {tz}. The server enforces the deadline: within 48 hours and before the activity.</p>
       <div className="grid gap-4">
         <AiPrefillFrame active={aiDeadline}>
           <TextField label="Commit by" type="datetime-local" value={deadline} onChange={(e) => setDeadline(e.target.value)} />
@@ -344,14 +334,11 @@ function OpenForm({
           />
         </AiPrefillFrame>
       </div>
-      {cap !== null && !problem && (
-        <p className="text-small font-semibold" aria-live="polite">
-          Each payer will be asked to authorize up to {formatMoney(cap)}.
-        </p>
-      )}
       {deadlineIso && !problem && (
-        <p className="text-small text-ink-muted" aria-live="polite">
-          People will be asked to commit by {formatDeadline(deadlineIso, tz)}.
+        <p className="text-small font-semibold" aria-live="polite">
+          {cap !== null
+            ? `Each payer authorizes up to ${formatMoney(cap)} by ${formatDeadline(deadlineIso, tz)}.`
+            : `Everyone commits by ${formatDeadline(deadlineIso, tz)}.`}
         </p>
       )}
       {problem && (
@@ -361,7 +348,7 @@ function OpenForm({
       )}
       {fromAi && (
         <p className="flex items-start gap-2 rounded-[18px] bg-blush-50 p-3 text-small font-semibold text-coral-800">
-          <Sparkles className="mt-0.5 size-4 shrink-0" aria-hidden />
+          <Bot className="mt-0.5 size-4 shrink-0" aria-hidden />
           {AI_REVIEW_COPY}
         </p>
       )}
@@ -409,12 +396,15 @@ export function ProposalStage({ view, actions }: { view: OutingView; actions: Ou
   if (!view.viewer.isOrganizer || !view.organizer) {
     return (
       <div className="space-y-6">
-        <ScreenHeader view={view} title="Almost there" />
-        <EmptyState icon={<Info className="size-6" />} title="The organizer is finalizing the plan">
-          {proposed !== null
-            ? `The group agreed on a ${formatMoney(proposed)} starting budget. You'll get a personal invitation to review and commit when it's ready.`
-            : "You'll get a personal invitation to review and commit when it's ready."}
-        </EmptyState>
+        <ScreenHeader
+          view={view}
+          title="The organizer is finalizing the plan"
+          lead={
+            proposed !== null
+              ? `The group agreed on a ${formatMoney(proposed)} starting budget. You'll get a personal invitation to review and commit when it's ready.`
+              : "You'll get a personal invitation to review and commit when it's ready."
+          }
+        />
         <p className="text-center text-small text-ink-muted">Nothing is charged until you review and authorize your own share.</p>
       </div>
     );
@@ -435,7 +425,7 @@ export function ProposalStage({ view, actions }: { view: OutingView; actions: Ou
             </div>
             {proposal?.note && <p className="text-ink-muted">{proposal.note}</p>}
             {view.outing.isFixture && (
-              <p className="text-small text-ink-muted">Demo catalogue — availability and prices are fixture data, not a live merchant.</p>
+              <p className="text-small text-ink-muted">Demo catalogue. Prices and availability are fixture data.</p>
             )}
             {!proposal || proposal.candidates.length === 0 ? (
               <EmptyState icon={<Info className="size-6" />} title="No options yet">

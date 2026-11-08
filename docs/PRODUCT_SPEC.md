@@ -49,9 +49,10 @@ Integer minor units, USD only. `base = floor(total/N)`, `remainder = total % N`;
 
 - Vote: "Suggest a total budget. This does not authorize a payment."
 - Commit: "Authorize up to $20. Your final share may be lower. We collect it only if the agreed group booking is confirmed."
-- Waiting: "$20 authorized · estimated final share $10 · not charged yet."
-- Expired: "Outing cancelled. No booking payment collected. We're releasing existing payment holds."
-- Recovery: "Booking not confirmed. A payment failed; completed payments are being refunded."
+- Waiting: headline "Your $20 hold is in place.", with "$20 authorized · estimated final share $10 · not charged yet." directly under it.
+- Expired: headline "Outing cancelled."; the banner gives the reason, then "No booking payment was collected; we're releasing every hold."
+- Recovery: headline "Booking not confirmed."; banner "A payment failed; completed payments are being refunded."
+- (Owner-approved rewording, 8 Nov 2026: the headline is never repeated as the banner's first sentence.)
 - Never claim holds disappear instantly or refunds are complete when merely requested. Before settlement there IS a real hold.
 
 ## 7. PayPal

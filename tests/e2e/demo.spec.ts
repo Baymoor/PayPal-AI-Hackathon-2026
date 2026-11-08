@@ -11,18 +11,18 @@ async function openAs(page: Page, outingTitle: string, person: string): Promise<
   await page.goto("/demo");
   await page.getByRole("button", { name: `Open ${outingTitle} as ${person}`, exact: true }).click();
   await expect(page).toHaveURL(/\/o\/[0-9a-f-]{36}$/);
-  await expect(page.getByText("Fixture — not real PayPal").first()).toBeVisible();
+  await expect(page.getByText(/Simulated payments/).first()).toBeVisible();
 }
 
 test("demo hub: reset, persona switching and every seeded stage", async ({ page }) => {
   await page.goto("/demo");
-  await expect(page.getByText("This deployment:")).toBeVisible();
+  await expect(page.getByText("Demo outings run on the payment simulator.")).toBeVisible();
   const reset = page.waitForResponse((r) => r.url().endsWith("/api/demo/reset") && r.status() === 200);
   await page.getByRole("button", { name: "Reset demo data" }).click();
   await reset;
   await expect(page.getByRole("button", { name: "Reset demo data" })).toBeEnabled();
   await expect(page.getByRole("heading", { name: "Maya's birthday karaoke" })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "3. Every other outcome" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Finished outings" })).toBeVisible();
 
   await test.step("collecting: Noor still has to commit; Ben already did", async () => {
     await openAs(page, "Maya's birthday karaoke", "Noor");
@@ -30,7 +30,7 @@ test("demo hub: reset, persona switching and every seeded stage", async ({ page 
     await expect(page.getByRole("button", { name: "Review & authorize $20" })).toBeVisible();
     await expect(page.getByText("4 of 5 payers committed").first()).toBeVisible();
     await openAs(page, "Maya's birthday karaoke", "Ben");
-    await expect(page.getByRole("heading", { name: /^\$20 authorized · estimated final share \$20 · not charged yet\.$/ })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Your $20 hold is in place." })).toBeVisible();
     await openAs(page, "Maya's birthday karaoke", "Maya");
     await expect(page.getByText("You’re in")).toBeVisible();
   });
@@ -55,11 +55,11 @@ test("demo hub: reset, persona switching and every seeded stage", async ({ page 
 
     await openAs(page, "Office escape room (synthetic)", "Kai");
     await expect(page.getByRole("heading", { name: "Outing cancelled." })).toBeVisible();
-    await expect(page.getByText(/No booking payment collected/)).toBeVisible();
+    await expect(page.getByText(/No booking payment was collected/)).toBeVisible();
 
     await openAs(page, "Launch party karaoke (synthetic)", "Leo");
     await expect(page.getByRole("heading", { name: "Booking not confirmed." })).toBeVisible();
-    await expect(page.getByText("Booking not confirmed. A payment failed; completed payments are being refunded.")).toBeVisible();
+    await expect(page.getByText("A payment failed; completed payments are being refunded.")).toBeVisible();
 
     await openAs(page, "Escape room with the climbing crew (synthetic)", "Elias");
     await expect(page.getByRole("button", { name: "Review & authorize $30" })).toBeVisible();

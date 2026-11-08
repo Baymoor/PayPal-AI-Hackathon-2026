@@ -83,11 +83,10 @@ export function BudgetStage({ view, actions }: { view: OutingView; actions: Outi
           >
             {label}
           </Button>
-          {budget.myVoteMinor !== null && (
-            <p aria-live="polite" className="text-center text-small text-ink-muted">
-              You voted {money(budget.myVoteMinor)}. Only you can see this until reveal.
-            </p>
-          )}
+          {/* The button already says the vote is saved; this only announces it to screen readers. */}
+          <p aria-live="polite" className="sr-only">
+            {budget.myVoteMinor !== null ? `Your ${money(budget.myVoteMinor)} vote is saved.` : ""}
+          </p>
         </form>
       ) : (
         <StatusBanner tone="info">You can&apos;t vote right now.</StatusBanner>
@@ -121,7 +120,7 @@ export function BudgetStage({ view, actions }: { view: OutingView; actions: Outi
         <Card tone="blush" className="space-y-3">
           <h2 className="text-h3">Reveal the group&apos;s budget</h2>
           <p className="text-ink-muted">
-            Reveal shows only how many people chose each amount — never who chose what. It needs at least 3 votes.
+            Reveal shows how many people chose each amount, never who. It needs at least 3 votes.
           </p>
           <Button
             block
@@ -142,7 +141,6 @@ export function BudgetStage({ view, actions }: { view: OutingView; actions: Outi
           )}
         </Card>
       )}
-      <p className="text-center text-small text-ink-muted">A budget vote is not a payment or booking.</p>
       {budget.aiSummary && <AiSourceBadge source={budget.aiSummary.source} />}
     </div>
   );

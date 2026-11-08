@@ -84,7 +84,7 @@ export interface MyPaymentView {
   paymentAttemptId: string;
   status: PaymentStatus;
   provider: PaymentProviderName;
-  /** "PayPal sandbox" | "Fixture — not real PayPal" */
+  /** "PayPal sandbox" | "Fixture · not real PayPal" */
   providerLabel: string;
   authorizedMinor: number;
   capturedMinor: number;

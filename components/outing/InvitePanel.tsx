@@ -1,5 +1,5 @@
 "use client";
-import { Check, Copy, Link2, Plus, TriangleAlert, UserPlus } from "lucide-react";
+import { Check, Copy, Link2, Plus, TriangleAlert } from "lucide-react";
 import { useState } from "react";
 import type { OutingView } from "@/lib/contracts/views";
 import { availableDemoFriends, splitTypedNames } from "@/lib/demo/friends";
@@ -58,21 +58,26 @@ function DemoFriends({ friends, onAdd }: { friends: string[]; onAdd: (names: str
   if (friends.length === 0) return null;
   return (
     <div className="space-y-2" role="group" aria-labelledby="demo-friends-h">
-      <p id="demo-friends-h" className="text-small font-semibold text-ink-muted">
-        Demo friends (tap to add)
+      <p id="demo-friends-h" className="text-small font-semibold">
+        Tap to add a friend
       </p>
       <ul className="flex flex-wrap gap-2" aria-label="Demo friends">
         {friends.map((name) => (
           <li key={name}>
-            <Button variant="secondary" className="!min-h-[36px] !px-3 !text-[14px]" aria-label={`Add ${name}`} onClick={() => onAdd([name])}>
+            <button
+              type="button"
+              aria-label={`Add ${name}`}
+              onClick={() => onAdd([name])}
+              className="inline-flex min-h-[44px] items-center gap-1.5 rounded-pill border border-line-strong bg-white px-4 text-[15px] font-medium text-ink hover:bg-blush-50"
+            >
               <Plus className="size-4" aria-hidden />
               {name}
-            </Button>
+            </button>
           </li>
         ))}
         {friends.length > 1 && (
           <li>
-            <Button variant="link" className="!min-h-[36px]" onClick={() => onAdd(friends)}>
+            <Button variant="link" className="!min-h-[44px]" onClick={() => onAdd(friends)}>
               Add all {friends.length}
             </Button>
           </li>
@@ -108,12 +113,9 @@ export function InvitePanel({ view, actions, hint }: { view: OutingView; actions
 
   return (
     <Card as="section" aria-labelledby="invite-h" className="space-y-4">
-      <div className="flex items-center gap-2">
-        <UserPlus className="size-5 text-coral-700" aria-hidden />
-        <h2 id="invite-h" className="text-h3">
-          Invite people
-        </h2>
-      </div>
+      <h2 id="invite-h" className="text-h3">
+        Invite people
+      </h2>
       <form onSubmit={submit} className="space-y-3">
         <DemoFriends friends={demoFriends} onAdd={(added) => setNames((current) => appendNames(current, added))} />
         <TextAreaField
@@ -153,7 +155,7 @@ export function InvitePanel({ view, actions, hint }: { view: OutingView; actions
           </ul>
           <p className="flex items-start gap-2 text-small text-ink-muted">
             <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden />
-            Lost a link? It can&apos;t be shown again — ask for a new invitation.
+            Lost a link? It can&apos;t be shown again. Ask for a new invitation.
           </p>
         </div>
       )}

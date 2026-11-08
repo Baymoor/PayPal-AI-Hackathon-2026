@@ -1,6 +1,7 @@
 "use client";
-import { Cog, FlaskConical, LayoutDashboard, Play, RotateCcw, ShieldCheck, Store, Timer, UserRound, X } from "lucide-react";
+import { Cog, FlaskConical, Play, Store, Timer, X } from "lucide-react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import type { CleanupState, OperationKind, OperationStatus, OutingStatus } from "@/lib/domain/types";
 import {
@@ -11,7 +12,7 @@ import {
   type DemoScenarioKind,
 } from "@/lib/demo/constants";
 import { Avatar } from "@/components/ui/Avatar";
-import { ModeBadge, Pill, StatusBadge, type StatusKind } from "@/components/ui/Badge";
+import { Pill, StatusBadge, type StatusKind } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { formatRemaining, useRemainingMs } from "@/components/ui/Countdown";
@@ -144,29 +145,26 @@ function stageLabel(o: DemoOuting): string {
 
 /* ------------------------------- Scenarios --------------------------------- */
 
-const SCENARIOS: Record<DemoScenarioKind, { title: string; what: string; fixture: string; next: string }> = {
+// The section header says once that every scenario uses the simulator; each card only says what happens.
+const SCENARIOS: Record<DemoScenarioKind, { title: string; what: string; next: string }> = {
   "settle-soon": {
     title: "The last payer commits in time",
     what: "Four of five payers already hold $20. Open as Noor and authorize before the deadline. At the deadline the server captures 5 × $20 and the booking is confirmed; Maya pays $0.",
-    fixture: "Fixture holds and captures from the payment simulator, not real PayPal.",
     next: "Open as Noor and authorize $20 before the deadline. When it has passed, process due work.",
   },
   holdout: {
     title: "A required guest holds out",
     what: "Four of five payers hold $20, but Noor never commits. At the deadline the server cancels the booking and releases every hold. Nobody is charged.",
-    fixture: "Fixture holds from the payment simulator, not real PayPal.",
     next: "Leave Noor alone. When the deadline has passed, process due work.",
   },
   "capture-failure": {
     title: "A capture fails mid-settlement",
-    what: "All five payers hold $20. The simulator declines Jules's capture, so the server stops, releases the remaining holds and refunds the shares it already captured. The booking is never confirmed.",
-    fixture: "Injected fixture failures: one declined capture, and one refund whose response is lost and reconciled on the next pass. No real money.",
+    what: "All five payers hold $20. The simulator declines Jules's capture, so the server stops, releases the remaining holds and refunds the shares it already captured. One refund reply is lost and read back on the next pass. The booking is never confirmed.",
     next: "When the deadline has passed, process due work. Process again a few seconds later: the lost refund response is reconciled and the clean-up completes.",
   },
   "big-group": {
     title: "Ten friends share the room",
-    what: "Ten friends share the $100 room. Everyone authorized up to $20; once the tenth commits the estimate drops to $10, and at the deadline each is charged exactly $10 from their $20 hold (fixture simulator).",
-    fixture: "Fixture holds and captures from the payment simulator, not real PayPal. Nine payers already hold $20; Kai is left for you to commit.",
+    what: "Nine payers hold $20 and you commit as Kai. The estimate drops to $10, and at the deadline each of the ten is charged exactly $10 from a $20 hold.",
     next: "Open as Kai and authorize $20 (your estimate shows $10). When the deadline has passed, process due work: each of the ten is charged $10 and the rest of each hold is released.",
   },
 };
@@ -493,49 +491,33 @@ export function DemoHub({ initialDeadlineSeconds }: { initialDeadlineSeconds?: n
 
   return (
     <div className="space-y-6">
+      {/* One honesty line instead of a "What is real here?" card: the demo outings always use the simulator. */}
       <div className="space-y-3">
-        <Pill>Demo · no real money</Pill>
         <h1 className="text-[36px] leading-10 sm:text-h1 sm:leading-[3rem]">Try the demo</h1>
-        <p className="text-lead">Reset to fresh demo outings, then step into anyone&apos;s shoes to see each screen.</p>
+        <p className="text-lead">Start a scenario and watch the server settle it in two minutes, or open any outing as any guest.</p>
+        <p className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-small text-ink-muted">
+          <FlaskConical className="size-4 shrink-0" aria-hidden />
+          Demo outings run on the payment simulator. No real money.
+          {modes?.paymentMode === "PAYPAL_SANDBOX" && " Outings you create use PayPal sandbox."}{" "}
+          <Link href="/how-it-works#honesty" className="font-semibold text-coral-700 underline underline-offset-4 hover:text-coral-800">
+            How the modes work
+          </Link>
+        </p>
       </div>
-
-      <Card tone="blush" className="space-y-3">
-        <div className="flex items-start gap-3">
-          <ShieldCheck className="mt-0.5 size-5 shrink-0 text-coral-700" aria-hidden />
-          <div className="space-y-2">
-            <h2 className="text-h3">What is real here?</h2>
-            <p>
-              No real money ever moves. When PayPal sandbox keys are configured, authorizations happen on PayPal&apos;s sandbox with test accounts.
-              Without keys the app uses a simulator, and every screen says so. Seeded outings marked &ldquo;synthetic&rdquo; are demo data.
-            </p>
-            {modes && (
-              <div className="flex flex-wrap items-center gap-2" aria-label="This deployment">
-                <span className="text-small font-semibold">This deployment:</span>
-                <ModeBadge kind="payment" mode={modes.paymentMode} />
-                <ModeBadge kind="ai" mode={modes.aiMode} />
-              </div>
-            )}
-          </div>
-        </div>
-      </Card>
 
       <ActionErrorBanner error={error} />
       {disabled && <StatusBanner tone="warning">{disabled}</StatusBanner>}
 
       <Card as="section" aria-labelledby="scenarios-h" className="space-y-4">
-        <div className="flex items-center gap-3">
-          <Timer className="size-5 text-coral-700" aria-hidden />
-          <h2 id="scenarios-h" className="text-h3">
-            Watch a deadline settle
-          </h2>
-        </div>
+        <h2 id="scenarios-h" className="text-h3">
+          Watch a deadline settle
+        </h2>
         <p className="text-ink-muted">
-          Each scenario creates a fresh demo outing at The Sound Room ($100 private karaoke room) whose commitment deadline is minutes
-          away, so you can watch the server settle it instead of waiting hours.
+          Each scenario creates a fresh outing at The Sound Room ($100 private karaoke room) with a deadline minutes away.
         </p>
         <div className="flex flex-wrap items-center gap-2">
           <StatusBadge kind="fixture" />
-          <span className="text-small text-ink-muted">Scenario payments always use the simulator, even when PayPal sandbox keys are set.</span>
+          <span className="text-small text-ink-muted">Even when PayPal sandbox keys are set.</span>
         </div>
         <div>
           <label htmlFor={deadlineSelectId} className="mb-1.5 block text-small font-semibold">
@@ -564,10 +546,6 @@ export function DemoHub({ initialDeadlineSeconds }: { initialDeadlineSeconds?: n
                   {c.title}
                 </h3>
                 <p>{c.what}</p>
-                <p className="flex items-start gap-2 text-small text-ink-muted">
-                  <FlaskConical className="mt-0.5 size-4 shrink-0" aria-hidden />
-                  {c.fixture}
-                </p>
                 <Button
                   id={`scn-${kind}-start`}
                   aria-labelledby={`scn-${kind}-start scn-${kind}-title`}
@@ -694,24 +672,10 @@ export function DemoHub({ initialDeadlineSeconds }: { initialDeadlineSeconds?: n
         )}
       </Card>
 
-      <Card className="space-y-4">
-        <div className="flex items-center gap-3">
-          <RotateCcw className="size-5 text-coral-700" aria-hidden />
-          <h2 className="text-h3">1. Reset the demo</h2>
-        </div>
-        <p className="text-ink-muted">Replaces the demo outings with a fresh set. Outings you created yourself are not touched.</p>
-        <Button loading={pending === "reset"} loadingLabel="Resetting…" onClick={reset} variant="secondary">
-          Reset demo data
-        </Button>
-      </Card>
-
       <Card as="section" aria-labelledby="who-h" className="space-y-4">
-        <div className="flex items-center gap-3">
-          <UserRound className="size-5 text-coral-700" aria-hidden />
-          <h2 id="who-h" className="text-h3">
-            2. Pick who you are
-          </h2>
-        </div>
+        <h2 id="who-h" className="text-h3">
+          Open the outing as…
+        </h2>
         {!loaded ? (
           <p className="text-ink-muted">Loading the cast…</p>
         ) : state.outings.length === 0 ? (
@@ -743,7 +707,7 @@ export function DemoHub({ initialDeadlineSeconds }: { initialDeadlineSeconds?: n
       {others.length > 0 && (
         <Card as="section" aria-labelledby="stages-h" className="space-y-4">
           <h2 id="stages-h" className="text-h3">
-            3. Every other outcome
+            Finished outings
           </h2>
           <p className="text-ink-muted">
             Synthetic history: confirmed bookings, cancellations with released holds, and a failed capture being refunded. Scenario runs you started appear here too.
@@ -778,19 +742,25 @@ export function DemoHub({ initialDeadlineSeconds }: { initialDeadlineSeconds?: n
       )}
 
       <Card className="space-y-3">
-        <div className="flex items-center gap-3">
-          <LayoutDashboard className="size-5 text-coral-700" aria-hidden />
-          <h2 className="text-h3">The merchant&apos;s view</h2>
-        </div>
+        <h2 className="text-h3">The merchant&apos;s view</h2>
         <p className="text-ink-muted">See bookings, holds and captures the way the venue does.</p>
         <Button variant="secondary" loading={pending === "merchant"} loadingLabel="Opening…" onClick={() => merchant()}>
           Open merchant dashboard
         </Button>
       </Card>
-      <p className="flex items-center gap-2 text-small text-ink-muted">
-        <FlaskConical className="size-4" aria-hidden />
-        Independent hackathon project. Not affiliated with PayPal.
-      </p>
+      {/* Last on the page: resetting is housekeeping, not the first thing a judge should do. */}
+      <section aria-labelledby="reset-h" className="flex flex-wrap items-center justify-between gap-x-8 gap-y-3 border-t border-line-strong pt-6">
+        <div className="space-y-1">
+          <h2 id="reset-h" className="text-h3">
+            Reset
+          </h2>
+          <p className="text-ink-muted">Replaces the demo outings with a fresh set. Outings you created yourself are not touched.</p>
+        </div>
+        <Button loading={pending === "reset"} loadingLabel="Resetting…" onClick={reset} variant="secondary">
+          Reset demo data
+        </Button>
+      </section>
+      <p className="text-small text-ink-muted">Independent hackathon project. Not affiliated with PayPal.</p>
     </div>
   );
 }

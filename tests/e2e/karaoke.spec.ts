@@ -41,7 +41,7 @@ test("karaoke for Maya: plan, vote privately, commit, settle at the deadline, me
   await test.step("(a) organizer writes the brief and sees what the (fixture) AI understood", async () => {
     await alex.goto("/new");
     await alex.getByLabel("Your name").fill("Alex");
-    await alex.getByRole("button", { name: "Use the sample brief" }).click();
+    await alex.getByLabel("Your plan").fill(CANONICAL_BRIEF);
     await expect(alex.getByLabel("Your plan")).toHaveValue(CANONICAL_BRIEF);
     await alex.getByRole("button", { name: "Find an outing" }).click();
     await expect(alex).toHaveURL(/\/o\/[0-9a-f-]{36}$/, { timeout: 20_000 });
@@ -51,7 +51,7 @@ test("karaoke for Maya: plan, vote privately, commit, settle at the deadline, me
     await expect(understood).toBeVisible();
     await expect(understood.getByText("Fixture AI (no model call)")).toBeVisible();
     await expect(understood).toContainText("Maya");
-    await expect(alex.getByText("Fixture — not real PayPal").first()).toBeVisible();
+    await expect(alex.getByText(/Simulated payments/).first()).toBeVisible();
     const v = await viewOf(alex, outingId);
     expect(v.outing.status).toBe("DRAFT");
     expect(v.brief.source).toBe("FIXTURE");
@@ -85,7 +85,7 @@ test("karaoke for Maya: plan, vote privately, commit, settle at the deadline, me
       const amount = VOTES[name]!;
       await page.locator("label").filter({ hasText: new RegExp(`^\\${amount}$`) }).click();
       await page.getByRole("button", { name: `Submit my ${amount} vote` }).click();
-      await expect(page.getByText(`You voted ${amount}. Only you can see this until reveal.`)).toBeVisible();
+      await expect(page.getByRole("button", { name: `Your ${amount} vote is saved` })).toBeDisabled();
     }
     await pages.Ben.reload();
     await expect(pages.Ben.getByText("5 of 6 voted")).toBeVisible();
@@ -154,7 +154,7 @@ test("karaoke for Maya: plan, vote privately, commit, settle at the deadline, me
     await expect(split).toContainText("Each paying participant$20");
     await expect(split).toContainText("Maya pays$0");
     await expect(alex.getByLabel("Minimum payers")).toHaveValue("5");
-    await expect(alex.getByText("Each payer will be asked to authorize up to $20.")).toBeVisible();
+    await expect(alex.getByText(/^Each payer authorizes up to \$20 by /)).toBeVisible();
     await shot(alex, "sponsor");
   });
 
@@ -190,13 +190,13 @@ test("karaoke for Maya: plan, vote privately, commit, settle at the deadline, me
       await page.getByRole("button", { name: "Authorize up to $20 (fixture)" }).click();
 
       await expect(page).toHaveURL(/\/pay\/fixture\?attempt=/);
-      await expect(page.getByText("FIXTURE — simulated approval, not PayPal")).toBeVisible();
+      await expect(page.getByText("Simulated approval page")).toBeVisible();
       await expect(page.getByRole("heading", { name: "Authorize up to $20.00" })).toBeVisible();
       await page.getByRole("button", { name: "Approve simulated hold" }).click();
 
       await expect(page).toHaveURL(new RegExp(`/o/${outingId}\\?payment=authorized$`));
       await expect(page.getByText("Authorization received")).toBeVisible();
-      await expect(page.getByRole("heading", { name: "$20 authorized · estimated final share $20 · not charged yet." })).toBeVisible();
+      await expect(page.getByRole("heading", { name: "Your $20 hold is in place." })).toBeVisible();
       await expect(page.getByText(`${i + 1} of 5 payers committed`)).toBeVisible();
       const me = await viewOf(page, outingId);
       expect(me.me.payment).toMatchObject({ status: "AUTHORIZED", provider: "FIXTURE", authorizedMinor: 2_000, capturedMinor: 0 });
@@ -208,7 +208,7 @@ test("karaoke for Maya: plan, vote privately, commit, settle at the deadline, me
     const maya = pages.Maya;
     await maya.goto(`/o/${outingId}`);
     await expect(maya.getByText("You pay")).toBeVisible();
-    await maya.getByRole("button", { name: "Accept — I'll be there" }).click();
+    await maya.getByRole("button", { name: "I'll be there" }).click();
     await expect(maya.getByText("You’re in")).toBeVisible();
     expect((await viewOf(maya, outingId)).viewer.attendance).toBe("ACCEPTED");
   });
@@ -249,10 +249,11 @@ test("karaoke for Maya: plan, vote privately, commit, settle at the deadline, me
   await test.step("(d) merchant dashboard shows captured totals and the drill-down", async () => {
     const { context, page } = await newPage(browser, DESKTOP);
     await merchantSignIn(page);
-    await expect(page.getByText("Fixture payments · not real PayPal")).toBeVisible();
+    await expect(page.getByText("Fixture · not real PayPal").first()).toBeVisible();
     // FIXTURE-paid outings are never presented as real PayPal sandbox money.
-    await expect(page.getByRole("button", { name: /^Fixture \(not real PayPal\)/ })).toHaveAttribute("aria-pressed", "true");
-    await expect(page.getByText("Captured (confirmed)", { exact: true }).first()).toBeVisible({ timeout: 30_000 });
+    // The segment's accessible name carries a count for screen readers, e.g. "Fixture (7 outings)".
+    await expect(page.getByRole("button", { name: /^Fixture \(/ })).toHaveAttribute("aria-pressed", "true");
+    await expect(page.getByText("From confirmed bookings").first()).toBeVisible({ timeout: 30_000 });
     await expect(page.getByText("Maya's birthday karaoke").first()).toBeVisible({ timeout: 30_000 });
     await expect(page.getByText("Confirmed", { exact: true }).first()).toBeVisible();
     // AG Studio renders charts asynchronously; wait until no widget is still loading.
@@ -271,7 +272,7 @@ test("karaoke for Maya: plan, vote privately, commit, settle at the deadline, me
 
     await page.goto(`/merchant/outings/${outingId}`);
     await expect(page.getByRole("heading", { name: "Maya's birthday karaoke" })).toBeVisible();
-    await expect(page.getByText("Fixture: not real PayPal").first()).toBeVisible();
+    await expect(page.getByText("Fixture · not real PayPal").first()).toBeVisible();
     await expect(page.getByText("Captured", { exact: true }).first()).toBeVisible();
     await expect(page.getByText("$100.00").first()).toBeVisible();
     await expect(page.locator(".ag-row", { hasText: "Succeeded" })).toHaveCount(5);

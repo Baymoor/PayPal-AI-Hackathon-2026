@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Search, Sparkles, X } from "lucide-react";
+import { Bot, Search, X } from "lucide-react";
 import type { DashboardQuery } from "@/lib/ai/types";
 import type { FriendlyError } from "@/components/errors/friendlyError";
 import { askDashboard, ApiError, type AskResult } from "./api";
@@ -60,7 +60,7 @@ export function AskBox({ applied, onApply, onClear, fixtures }: {
         }}
       >
         <div className="m-ask-in">
-          <Sparkles size={18} aria-hidden color="#B13624" />
+          <Bot size={18} aria-hidden color="#B13624" />
           <label id="ask-label" htmlFor="ask-input" className="m-sr">Ask about your bookings</label>
           <input id="ask-input" value={text} onChange={(e) => setText(e.target.value)} placeholder={EXAMPLE} maxLength={280} autoComplete="off" />
         </div>

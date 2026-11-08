@@ -54,7 +54,7 @@ async function openAs(panel: Locator, outingId: string, name: string): Promise<P
   const page = panel.page();
   await panel.getByRole("button", { name: `Open as ${name}`, exact: true }).click();
   await expect(page).toHaveURL(new RegExp(`/o/${outingId}$`));
-  await expect(page.getByText("Fixture — not real PayPal").first()).toBeVisible();
+  await expect(page.getByText(/Simulated payments/).first()).toBeVisible();
   return page;
 }
 
@@ -62,7 +62,7 @@ test("a capture fails mid-settlement: never confirmed, holds released, captured 
   test.setTimeout(4 * 60_000);
 
   await page.goto(`/demo?deadlineSeconds=${DEADLINE_SECONDS}`);
-  await expect(page.getByText("This deployment:")).toBeVisible();
+  await expect(page.getByText("Demo outings run on the payment simulator.")).toBeVisible();
   await expect(page.getByRole("heading", { name: "Watch a deadline settle" })).toBeVisible();
 
   const created = page.waitForResponse((r) => r.url().endsWith("/api/demo/scenario") && r.request().method() === "POST");
@@ -87,7 +87,7 @@ test("a capture fails mid-settlement: never confirmed, holds released, captured 
 
   await test.step("Ben holds $20, not charged yet", async () => {
     const ben = await openAs(panel, s.outingId, "Ben");
-    await expect(ben.getByRole("heading", { name: /^\$20 authorized · estimated final share \$20 · not charged yet\.$/ })).toBeVisible();
+    await expect(ben.getByRole("heading", { name: "Your $20 hold is in place." })).toBeVisible();
   });
 
   await test.step("after the deadline one worker pass compensates: CANCELLED, refund pending", async () => {
@@ -116,8 +116,7 @@ test("a capture fails mid-settlement: never confirmed, holds released, captured 
   await test.step("Ben sees the recovery copy while his refund is pending", async () => {
     const ben = await openAs(panel, s.outingId, "Ben");
     await expect(ben.getByRole("heading", { name: "Booking not confirmed." })).toBeVisible();
-    await expect(ben.getByText("Booking not confirmed. A payment failed; completed payments are being refunded.")).toBeVisible();
-    await expect(ben.getByText("A payment failed while collecting shares.")).toBeVisible();
+    await expect(ben.getByText("A payment failed; completed payments are being refunded.")).toBeVisible();
     await expect(ben.getByText("Refund pending").first()).toBeVisible();
     const v = await viewOf(ben, s.outingId);
     expect(v.outing).toMatchObject({ status: "CANCELLED", cleanup: "REFUND_PENDING" });
@@ -145,7 +144,7 @@ test("a capture fails mid-settlement: never confirmed, holds released, captured 
     const ben = await openAs(panel, s.outingId, "Ben");
     await expect(ben.getByRole("heading", { name: "Booking not confirmed." })).toBeVisible();
     await expect(ben.getByRole("status").filter({ hasText: /^Refunded/ })).toBeVisible();
-    await expect(ben.getByText("Booking not confirmed. A payment failed; completed fixture payments were refunded. No real money moved.")).toBeVisible();
+    await expect(ben.getByText("A payment failed, so the completed fixture payments were refunded. No real money moved.")).toBeVisible();
     await expect(ben.getByText("Refunded $20", { exact: true })).toBeVisible();
     const v = await viewOf(ben, s.outingId);
     expect(v.outing).toMatchObject({ status: "CANCELLED", cleanup: "COMPLETE" });

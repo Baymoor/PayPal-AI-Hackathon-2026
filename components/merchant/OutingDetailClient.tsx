@@ -24,7 +24,7 @@ import { outingsGridTheme } from "./gridTheme";
 import { formatInstant, formatMoney, merchantTz, redactRef } from "./format";
 import {
   ATTENDANCE_LABEL, CLEANUP_LABEL, OP_KIND_LABEL, OP_STATUS_LABEL, OUTING_STATUS_LABEL, PAYMENT_STATUS_LABEL,
-  cleanupTone, opStatusTone, outingTone, paymentTone,
+  cleanupTone, eventLabel, opStatusTone, outingTone, paymentTone,
 } from "./labels";
 import { Badge, ModeBadge } from "./Badge";
 import { assessRow, VERDICT_LABEL } from "./readiness";
@@ -219,7 +219,7 @@ export default function OutingDetailClient({ outingId, fixtures }: { outingId: s
           ) : (
             <ol className="m-timeline">
               {[...detail.timeline].sort((a, c) => a.at.localeCompare(c.at)).map((t, i) => (
-                <li key={i}><time dateTime={t.at}>{formatInstant(t.at, tz)}</time><strong>{t.type}</strong> <span className="m-footnote">by {t.actor}</span></li>
+                <li key={i}><time dateTime={t.at}>{formatInstant(t.at, tz)}</time><strong>{eventLabel(t.type)}</strong> <span className="m-footnote">by {t.actor}</span></li>
               ))}
             </ol>
           )}
