@@ -91,18 +91,26 @@ APT::Periodic::Unattended-Upgrade "1";
 EOF
 }
 
-# Headroom for `next build` on a 4 GB machine.
+# On a 2 GB droplet the running stack uses about 0.3 GB, but `next build` peaks above the free RAM.
+# 4 GB of swap lets builds finish; low swappiness keeps the live app in RAM and pushes only the
+# build into swap.
 add_swap() {
-  if swapon --show | grep -q .; then
-    log "Swap already present"
+  echo 'vm.swappiness=10' > /etc/sysctl.d/99-outings-swap.conf
+  sysctl -q -p /etc/sysctl.d/99-outings-swap.conf
+  local wanted_bytes=$((4 * 1024 * 1024 * 1024))
+  if [ -f /swapfile ] && [ "$(stat -c %s /swapfile)" -ge "$wanted_bytes" ]; then
+    log "4 GB swap already present"
     return
   fi
-  log "Adding 2 GB swap"
-  fallocate -l 2G /swapfile
+  # A smaller swap file from an earlier run is replaced.
+  if swapon --show=NAME --noheadings | grep -qx /swapfile; then swapoff /swapfile; fi
+  log "Adding 4 GB swap"
+  rm -f /swapfile
+  fallocate -l 4G /swapfile
   chmod 600 /swapfile
   mkswap /swapfile >/dev/null
   swapon /swapfile
-  echo '/swapfile none swap sw 0 0' >> /etc/fstab
+  grep -q '^/swapfile ' /etc/fstab || echo '/swapfile none swap sw 0 0' >> /etc/fstab
 }
 
 clone_repo() {

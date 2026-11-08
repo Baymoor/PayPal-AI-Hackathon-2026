@@ -9,7 +9,14 @@ The hosted demo runs on **one DigitalOcean server in New York** (US East, betwee
 | `worker` | `npm run worker`: settles due deadlines every 5 s, with every browser closed. No external scheduler is needed. |
 | `caddy` | HTTPS with an automatic Let's Encrypt certificate, in front of `web`. |
 
-**Cost:** about $24/month for a Basic droplet (4 GB RAM, 2 vCPU), billed by the hour. It must stay up through **15 Dec 2026**; destroy it afterwards. Claude API usage is the only other cost, capped by a Console spend limit (step 5). PayPal is sandbox only.
+**Cost:** $12/month plus VAT for a Basic droplet (2 GB RAM, 1 vCPU, 50 GB), billed by the hour. It must stay up through **15 Dec 2026**. Claude API usage is the only other cost, capped by a Console spend limit (step 5). PayPal is sandbox only.
+
+**Memory on 2 GB.** Measured with the demo loaded:
+
+- **Running stack:** about 0.3 GB in total (Postgres 40 MB, web 130 MB, worker 130 MB, Caddy 15 MB).
+- **Building on the server:** runs out of RAM but works with swap. In a test limited to 1 CPU and 1.3 GB of free RAM, the build finished in about a minute with 0.4 GB of swap; on the droplet, expect a few minutes.
+- **What makes it work:** the setup adds 4 GB of swap, and the Dockerfile raises Node's memory ceiling for the build only.
+- **If it's too slow:** go to the droplet → **Resize → CPU and RAM only** → $24 (4 GB, 2 vCPU). Keeping the disk size makes this reversible. It needs a short power-off.
 
 Secrets live in one root-only file on the server, `/etc/outings/app.env`. They are never committed, never sent in chat, and never baked into the image.
 
@@ -45,7 +52,7 @@ In [cloud.digitalocean.com](https://cloud.digitalocean.com), click **Create → 
 
 - **Region:** New York (NYC3 or NYC1)
 - **Image:** OS → Ubuntu → **24.04 (LTS) x64**
-- **Size:** Basic → Regular → **$24/mo: 4 GB / 2 CPUs / 80 GB SSD / 4 TB transfer**
+- **Size:** Basic → Regular → **$12/mo: 2 GB / 1 CPU / 50 GB SSD / 2 TB transfer**
 - **Authentication:** SSH Key → **New SSH Key** → paste the public key → give it a name
 - Optional and free: tick **Add improved metrics monitoring and alerting**
 - **Hostname:** `outings-demo`
@@ -78,7 +85,7 @@ The script takes about 3 minutes and is safe to run again. It:
 - turns on the firewall, allowing only SSH, HTTP and HTTPS
 - switches SSH to key-only logins
 - enables automatic security updates
-- adds 2 GB of swap
+- adds 4 GB of swap (for builds)
 - installs a daily database backup
 - creates `/etc/outings/app.env` with freshly generated database, session and merchant passwords
 
@@ -117,7 +124,7 @@ The per-visitor rate limits (`lib/rate-limit.ts`) still apply underneath.
 bash /opt/outings/deploy/vps/deploy.sh
 ```
 
-The first build takes about 5 minutes. The script waits until `https://<site>/api/health` answers. Then load the demo merchant, venues and demo outings:
+The build runs on the server and takes a few minutes; the first one also downloads the base images. During later builds the old version keeps serving, only more slowly, because the single CPU is busy building. The script waits until `https://<site>/api/health` answers. Then load the demo merchant, venues and demo outings:
 
 ```bash
 curl -fsS -X POST https://<site>/api/demo/reset
@@ -177,7 +184,10 @@ cd /opt/outings && alias c='docker compose -f deploy/vps/compose.yaml --env-file
 - **Restoring a backup** into the running database: `gunzip -c /var/backups/outings/outings-<date>.sql.gz | docker exec -i outings-db-1 psql -U outings -d outings`.
   - The dumps are plain SQL without `DROP` statements, so restore into an empty database: stop `web` and `worker`, then recreate the `db` volume first.
 - **Reboots:** containers restart on their own.
-- **After 15 Dec 2026:** DigitalOcean → the droplet → **Destroy**. Billing stops then.
+- **After 15 Dec 2026:**
+  - To reuse the server for other projects, stop Outings with `c down`. That keeps its database volume; `c down -v` also deletes the data.
+  - To stop billing, go to DigitalOcean → the droplet → **Destroy**.
+- **Hosting several projects later:** build images on GitHub Actions and push them to GHCR, so the server only pulls and never builds. That avoids the 2 GB build squeeze. The trade-off: the package must be made public (one-way), or the server needs a read token.
 
 ## Reference
 
