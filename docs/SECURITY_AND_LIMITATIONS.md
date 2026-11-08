@@ -1,75 +1,83 @@
 # Security and limitations
 
-Scope: a hackathon demo that uses PayPal **sandbox** only. This is a summary of what the code does and does not do. It has not had an external security review. Two internal, independent audits were run during the build (payments/settlement; privacy/access/consent); every confirmed defect was fixed with a regression test in `tests/audit` and `tests/audit2` (see [HANDOFF_TO_CODEX.md](HANDOFF_TO_CODEX.md)).
+Outings is a hackathon build on the PayPal **sandbox** only; this page lists what the code enforces, where, which test pins it, and what is not done or not verified.
 
-## Threat model summary
+There has been no external security review. Three internal audits ran during the build (payments and settlement; privacy, access and consent; code added later); every confirmed defect was fixed with a regression test in [tests/audit](../tests/audit), [tests/audit2](../tests/audit2) and [tests/audit3](../tests/audit3) (status in [HANDOFF_TO_CODEX.md](HANDOFF_TO_CODEX.md)). Database resilience, judge mode, the demo venues and per-outing vote amounts came after the third audit: they have tests, not an audit. The payment invariants (integer money, caps, consent hash, exactly-once capture, compensation) are in the [architecture invariants table](ARCHITECTURE.md).
 
-| Area | What we do | Where |
-|---|---|---|
-| Sessions | Participant and merchant sessions are HMAC-signed cookies (`outings_p`, `outings_m`), `HttpOnly`, `SameSite=Lax`, `Secure` in production. Merchant sessions expire 12 h after login (checked on every request, not only by cookie lifetime). | `lib/auth/session.ts` |
-| Invitation tokens | 256-bit random tokens, shown once, stored only as SHA-256 hashes. The `/i/:token` route verifies the hash and sets the session. Demo-only deterministic tokens exist for fixture outings. | `lib/auth/tokens.ts` |
-| Server-side authorization | Route handlers are thin: session, then an access check (`requireParticipant`, `requireOrganizer`, `requireMerchant`), then a service. Participants see only their own outing; merchants only their own outings; nobody can act on another participant's consent, attempt or hold. Random and sequential ids are rejected. | `lib/services/access.ts`, `tests/access` |
-| CSRF | State-changing routes check that `Origin` matches the host (plus `SameSite=Lax`). A request with no `Origin` header is allowed through (non-browser clients), so this is defence in depth, not a complete CSRF defence. | `assertSameOrigin` in `lib/http.ts` |
-| Rate limits | Token buckets per client IP and route for outing creation, AI calls, votes, mutations, merchant login, invites and demo endpoints. In-memory and per instance (see limitations). The client IP honours `TRUSTED_PROXY_HOPS`: with N trusted proxies it is the N-th `X-Forwarded-For` entry from the right (then `X-Real-IP`); with 0 (default) no forwarding header is trusted and callers share one bucket per route. | `lib/rate-limit.ts`, [DEPLOYMENT.md](DEPLOYMENT.md) |
-| Prompt injection | User and merchant text is passed as delimited untrusted data; instructions inside it are ignored. The model only extracts facts, and its output is validated by schema: invented offering ids, unstated budgets and out-of-range suggestions are dropped or clamped; URLs are stripped. The model cannot set policy, amounts or deadlines. Dashboard queries are limited to a whitelist of read-only filter fields and can never call capture, void or refund. | `lib/ai/prompts.ts`, `lib/ai/validate.ts`, tests: "prompt injection" in `tests/services` and `tests/access` |
-| Secrets | PayPal credentials, the Anthropic key, `SESSION_SECRET`, `CRON_SECRET` and the AG Studio key are read server-side from the environment and never committed (`.env.example` holds names only). The PayPal base URL is hard-coded to the sandbox host. `/api/health` reports modes, not values. The Studio licence key is configuration only. | `lib/env.ts` |
-| Webhooks | `POST /api/webhooks/paypal` verifies the signature through PayPal and rejects everything when `PAYPAL_WEBHOOK_ID` is not set. Events are deduplicated by event id, stored redacted, and only trigger a re-read of provider state. **Signature verification is tested against a mocked PayPal only.** | `lib/webhooks/paypal.ts`, `tests/settlement/webhook.test.ts` |
-| Payee | The PayPal payee for orders and the expected payee when verifying an authorization come from the merchant's own row (`merchants.paypal_merchant_id`), falling back to `PAYPAL_MERCHANT_ID`. An authorization paid to anyone else is never admitted and its hold is voided. FIXTURE attempts carry no payee. | `expectedPayeeFor` in `lib/services/payments.ts`, `tests/payments/payee.test.ts` |
-| Organizer cancel | An organizer cannot cancel after the commitment deadline; the booking is settled against the stored deadline. | `lib/services/outings.ts`, `tests/audit2` |
-| Scheduler endpoint | `/api/cron/tick` requires `Authorization: Bearer $CRON_SECRET`. | `app/api/cron/tick/route.ts` |
-| PII in logs and prompts | Audit events avoid full provider ids; webhook payloads are redacted for nested PII keys; error text is truncated; server errors log the message only. Model prompts receive sanitized data and never private votes or per-person amounts. | `lib/audit.ts`, `lib/webhooks/paypal.ts` |
-| Private votes | Budget votes are returned only to their own voter. The reveal exposes an aggregate distribution with no names, and only with 3 or more votes. | `lib/services/views.ts`, `tests/access` |
+Related: [README](../README.md) · [judge guide](JUDGE_GUIDE.md) · [testing](TESTING.md) · [PayPal sandbox evidence](evidence/README.md) · [deployment](DEPLOYMENT.md)
+
+## Controls
+
+Every route handler runs session, then access check, then service; hidden buttons are never access control.
+
+| Area | What the code does | Code | Test |
+|---|---|---|---|
+| Sessions | HMAC-signed cookies `outings_p` and `outings_m`: `HttpOnly`, `SameSite=Lax`, `Secure` in production. Merchant sessions expire 12 h after sign-in, checked on every request. | [session.ts](../lib/auth/session.ts) | [access-audit2.test.ts](../tests/audit2/access-audit2.test.ts) |
+| Invitation links | 256-bit random tokens, shown once, stored only as SHA-256. `/i/:token` sends `Referrer-Policy: no-referrer`. Deterministic tokens exist only for seeded fixture outings. | [tokens.ts](../lib/auth/tokens.ts), [route](../app/i/[token]/route.ts) | [outings.test.ts](../tests/services/outings.test.ts) |
+| Authorization | `requireParticipant`, `requireOrganizer`, `requireMerchant`: participants see only their outing, merchants only their own bookings; tampered, random and cross-outing ids are rejected. | [access.ts](../lib/services/access.ts) | [access.test.ts](../tests/access/access.test.ts) |
+| Private votes | Vote amounts go only to their voter. The reveal needs 3 votes and shows an anonymous distribution. A vote creates no consent or payment. | [views.ts](../lib/services/views.ts) | [access.test.ts](../tests/access/access.test.ts), [access-audit2.test.ts](../tests/audit2/access-audit2.test.ts) |
+| CSRF | Mutations require `Origin` to match the host, on top of `SameSite=Lax`. A request without `Origin` passes, so this is defence in depth. | `assertSameOrigin` in [http.ts](../lib/http.ts) | [access.test.ts](../tests/access/access.test.ts) |
+| Rate limits | Token buckets per client IP and route (create, AI, vote, mutation, merchant login, invite, demo). Client IP follows `TRUSTED_PROXY_HOPS`. | [rate-limit.ts](../lib/rate-limit.ts) | [rate-limit.test.ts](../tests/services/rate-limit.test.ts) |
+| Scheduler | `/api/cron/tick` needs `Authorization: Bearer $CRON_SECRET` (constant-time compare). Without `CRON_SECRET` it is open only outside production with demo fixtures on; otherwise 503. | [cron route](../app/api/cron/tick/route.ts) | [access-audit2.test.ts](../tests/audit2/access-audit2.test.ts) |
+| Webhooks | Signature verified through PayPal; without `PAYPAL_WEBHOOK_ID` every delivery is rejected. Deduplicated by event id, stored redacted, and only triggers a re-read of PayPal state. | [paypal.ts](../lib/webhooks/paypal.ts) | [webhook.test.ts](../tests/settlement/webhook.test.ts) (mocked PayPal) |
+| PayPal host and payee | The adapter refuses any API base but the sandbox. Orders are paid to the merchant row's `paypal_merchant_id`, else `PAYPAL_MERCHANT_ID`; an authorization to anyone else is never admitted and is voided. | [paypal.ts](../lib/payments/paypal.ts), `expectedPayeeFor` in [payments.ts](../lib/services/payments.ts) | [paypal.test.ts](../tests/payments/paypal.test.ts), [payee.test.ts](../tests/payments/payee.test.ts) |
+| Prompt injection | User and merchant text is wrapped as delimited untrusted data; output is schema-validated and cannot set amounts, policy or deadlines. Dashboard and AG Studio AI get read-only tools only. | [prompts.ts](../lib/ai/prompts.ts), [validate.ts](../lib/ai/validate.ts) | [ai.test.ts](../tests/ai/ai.test.ts), [access.test.ts](../tests/access/access.test.ts) |
+| Secrets | PayPal, Anthropic, session, cron and AG Studio keys are read server-side from the environment; [.env.example](../.env.example) has no secret values. `/api/health` reports modes, not values. | [env.ts](../lib/env.ts) | [access.test.ts](../tests/access/access.test.ts) |
+| PII | Audit events avoid full provider ids; webhook payloads are redacted; server errors log the message only. Prompts get names and public catalogue data, never per-person amounts. | [audit.ts](../lib/audit.ts) | [plan-draft.test.ts](../tests/services/plan-draft.test.ts), [webhook.test.ts](../tests/settlement/webhook.test.ts) |
+| Fixture labelling | Simulated payments and AI are labelled FIXTURE end to end; a fixture outing never uses real PayPal and a real outing never uses the simulator. | [fixture.ts](../lib/payments/fixture.ts), [index.ts](../lib/payments/index.ts) | [access-audit2.test.ts](../tests/audit2/access-audit2.test.ts), [payments-audit.test.ts](../tests/audit/payments-audit.test.ts) |
+
+## Judge mode (demo only)
+
+Judge mode exists only with `DEMO_FIXTURES_ENABLED=true`, and in it any participant of an outing can act as any other participant of that same outing, organizer included, without their invitation link.
+
+- Every refusal (other outing, unknown id, no session, demo off) is the same 404, so the endpoint is not an existence oracle. Each switch is audited as `DEMO_PERSONA_SWITCHED` with ids only.
+- A PayPal return still authorizes only the attempt's own participant, so switching mid-approval cannot authorize someone else's hold.
+- Real deployments must set `DEMO_FIXTURES_ENABLED=false`.
+
+Code: `authorizePersonaSwitch` in [judge-persona.ts](../lib/demo/judge-persona.ts), [persona route](../app/api/demo/persona/route.ts). Test: [judge-persona.test.ts](../tests/services/judge-persona.test.ts).
 
 ## HTTP security headers
 
-Built in `lib/security/headers.ts`; the static ones are set by `next.config.ts` `headers()` on every route, the Content-Security-Policy per request by `proxy.ts` (nonce-based, per the Next.js CSP guide).
+[proxy.ts](../proxy.ts) sets a nonce-based CSP and HSTS per request from the runtime environment; [next.config.ts](../next.config.ts) sets the static headers and turns off `X-Powered-By`. Builders: [headers.ts](../lib/security/headers.ts); tests: [security-headers.test.ts](../tests/services/security-headers.test.ts), [headers-audit3.test.ts](../tests/audit3/headers-audit3.test.ts).
 
-| Header | Value | Notes |
-|---|---|---|
-| `Content-Security-Policy` | `default-src 'self'; script-src 'self' 'nonce-<per-request>' 'strict-dynamic'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; worker-src 'self' blob:; connect-src 'self'; frame-ancestors 'none'; form-action 'self' https://www.sandbox.paypal.com https://www.paypal.com; base-uri 'self'; object-src 'none'` | Fresh nonce on every request. |
-| `Referrer-Policy` | `strict-origin-when-cross-origin` | `/i/:token` responses (redirect and error page) send `no-referrer`. |
-| `X-Content-Type-Options` | `nosniff` | |
-| `X-Frame-Options` | `DENY` | Same intent as `frame-ancestors 'none'` for old browsers. |
-| `Permissions-Policy` | `camera=(), microphone=(), geolocation=(), payment=()` | The app uses none of these. |
-| `Strict-Transport-Security` | `max-age=63072000; includeSubDomains` | Only when `NODE_ENV=production` and `APP_BASE_URL` is `https:`; evaluated when the server starts. |
+```text
+Content-Security-Policy: default-src 'self'; script-src 'self' 'nonce-<per request>' 'strict-dynamic';
+  style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; worker-src 'self' blob:;
+  connect-src 'self'; frame-ancestors 'none'; form-action 'self' https://www.sandbox.paypal.com https://www.paypal.com;
+  base-uri 'self'; object-src 'none'
+Referrer-Policy: strict-origin-when-cross-origin      (no-referrer on /i/:token)
+X-Content-Type-Options: nosniff
+X-Frame-Options: DENY
+Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=()
+Strict-Transport-Security: max-age=63072000; includeSubDomains   (production with an https APP_BASE_URL only)
+```
 
-Relaxations and why:
+- `style-src 'unsafe-inline'` is for React `style` attributes and AG Grid, AG Studio and AG Charts runtime styles; scripts allow no inline code and no eval in production.
+- `next dev` only adds `'unsafe-eval'` to `script-src` and `ws: wss:` to `connect-src`.
+- The nonce makes every page render per request, so HTML is never statically cached.
 
-- `style-src 'unsafe-inline'`: React `style` attributes and the runtime styles of AG Grid / AG Studio / AG Charts. Scripts stay strict (no `'unsafe-inline'`, no `'unsafe-eval'` in production).
-- Nonce means every page renders per request (the root layout awaits `connection()`): no static prerendering or CDN caching of HTML. Most screens show live payment state anyway.
-- `next dev` only: `script-src` adds `'unsafe-eval'` (React debugging) and `connect-src` adds `ws: wss:` (HMR).
-- `form-action` lists PayPal because the fixture/PayPal flow may post or redirect there; the approval redirect itself uses `window.location`, which CSP does not restrict.
+## Not verified
 
-## Payment safety invariants
+These statements are exactly as strong as the evidence; see [testing](TESTING.md) for what did pass.
 
-1. Money is integer minor units, one currency (USD) per outing; no floats.
-2. Shares sum exactly to the total and differ by at most one cent, in an immutable stable order.
-3. No capture above the consented cap or the authorized amount: checked in the policy, when planning an operation, just before sending, and by a database constraint.
-4. Consent is bound to a hash of the exact terms; any change means new consent.
-5. Commitments are accepted only while the outing is collecting and before the **server** deadline. The browser clock is display only.
-6. Authorizations created after the deadline, or that cannot be verified, are never admitted; they are voided (fail closed).
-7. Settlement is decided once per outing under a row lock into an immutable snapshot. Provider calls never run inside an open transaction.
-8. Every provider mutation has a durable outbox row and a stable `PayPal-Request-Id`. Timeouts are UNKNOWN and are reconciled from provider state before any retry. Two concurrent workers send each capture exactly once.
-9. A failed capture never confirms the booking and never moves its share onto the others; completed captures are refunded and the rest voided.
-10. Booking status and payment clean-up are separate. Clean-up is `COMPLETE` only when the provider confirmed every void and refund; otherwise it is shown as pending or needing attention.
-11. AI never decides money, eligibility, deadlines or provider operations.
+- **Real Claude.** Tests mock the SDK; [ai-smoke.ts](../scripts/ai-smoke.ts) has not been run, and it covers four of the five AI calls (not `draftPlan`).
+- **PayPal webhooks.** Signature verification is tested against a mocked PayPal only; no real delivery has reached the app (no `PAYPAL_WEBHOOK_ID` locally, and PayPal cannot call `localhost`).
+- **PayPal negative testing.** `PayPal-Mock-Response` (`--mock-decline`) has not been run; the capture-decline and compensation path is tested with the FIXTURE simulator and a mocked `fetch`. Other open PayPal questions are in [research/PAYPAL.md](research/PAYPAL.md), section 14.
+- **The real PayPal approval page** was used by hand on 7 Nov 2026 (smoke script and one full outing, [evidence](evidence/README.md)); the Playwright suite runs in FIXTURE modes only.
+- **Hosted deployment.** None; [DEPLOYMENT.md](DEPLOYMENT.md) documents one.
+- Accessibility and cross-browser testing were not exhaustive.
 
-## Limitations (honest list)
+## Limitations
 
-- **Sandbox only.** No real money. The PayPal host is hard-coded to the sandbox.
-- **PayPal behaviour is unverified.** The adapter is written from the OpenAPI specs and tested against a mocked `fetch`; the build environment could not reach PayPal. Unconfirmed items from [research/PAYPAL.md](research/PAYPAL.md) section 14 include: under-capture ($20 authorization, $10 `final_capture`) and whether the remainder is released automatically; the order status and link relation after creating an AUTHORIZE order with `experience_context`; return-URL query parameters; which of capture, void and refund accept `PayPal-Mock-Response`; exact error codes for authorize/capture edge cases; idempotency replay status codes; and the webhook event names and resource shape.
-- **Real Claude is unverified.** Tests use a mocked SDK. Fixture AI is deterministic and not a language model.
-- **One merchant, one currency (USD), FIXED_TOTAL pricing** for shared bookings. PER_ATTENDEE items are rejected for shared bookings.
-- **No external venue booking, escrow, pooled balances or organizer payouts.**
-- **Authorization honour period.** Commitment windows are limited to 48 hours so holds stay inside PayPal's honour period; real-world extension is not implemented.
-- **In-memory rate limiter.** Per process, resets on restart, and is not shared across instances. Use an edge or shared limiter in production.
-- **CSRF check is lenient** when no `Origin` header is sent.
-- **Sessions are signed cookies, not server-side records.** There is no per-session revocation; rotate `SESSION_SECRET` to invalidate all of them.
-- **Invitation delivery.** No email, SMS or WhatsApp sending. The organizer receives each link once and shares it by hand.
-- **Organizer is a required payer.** Organizer transfer and changing the quote after opening collection are not supported (a change means new terms and renewed consent).
-- **AG Studio is commercial software** used under a 45-day evaluation trial (watermark off localhost). The trial must cover the demo window through 15 Dec 2026. AG Grid Community is MIT.
-- **Hosted demo and scheduler are documented, not deployed** at the time of writing ([DEPLOYMENT.md](DEPLOYMENT.md)).
-- **Rate-limit client IP depends on `TRUSTED_PROXY_HOPS`.** The default (0) trusts no forwarding header, so all callers share one bucket per route: clients cannot spoof their way into fresh buckets, but on a hosted deployment one busy or abusive client can use up a route's limit for everyone. Set it to the number of proxies in front of the app ([DEPLOYMENT.md](DEPLOYMENT.md)). Once it is set, the key is only as trustworthy as that count: too high lets a client choose its key with a forged `X-Forwarded-For`, and too low groups users behind a proxy address. `X-Real-IP` is used only when N > 0 and `X-Forwarded-For` is too short, and must then be set by the trusted proxy.
-- **Browser end-to-end tests** (`tests/e2e`) run in FIXTURE modes only; the real PayPal sandbox approval page has not been exercised.
-- **Demo mode** (`DEMO_FIXTURES_ENABLED=true`) exposes one-click merchant login and persona switching. In judge mode any participant of an outing can act as any other participant of that same outing, organizer included, without an invitation link (switches are audited). Never enable it where real data is held.
-- Accessibility and cross-browser testing were not exhaustively performed.
+The build makes these deliberate trade-offs; each is a known gap, not a bug.
+
+- **Sandbox only.** No real money; live PayPal endpoints are not configurable.
+- **Demo catalogue.** Five seeded demo merchants, four of them fictional venues; no merchant onboarding. Password sign-in opens The Sound Room only; demo sign-in can open any of the five.
+- **USD and `FIXED_TOTAL` only** for shared bookings; `PER_ATTENDEE` offerings are rejected at opening. No venue booking API, escrow, pooled balance or organizer payout.
+- **48-hour commitment window**, so holds stay inside PayPal's honor period; reauthorization is not implemented.
+- **In-memory rate limiter**, per process and reset on restart. With the default `TRUSTED_PROXY_HOPS=0` no forwarding header is trusted and all callers share one bucket per route; set it to the number of proxies in front of the app ([DEPLOYMENT.md](DEPLOYMENT.md)). Too high lets a client pick its key with a forged `X-Forwarded-For`.
+- **Lenient CSRF check** when no `Origin` header is sent.
+- **Stateless sessions.** No per-session revocation; rotating `SESSION_SECRET` signs everyone out.
+- **No invitation delivery.** The organizer sees each link once and shares it by hand.
+- **Organizer is a required payer.** No organizer transfer; changing the quote after opening means new terms and renewed consent.
+- **AG Studio is commercial software.** AG Grid's [6 Nov 2026 blog post](https://www.ag-grid.com/blog/build-a-payments-dashboard-without-building-a-dashboard/) says hackathon entries need no licence and that AG Grid provides the key for the judging period. AG Grid Community is MIT.

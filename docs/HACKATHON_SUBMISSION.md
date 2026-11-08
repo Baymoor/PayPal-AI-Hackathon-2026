@@ -23,14 +23,14 @@ Booking something for a group (a karaoke room, a game night, a birthday dinner) 
 
 ## What it does
 
-1. **Brief.** The organizer describes the plan in plain language. Claude extracts structured preferences with schema-validated output.
-2. **Budget poker.** Everyone privately suggests a total budget. Votes stay private until the organizer reveals an aggregate (at least 3 votes, no names), enforced by the API. A vote is never a payment.
-3. **Proposal.** The organizer picks a quote from a small merchant-owned catalogue (for example, a private karaoke room, $100 fixed total, up to 10 people) and can cover one guest of honour.
+1. **Brief.** The organizer describes the plan in plain language, or starts from one of five examples (karaoke, movie night, wine tasting, gym session, padel). Claude extracts structured preferences with schema-validated output.
+2. **Budget poker.** Everyone privately suggests a total budget from five amounts sized to the outing (Claude suggests them; the server accepts them only if they are valid and include any budget the brief states, else builds them from the brief or the venue's price). Votes stay private until the organizer reveals an aggregate (at least 3 votes, no names), enforced by the API. A vote is never a payment.
+3. **Proposal.** Claude ranks the venues' offerings against the brief and the agreed budget; the organizer picks a quote (for example, a private karaoke room, $100 fixed total, up to 10 people), can let Claude draft the rest of the plan for review, and can cover one guest of honour.
 4. **Commit.** Each payer reviews the exact terms and authorizes their *maximum* share through PayPal: $100 across 5 payers is $20. More payers lower the estimated share ($10 with 10 payers) but not the hold. A sponsored guest accepts attendance and pays $0.
 5. **Deadline.** A durable server job freezes the roster. If every required person committed, it captures each exact share (penny-exact, never above the cap). Otherwise it cancels and voids every hold. If a capture fails mid-way it stops, voids the rest, refunds completed captures, and shows the recovery.
 6. **Merchant view.** The experience merchant sees bookings, readiness and money in a two-page AG Studio report (Bookings and Money), with saved views, and can ask natural-language, read-only questions.
 
-Two extras help evaluators: **`/how-it-works`** explains the flow and has an interactive split calculator that runs the real `lib/domain/money.ts` functions, and **`/demo`** has one-click scenarios (settle-soon, holdout, capture-failure) that open a fresh fixture outing with a deadline 1 to 5 minutes away, so a settlement, a cancellation and a mid-settlement capture failure (COMPENSATING, refunds and voids, then CANCELLED with REFUND_PENDING moving to COMPLETE) can be watched live. Scenario money is always FIXTURE (the simulator), never PayPal.
+Three extras help evaluators. **Judge mode** (demo mode only) lets one browser play every person: tap-to-add demo friends, an "Acting as" bar that switches person in one click and shows who still needs to act, and a "Next:" hint. **`/how-it-works`** explains the flow and has an interactive split calculator that runs the real `lib/domain/money.ts` functions. **`/demo`** has one-click scenarios (settle-soon, holdout, capture-failure, big group) that open a fresh fixture outing with a deadline 1 to 5 minutes away, so a settlement, a cancellation and a mid-settlement capture failure (COMPENSATING, refunds and voids, then CANCELLED with REFUND_PENDING moving to COMPLETE) can be watched live. Scenario money is always FIXTURE (the simulator), never PayPal.
 
 Payments go directly to the experience merchant; the organizer never receives the group's money.
 
@@ -58,11 +58,11 @@ PayPal authorization is the product, not a checkout button bolted on at the end.
 - **Idempotency and unknown outcomes.** Timeouts are treated as UNKNOWN and reconciled by reading PayPal state before any retry, with the same `PayPal-Request-Id`.
 - **Webhooks** are signature-verified, deduplicated by event id, and only trigger a re-read of provider state.
 
-Status today: the adapter is implemented from the official OpenAPI specs, tested with a mocked `fetch`, and verified against the PayPal REST sandbox with `scripts/paypal-smoke.ts`: authorize, $10-of-$20 final capture, idempotent capture replay on the same `PayPal-Request-Id`, void (a capture afterwards is refused with `AUTHORIZATION_VOIDED`), and full capture plus refund. One full outing then ran through the app itself in `PAYPAL_SANDBOX` mode: three friends each approved a $50 hold through the app's PayPal redirect, and at the deadline the server captured $33.34, $33.33 and $33.33 (exactly $100.00) without anyone taking an action; PayPal's own records match the app's for every payer. Redacted evidence is in [`docs/evidence/`](evidence/README.md). Not yet verified: webhook signature verification (PayPal cannot deliver webhooks to a local machine) and negative testing.
+Status today: the adapter is implemented from the official OpenAPI specs, tested with a mocked `fetch`, and verified against the PayPal REST sandbox with `scripts/paypal-smoke.ts`: authorize, $10-of-$20 final capture, idempotent capture replay on the same `PayPal-Request-Id`, void (a capture afterwards is refused with `AUTHORIZATION_VOIDED`), and full capture plus refund. One full outing then ran through the app itself in `PAYPAL_SANDBOX` mode: three participants each approved a $50 hold through the app's PayPal redirect (all three approvals used the one sandbox buyer account, so this proves the app's per-person flow, not three different PayPal buyers), and at the deadline the server captured $33.34, $33.33 and $33.33 (exactly $100.00) without anyone taking an action; PayPal's own records match the app's for every payer. Redacted evidence is in [`docs/evidence/`](evidence/README.md). Not yet verified: webhook signature verification (PayPal cannot deliver webhooks to a local machine) and negative testing.
 
 ## How AI is used, and not used
 
-**Used for:** extracting structured preferences from the brief; ranking catalogue offers against budget and capacity; summarizing the aggregate budget reveal; explaining deterministic outcomes; turning a merchant question into a validated read-only dashboard filter; and (optionally) answering inside AG Studio's agent panel through a server proxy.
+**Used for:** extracting structured preferences from the brief; suggesting five budget vote amounts that fit the outing; ranking catalogue offers against budget and capacity; drafting the organizer's plan for review; summarizing the aggregate budget reveal; explaining deterministic outcomes; turning a merchant question into a validated read-only dashboard filter; and (optionally) answering inside AG Studio's agent panel through a server proxy.
 
 **Never used for:** deciding amounts, eligibility, deadlines, who is charged, or any provider operation. Settlement is decided by plain deterministic code (`decideSettlement`). Model output is schema-validated; invented catalogue ids, budgets not in the source text, and out-of-range suggestions are dropped or clamped. Pasted text is wrapped as untrusted data. Dashboard AI can only produce a filter from a whitelist of read-only fields. If no key is set, the app uses a clearly labelled FIXTURE parser and never presents it as model output.
 
@@ -78,7 +78,7 @@ Status today: the adapter is implemented from the official OpenAPI specs, tested
 - **Optional Studio agent proxy:** `app/api/merchant/ai/studio/route.ts` streams Studio's agent requests to Claude on the server; the browser never sees the key. Available only when `OUTINGS_ANTHROPIC_API_KEY` is set (**TODO: not exercised against real Claude**).
 - **Drill-down:** per-participant state and payment operations, with retry limited to existing failed operations.
 
-AG Studio runs under its evaluation trial. **TODO: add the trial licence key to the hosted deployment and confirm its expiry covers 15 Dec 2026 (trial expiry date not yet recorded).**
+AG Studio licensing: AG Grid's [6 Nov 2026 post](https://www.ag-grid.com/blog/build-a-payments-dashboard-without-building-a-dashboard/) says hackathon entries need no licence and AG Grid supplies the key for the judging period. **TODO: confirm the key is applied on the hosted build (no watermark).**
 
 ## Challenges
 
@@ -86,7 +86,7 @@ AG Studio runs under its evaluation trial. **TODO: add the trial licence key to 
 - Timeouts leave the true state unknown; the engine reads provider state before any retry rather than guessing.
 - Race conditions between a late buyer approval and the deadline freeze; late authorizations are recorded and voided, never admitted, and unverifiable ones fail closed.
 - Keeping votes private in the API, not just in the UI.
-- Our build environment could not reach PayPal, so provider behaviour was built from specifications and mocks and is listed as unverified until a sandbox run.
+- The first build environment could not reach PayPal, so the adapter was built from PayPal's OpenAPI specifications and mocks, then verified against the real sandbox once the project moved to a local machine (one assumption, the return-URL `token`, was only confirmed there).
 
 ## Accomplishments
 
@@ -94,7 +94,7 @@ AG Studio runs under its evaluation trial. **TODO: add the trial licence key to 
 - A settlement engine tested for concurrency (two workers, exactly-once capture), timeouts, compensation and late holds.
 - A consent model where any change to price, date, merchant, sponsorship or deadline invalidates previous consent.
 - A merchant dashboard that is a real multi-page AG Studio report with two custom widgets, saved views and cross-filter-aware KPIs, not a table screenshot.
-- Two independent audits (payments/settlement; privacy/access/consent) whose confirmed defects were fixed with regression tests in `tests/audit` and `tests/audit2`.
+- Three independent audits whose confirmed defects were fixed with regression tests in `tests/audit`, `tests/audit2` and `tests/audit3`.
 - Hardening beyond the happy path: rate limiting keyed on `TRUSTED_PROXY_HOPS`, the PayPal payee read from the merchant row, merchant timezone carried in rows, merchant sessions that expire after 12 h, and no organizer cancel after the deadline.
 - A compensation path that can be watched in one click and is covered by a browser test (`tests/e2e/compensation.spec.ts`).
 - Current verified results: 440 Vitest tests (35 files) pass; 6 Playwright end-to-end tests (karaoke settle, holdout cancel, organizer cancel, demo hub, capture-failure compensation, big-group under-capture) pass; eslint and `tsc` clean; `next build` passes. These run in FIXTURE modes. Separately, against the real PayPal sandbox: the adapter passes `scripts/paypal-smoke.ts`, and one full outing settled through the app with three under-captures that PayPal's records confirm.
@@ -105,7 +105,7 @@ Authorization-then-capture is a better primitive for group commitment than prepa
 
 ## What's next
 
-Verify the PayPal sandbox behaviours listed in `docs/research/PAYPAL.md` section 14; real invite delivery (email or messaging); multiple merchants and currencies; per-attendee pricing modes; a shared (non-in-memory) rate limiter; a PayPal v6 popup flow once the redirect flow is proven.
+Verify webhooks and negative testing against the PayPal sandbox (`docs/research/PAYPAL.md` section 14); real venues onboarded as PayPal merchants instead of demo venues, found near the group; real invite delivery (email or messaging); more currencies; per-attendee pricing modes; a shared (non-in-memory) rate limiter; a PayPal v6 popup flow once the redirect flow is proven.
 
 ## Built with
 
@@ -119,12 +119,13 @@ Complete and honest, per hackathon rules.
 
 - **Claude Code** (Anthropic), in a hosted cloud session. A coordinator agent on **Opus 5.5** planned the work and owned the shared contracts. Subagents did the implementation, research, design and audit: **Opus 5.5** (payments adapter, outing services and HTTP API), **Sonnet 5.5** (design mockups, AG Studio and PayPal research, AI module, consumer UI, merchant dashboard, and this documentation), and **Fable 5.1** (settlement engine, and two independent audits: payments/settlement, and privacy/access/consent).
 - **Claude Design** for visual mockups, which the consumer UI was built from. Separate exploratory reference images (`docs/design/reference/D01-D05`) are AI-generated and are reference material, not product screenshots.
+- **Claude Code in the Claude desktop app** on the owner's machine (from 7 Nov 2026): an **Opus 5.5** session coordinated the PayPal sandbox verification, error handling, themed starters and vote amounts, and documentation, with a **Fable 5.1** subagent for the security-sensitive judge mode; a separate owner-steered UI/UX session ran a **Fable 5.1** design critique and used **Claude Design** for the redesign mockups before building them.
 - **OpenAI Codex**, used to continue the work after the cloud session.
 - The project owner directed the work, set the product and financial rules, and is responsible for the submission. No code was copied from third-party repositories; the one reference repository consulted has no licence file and was read only (see [PROVENANCE.md](PROVENANCE.md)).
 
 **Runtime AI in the product**
 
-- **Anthropic Claude** via the app's own key `OUTINGS_ANTHROPIC_API_KEY` (default model `claude-sonnet-5-5`), used for brief extraction, offer ranking, reveal summaries, and the merchant natural-language filter. Without the key the app runs a deterministic FIXTURE parser, labelled in the UI.
+- **Anthropic Claude** via the app's own key `OUTINGS_ANTHROPIC_API_KEY` (default model `claude-sonnet-5-5`), used for brief extraction (including suggested budget vote amounts), offer ranking, the organizer's plan draft, reveal summaries, and the merchant natural-language filter. Without the key the app runs a deterministic FIXTURE parser, labelled in the UI.
 - Real Claude calls verified: **TODO (not verified: the build environment had no key; the owner runs `scripts/ai-smoke.ts`, then record the result here)**.
 
 **Services**

@@ -1,102 +1,146 @@
 # Architecture
 
-Outings is a single Next.js 16 (App Router) application backed by Postgres, with a separate worker process (or an authenticated scheduler hitting `/api/cron/tick`) that owns everything time-based. PayPal and Anthropic are reached only from the server.
+Outings is one Next.js 16 app on Postgres plus a worker that owns everything time-based; PayPal and Anthropic are called only from the server.
+
+Related: [README](../README.md) · [judge guide](JUDGE_GUIDE.md) · [security and limitations](SECURITY_AND_LIMITATIONS.md) · [testing](TESTING.md) · [PayPal sandbox evidence](evidence/README.md) · [module contracts and HTTP API](CONTRACTS.md)
 
 ```mermaid
 flowchart LR
   subgraph Browser
-    P[Participant pages /o/:id]
-    O[Organizer controls]
-    M[Merchant dashboard /merchant\nAG Studio + AG Grid]
+    P["Outing pages /new, /o/:id<br/>organizer and participants"]
+    D["Demo hub /demo<br/>judge bar on /o/:id"]
+    M["Merchant dashboard /merchant<br/>AG Studio + AG Grid"]
   end
-  subgraph Next.js server
-    API[Route handlers /api/*\nthin: session -> access -> service]
-    SVC[lib/services\noutings, views, payments, merchant]
-    DOM[lib/domain\nmoney, policy, state machines\npure + tested]
-    AI[lib/ai\nAnthropic structured output\nor labelled FIXTURE]
-    PAY[lib/payments\nPayPal REST sandbox adapter\nor labelled FIXTURE simulator]
+  subgraph Server [Next.js server]
+    API["Route handlers /api/*<br/>session, access check, service"]
+    SVC["lib/services<br/>outings, views, payments, merchant"]
+    DOM["lib/domain<br/>money, policy, budget options,<br/>state machines (pure)"]
+    AI["lib/ai<br/>Claude structured output<br/>or labelled FIXTURE"]
+    PAY["lib/payments<br/>PayPal sandbox adapter<br/>or labelled FIXTURE simulator"]
   end
-  subgraph Worker / scheduler
-    TICK[runWorkerTick\njobs + payment operation outbox]
-    SET[lib/settlement\nfreeze, reconcile, decide,\ncapture / void / refund]
+  subgraph Worker
+    TICK["runWorkerTick<br/>due jobs, overdue sweep, operations"]
+    SET["lib/settlement<br/>freeze, reconcile, decide,<br/>capture, void, refund"]
   end
-  DB[(Postgres\noutings, quotes, consents,\npayment attempts, snapshots,\noperations outbox, jobs, audit)]
-  PP[(PayPal sandbox\nOrders v2 + Payments v2)]
-  AN[(Anthropic API)]
+  CRON["npm run worker, POST /api/cron/tick,<br/>or /api/demo/tick in demo mode"]
+  DB[("Postgres<br/>outings, quotes, consents, attempts,<br/>snapshots, operations, jobs, audit")]
+  PP[("PayPal sandbox<br/>Orders v2 + Payments v2")]
+  AN[("Anthropic API")]
 
   P --> API
-  O --> API
+  D --> API
   M --> API
   API --> SVC --> DOM
   SVC --> AI --> AN
   SVC --> PAY --> PP
   SVC --> DB
-  TICK --> SET --> DOM
+  CRON --> TICK --> SET --> DOM
   SET --> PAY
   SET --> DB
   PP -- signed webhooks --> API
-  CRON[Scheduler: worker loop\nor POST /api/cron/tick] --> TICK
 ```
 
 ## Booking lifecycle
+
+Booking status follows the transition table in [state-machine.ts](../lib/domain/state-machine.ts) (`OUTING_TRANSITIONS`); any other move throws `IllegalTransitionError`.
 
 ```mermaid
 stateDiagram-v2
   [*] --> DRAFT
   DRAFT --> BUDGETING: start budget poker
-  BUDGETING --> PROPOSED: organizer agrees a TOTAL budget
+  BUDGETING --> PROPOSED: organizer agrees a total budget
   PROPOSED --> BUDGETING: another round
-  PROPOSED --> COLLECTING: quote v1 confirmed, terms hashed,\ndeadline job scheduled
-  COLLECTING --> SETTLING: deadline reached, roster frozen,\nall required eligible
-  COLLECTING --> CANCELLING: required holdout / infeasible /\norganizer cancel
+  PROPOSED --> COLLECTING: quote confirmed, terms hashed,<br/>deadline job scheduled
+  COLLECTING --> SETTLING: deadline passed, roster frozen,<br/>decision SETTLE
+  COLLECTING --> CANCELLING: deadline not met, required decline<br/>or withdrawal, organizer cancel
   SETTLING --> CONFIRMED: every allocated share captured
   SETTLING --> COMPENSATING: a capture failed
   CANCELLING --> CANCELLED: holds queued for void
-  COMPENSATING --> CANCELLED: completed captures queued for refund,\nremaining holds for void
+  COMPENSATING --> CANCELLED: captures resolved,<br/>refunds and voids planned
   DRAFT --> CANCELLED
   BUDGETING --> CANCELLED
   PROPOSED --> CANCELLED
 ```
 
-Money clean-up (`NONE → VOID_PENDING / REFUND_PENDING → COMPLETE`, or `NEEDS_ATTENTION`) is tracked separately from booking status and only reaches `COMPLETE` when the provider confirmed every void/refund.
+Money clean-up (`NONE`, `VOID_PENDING`, `REFUND_PENDING`, `NEEDS_ATTENTION`, `COMPLETE`) is a separate field, computed by `recomputeCleanup` in [operations.ts](../lib/settlement/operations.ts), and is `COMPLETE` only after the provider confirmed every void and refund.
 
-## Settlement sequence at the deadline
+## Settlement at the deadline
+
+`runDeadlineSettlement` in [deadline.ts](../lib/settlement/deadline.ts) freezes, re-reads PayPal, decides once, and plans every provider call as a durable operation; `processDueOperations` in [operations.ts](../lib/settlement/operations.ts) sends them.
 
 ```mermaid
 sequenceDiagram
   participant W as Worker (late is fine)
   participant DB as Postgres
   participant PP as PayPal
-  W->>DB: CAS freeze (frozen_at) where deadline_at <= now()
-  Note over W,DB: no new consent / authorization accepted after this
-  W->>PP: read back orders/authorizations (outside any transaction)
-  W->>DB: tx: lock outing, decideSettlement(), insert immutable snapshot,\nplan CAPTURE/VOID operations (stable PayPal-Request-Id)
+  W->>DB: freeze: set frozen_at once deadline_at has passed (DB clock)
+  Note over W,DB: no consent or authorization accepted after this
+  W->>PP: read back every hold (outside any transaction)
+  W->>DB: one transaction: lock outing, decideSettlement(),<br/>insert immutable snapshot, plan CAPTURE and VOID ops<br/>with stable PayPal-Request-Ids
   loop captures in stable payer order
-    W->>PP: capture allocated share (<= cap), final_capture=true
+    W->>PP: capture allocated share (at most the cap), final_capture=true
     alt success
       W->>DB: attempt CAPTURED
     else timeout
-      W->>PP: read state; retry only with SAME request id if not done
+      W->>PP: read state, retry only with the SAME request id
     else declined
-      W->>DB: COMPENSATING: skip remaining captures,\nplan VOIDs + REFUNDs
+      W->>DB: COMPENSATING: skip remaining captures,<br/>plan voids and refunds
     end
   end
-  W->>DB: CONFIRMED (all captured) or CANCELLED (+ clean-up state)
+  W->>DB: CONFIRMED (all captured) or CANCELLED, plus clean-up state
 ```
 
-## Invariants (enforced in code, most also in tests / DB constraints)
+The worker is safe to run in several processes: jobs are claimed with `SKIP LOCKED`, operations are claimed atomically, and the snapshot is unique per outing ([runner.ts](../lib/jobs/runner.ts)). A sweep settles any overdue outing whose job was lost.
 
-1. Money is integer minor units; one currency (USD) per outing.
-2. `sum(allocations) == quote.total`; allocations differ by at most one cent; extra cents go to the first payers in the immutable `sortKey` order.
-3. No capture above the consented cap or the authorized amount (`decideSettlement`, `planPaymentOperation`, DB check `captured_minor <= authorized_minor`).
-4. Consent is bound to a terms hash (total, date, merchant, cap, deadline, sponsored + required lists, split rule). Any change → new hash → renewed consent.
-5. Commitments are accepted only while `status = COLLECTING`, `frozen_at IS NULL` and server `now < deadline_at`.
-6. Eligibility uses provider-verified authorization timestamps; late or unverifiable authorizations are never admitted (fail closed) and are voided.
-7. Settlement is evaluated once per outing (unique snapshot) under a row lock; provider calls never run inside an open transaction.
-8. Every provider mutation has a durable outbox row with a stable `PayPal-Request-Id`; timeouts are `UNKNOWN` and reconciled before any retry.
-9. Partial capture failure never confirms the booking and never redistributes a failed share; completed captures are refunded.
-10. AI never decides money, eligibility, deadlines or provider operations; FIXTURE outputs are labelled.
+## Invariants
 
-## Modules
+Each rule is enforced in code and pinned by a test; the database adds check constraints where it can.
 
-See `docs/CONTRACTS.md` for module ownership and the HTTP API, and `docs/PRODUCT_SPEC.md` for the rules.
+| # | Invariant | Enforced in | Test |
+|---|---|---|---|
+| 1 | Money is integer minor units, one currency (USD) per outing | `assertMinor`, `SUPPORTED_CURRENCIES` in [money.ts](../lib/domain/money.ts) | [money.test.ts](../tests/domain/money.test.ts) |
+| 2 | Shares sum exactly to the total and differ by at most one cent; extra cents go to the first payers in the immutable `sortKey` order | `equalSplit` in [money.ts](../lib/domain/money.ts), `stablePayerOrder` in [policy.ts](../lib/domain/policy.ts) | [money.test.ts](../tests/domain/money.test.ts) |
+| 3 | No capture above the consented cap or the authorized amount | `decideSettlement` in [policy.ts](../lib/domain/policy.ts), `planPaymentOperation` in [plan.ts](../lib/payments/plan.ts), check `payment_capture_le_authorized` in [schema.ts](../lib/db/schema.ts) | [policy.test.ts](../tests/domain/policy.test.ts), [operations.test.ts](../tests/settlement/operations.test.ts) |
+| 4 | Consent is bound to a hash of the exact terms (quote, merchant, offering, total, cap, capacity, minimum payers, activity time, deadline, policy, split rule, sponsored and required lists); any change needs new consent | `buildCommitmentTerms`, `hashTerms` in [policy.ts](../lib/domain/policy.ts) | [policy.test.ts](../tests/domain/policy.test.ts), [routes.test.ts](../tests/payments/routes.test.ts) |
+| 5 | Commitments are accepted only while `COLLECTING`, not frozen, and before the server deadline | `collectionWindowOpen` in [outings.ts](../lib/services/outings.ts) | [service.test.ts](../tests/payments/service.test.ts), [terms-time-audit2.test.ts](../tests/audit2/terms-time-audit2.test.ts) |
+| 6 | Late, unverifiable or wrong-payee authorizations are never admitted and are voided (fail closed) | `decideSettlement` in [policy.ts](../lib/domain/policy.ts), `reconcileAttempt` in [reconcile.ts](../lib/settlement/reconcile.ts), `expectedPayeeFor` in [payments.ts](../lib/services/payments.ts) | [deadline.test.ts](../tests/settlement/deadline.test.ts), [payee.test.ts](../tests/payments/payee.test.ts), [settlement-audit.test.ts](../tests/audit/settlement-audit.test.ts) |
+| 7 | Settlement is decided once per outing under a row lock; no provider call runs inside a transaction | `runDeadlineSettlement` in [deadline.ts](../lib/settlement/deadline.ts) | [deadline.test.ts](../tests/settlement/deadline.test.ts) |
+| 8 | Every provider mutation has an outbox row and a stable `PayPal-Request-Id`; a timeout is `UNKNOWN` and is reconciled before any retry | `operationRequestId` in [plan.ts](../lib/payments/plan.ts), [operations.ts](../lib/settlement/operations.ts) | [operations.test.ts](../tests/settlement/operations.test.ts) |
+| 9 | A failed capture never confirms the booking and never moves its share onto others; completed captures are refunded | [operations.ts](../lib/settlement/operations.ts) | [operations.test.ts](../tests/settlement/operations.test.ts), [compensation.spec.ts](../tests/e2e/compensation.spec.ts) |
+| 10 | AI never decides money, eligibility, deadlines or provider calls; FIXTURE output is labelled | [validate.ts](../lib/ai/validate.ts), [budget-options.ts](../lib/domain/budget-options.ts) | [ai.test.ts](../tests/ai/ai.test.ts), [budget-options.test.ts](../tests/domain/budget-options.test.ts) |
+
+## AI boundary
+
+The model extracts facts and drafts suggestions; deterministic code validates every field before it is shown or stored ([validate.ts](../lib/ai/validate.ts)).
+
+- `extractBrief`: a budget the brief does not state is dropped; categories must exist in the catalogue.
+- `proposeOfferings`: only real, active offerings that fit the group survive; prices come from the database.
+- `summarizeReveal`: sees an anonymous vote distribution; an out-of-range suggested total is replaced by the median.
+- `draftPlan`: `validatePlanDraft` drops (never fixes) invalid offerings, times, deadlines and sponsors.
+- `dashboardQuery` and the [AG Studio proxy](../app/api/merchant/ai/studio/route.ts): read-only filters and view tools only; no capture, void, refund or edit tool exists.
+
+Budget vote amounts are sized per outing by `chooseBudgetOptions` in [budget-options.ts](../lib/domain/budget-options.ts). The AI's five suggested amounts are used only if they are whole $5 steps, strictly increasing, at most 10x apart, and include any budget the brief states. Otherwise the code builds 0.5x, 0.75x, 1x, 1.5x, 2x around an anchor: the brief's total, else per-person budget times group size, else the lower median of matching catalogue prices, else $100.
+
+## Demo and judge mode
+
+`DEMO_FIXTURES_ENABLED=true` turns on the labelled simulators (when no keys are set) and the demo surfaces; with it off, every `/api/demo/*` route, the fixture approval and the merchant demo login answer 404.
+
+- Five starters on `/new` ([starters.ts](../lib/demo/starters.ts)) map to five demo merchants: The Sound Room plus four fictional `FIXED_TOTAL` venues ([venues.ts](../lib/demo/venues.ts)), each with its own merchant dashboard.
+- Four one-click scenarios on `/demo` ([scenarios.ts](../lib/demo/scenarios.ts)): settles on time, one holdout, capture fails, ten-person group.
+- The judge bar on `/o/:id` shows who the browser acts as and what everyone else still has to do (`judgeBoard` in [judge.ts](../lib/demo/judge.ts), pure, built only from the viewer's own `OutingView`).
+- Persona switch: `authorizePersonaSwitch` in [judge-persona.ts](../lib/demo/judge-persona.ts) behind [POST /api/demo/persona](../app/api/demo/persona/route.ts). Threat model: [security and limitations](SECURITY_AND_LIMITATIONS.md).
+
+## Failure handling
+
+API errors are JSON with a code and a plain message, never a stack trace (`errorResponse` in [http.ts](../lib/http.ts)); the PayPal browser redirects are the one exception.
+
+| Failure | Response |
+|---|---|
+| Database or network briefly unreachable ([transient-errors.ts](../lib/transient-errors.ts)) | 503 `TEMPORARILY_UNAVAILABLE`, `Retry-After: 30` |
+| Server closes an idle pooled connection | Pool `error` listener logs it, next query reconnects; connect timeout 10 s ([client.ts](../lib/db/client.ts)) |
+| Body fails the schema | 400 `INVALID_INPUT`, plain message, offending paths in `fields` |
+| PayPal return or cancel | A 303 redirect, not JSON: a malformed or unknown attempt id, or no session for its outing, lands on the neutral `/?payment=signin`; a payment error lands on the outing with `?payment=failed` ([return route](../app/api/payments/paypal/return/route.ts)) |
+| PayPal timeout or 5xx | Operation `UNKNOWN`, reconciled from PayPal before any retry |
+| Anything else | 500 `INTERNAL`, "Nothing was charged by this request" |
+
+Module ownership and the HTTP API: [CONTRACTS.md](CONTRACTS.md). Rules in full: [product spec](PRODUCT_SPEC.md). Next: [how each claim is tested](TESTING.md).
