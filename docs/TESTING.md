@@ -53,7 +53,7 @@ Each row is a risk, the files that pin it, and one test name to find with your e
 
 ## Latest results
 
-Vitest and Playwright last ran on 9 Nov 2026 on the owner's Windows 11 machine with Postgres 16 in Docker, in FIXTURE modes; the PayPal scripts ran on 7 Nov 2026 against the real sandbox.
+Vitest and Playwright last ran on 8 Nov 2026 on the owner's Windows 11 machine with Postgres 16 in Docker, in FIXTURE modes; the PayPal scripts ran on 7 Nov 2026 against the real sandbox.
 
 | Check | Result |
 |---|---|

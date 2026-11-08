@@ -15,6 +15,7 @@
  */
 import Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
+import { isModernModel } from "@/lib/ai/anthropic";
 import { config } from "@/lib/env";
 import { assertSameOrigin, handle, json, ServiceError } from "@/lib/http";
 import { requireMerchant } from "@/lib/services/access";
@@ -23,7 +24,8 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const MAX_BODY_BYTES = 600_000;
-const MAX_OUTPUT_TOKENS = 2048;
+/** Room for adaptive thinking plus a tool call or a short answer; billing follows actual use. */
+const MAX_OUTPUT_TOKENS = 8192;
 const MAX_INPUT_ITEMS = 120;
 const RATE_LIMIT = { windowMs: 60_000, max: 20 };
 
@@ -134,6 +136,26 @@ function toAnthropicMessages(items: StudioItem[], system: string[]): Msg[] {
   return msgs;
 }
 
+type StudioToolChoice = z.infer<typeof RequestSchema>["toolChoice"];
+
+/** The tool Studio insists on ("required" means any of them), or null when the model may answer freely. */
+function requiredToolHint(choice: StudioToolChoice, allowedNames: ReadonlySet<string>): string | null {
+  if (choice === "required") return "one of your tools";
+  if (typeof choice === "object" && allowedNames.has(choice.name)) return choice.name;
+  return null;
+}
+
+/**
+ * Current models reject forced tool_choice and a conversation that ends on an assistant turn.
+ * Studio sends both when it retries a sub-agent that answered in text instead of calling
+ * `complete_task`, so we keep tool_choice on auto and end on a short user turn naming the tool.
+ */
+function endOnUserTurn(msgs: Msg[], requiredTool: string | null): void {
+  const endsOnAssistant = msgs[msgs.length - 1]?.role === "assistant";
+  if (!requiredTool && !endsOnAssistant) return;
+  push(msgs, "user", { type: "text", text: requiredTool ? `Call ${requiredTool} now to finish.` : "Continue." });
+}
+
 const line = (o: unknown) => new TextEncoder().encode(JSON.stringify(o) + "\n");
 
 export const POST = handle(async (req: Request): Promise<Response> => {
@@ -167,15 +189,13 @@ export const POST = handle(async (req: Request): Promise<Response> => {
       input_schema: (sanitizeSchema(t.parameters) as Anthropic.Tool.InputSchema) ?? { type: "object" as const, properties: {} },
     }));
 
-  const client = new Anthropic({ apiKey: cfg.anthropic.apiKey, baseURL: "https://api.anthropic.com" });
+  // Explicit key, no ambient ANTHROPIC_AUTH_TOKEN (same rule as lib/ai/anthropic.ts).
+  const client = new Anthropic({ apiKey: cfg.anthropic.apiKey, authToken: null, baseURL: "https://api.anthropic.com" });
   const toolChoice =
-    parsed.toolChoice === "none" || tools.length === 0
-      ? undefined
-      : parsed.toolChoice === "required"
-        ? ({ type: "any" } as const)
-        : typeof parsed.toolChoice === "object" && ALLOWED_TOOLS.has(parsed.toolChoice.name)
-          ? ({ type: "tool", name: parsed.toolChoice.name } as const)
-          : ({ type: "auto" } as const);
+    tools.length === 0 ? undefined : parsed.toolChoice === "none" ? ({ type: "none" } as const) : ({ type: "auto" } as const);
+  const forwardedNames = new Set(tools.map((t) => t.name));
+  endOnUserTurn(messages, toolChoice?.type === "auto" ? requiredToolHint(parsed.toolChoice, forwardedNames) : null);
+  const model = cfg.anthropic.model;
 
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
@@ -187,8 +207,10 @@ export const POST = handle(async (req: Request): Promise<Response> => {
       try {
         const upstream = await client.messages.create(
           {
-            model: cfg.anthropic!.model,
+            model,
             max_tokens: MAX_OUTPUT_TOKENS,
+            // A read-only analyst turn: low effort keeps thinking short and the answer fast.
+            ...(isModernModel(model) ? { output_config: { effort: "low" as const } } : {}),
             system: system.join("\n\n"),
             messages: messages as Anthropic.MessageParam[],
             ...(tools.length ? { tools } : {}),
@@ -241,7 +263,7 @@ export const POST = handle(async (req: Request): Promise<Response> => {
           line({
             kind: "done",
             response: {
-              id, createdAt, output, model: cfg.anthropic!.model,
+              id, createdAt, output, model,
               status: truncated ? "incomplete" : "completed",
               ...(truncated ? { incompleteDetails: { reason: "max_output_tokens" } } : {}),
               ...(usage ? { usage: { ...usage, totalTokens: usage.inputTokens + usage.outputTokens } } : {}),
