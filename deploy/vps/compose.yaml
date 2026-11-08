@@ -1,0 +1,86 @@
+# Outings on one server: Postgres, the web app, the deadline worker and Caddy (HTTPS).
+#
+# Run it through deploy.sh, which passes the secrets file to Compose:
+#   bash /opt/outings/deploy/vps/deploy.sh
+# By hand (from the repo root):
+#   docker compose -f deploy/vps/compose.yaml --env-file /etc/outings/app.env <command>
+#
+# Only Caddy publishes ports. Postgres and the app are reachable only inside this Compose network.
+name: outings
+
+# Shared by the web app and the worker: the same image, configuration and database.
+x-app: &app
+  image: outings-app:latest
+  restart: unless-stopped
+  init: true
+  env_file: ${OUTINGS_ENV_FILE:-/etc/outings/app.env}
+  environment:
+    NODE_ENV: production
+    DATABASE_URL: postgres://outings:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is missing from the env file}@db:5432/outings
+  depends_on:
+    db:
+      condition: service_healthy
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: outings
+      POSTGRES_USER: outings
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is missing from the env file}
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U outings -d outings"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  web:
+    <<: *app
+    build:
+      context: ../..
+      dockerfile: Dockerfile
+    # The image's default command applies migrations, then serves on :3000.
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3000/api/health').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+
+  worker:
+    <<: *app
+    # Built by the web service; never pulled from a registry.
+    pull_policy: never
+    command: ["npm", "run", "worker"]
+    # Starts once web is healthy, i.e. after migrations ran. Polls for due deadlines every 5 s,
+    # so settlement needs no browser and no external scheduler.
+    depends_on:
+      web:
+        condition: service_healthy
+    # Lets a tick in progress finish its provider calls before the container stops.
+    stop_grace_period: 30s
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "${HTTP_PORT:-80}:80"
+      - "${HTTPS_PORT:-443}:443"
+      - "${HTTPS_PORT:-443}:443/udp"
+    environment:
+      SITE_ADDRESS: ${SITE_ADDRESS:?SITE_ADDRESS is missing from the env file}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      web:
+        condition: service_healthy
+
+volumes:
+  db-data:
+  caddy-data:
+  caddy-config:
