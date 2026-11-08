@@ -38,6 +38,7 @@ import {
   type DemoScenarioKind,
 } from "./constants";
 import { nextLocalWeekdayAt, seedCatalogue, seedOuting, type PersonSpec } from "./seed";
+import { ensureDemoVenues } from "./venues";
 
 export { DEMO_SCENARIO_DEADLINE_SECONDS, DEMO_SCENARIO_KINDS, DEMO_SCENARIO_TITLES, type DemoScenarioKind };
 
@@ -187,9 +188,11 @@ const ROOM_SLUG = "private-karaoke-room";
  * real (non-fixture) outings, so a scenario (a public button in demo mode) only
  * reads them; it never resets price, capacity, availability, timezone or the
  * active flag (that is what the explicit demo reset does). The catalogue is
- * seeded only when it does not exist yet (fresh database).
+ * seeded only when it does not exist yet (fresh database); the fictional
+ * starter venues likewise are only created when missing, never overwritten.
  */
 async function demoCatalogue(db: Db): Promise<{ merchant: Merchant; room: Offering }> {
+  await ensureDemoVenues(db);
   const merchant = await db.query.merchants.findFirst({ where: eq(merchants.slug, DEMO_MERCHANT_SLUG) });
   const room = merchant
     ? await db.query.offerings.findFirst({ where: and(eq(offerings.merchantId, merchant.id), eq(offerings.slug, ROOM_SLUG)) })

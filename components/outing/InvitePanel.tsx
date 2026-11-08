@@ -1,6 +1,8 @@
 "use client";
-import { Check, Copy, Link2, TriangleAlert, UserPlus } from "lucide-react";
+import { Check, Copy, Link2, Plus, TriangleAlert, UserPlus } from "lucide-react";
 import { useState } from "react";
+import type { OutingView } from "@/lib/contracts/views";
+import { availableDemoFriends, splitTypedNames } from "@/lib/demo/friends";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { TextAreaField } from "@/components/ui/Field";
@@ -42,18 +44,56 @@ function CopyButton({ text, name }: { text: string; name: string }) {
   );
 }
 
+/** Append names to the textarea, one per line. */
+function appendNames(current: string, added: string[]): string {
+  const existing = splitTypedNames(current);
+  return [...existing, ...added].join("\n");
+}
+
+/**
+ * Demo mode only: tap a demo friend to add the name to the field (typing still works). Names already in
+ * the outing or already typed are hidden, so the list shrinks as people are added.
+ */
+function DemoFriends({ friends, onAdd }: { friends: string[]; onAdd: (names: string[]) => void }) {
+  if (friends.length === 0) return null;
+  return (
+    <div className="space-y-2" role="group" aria-labelledby="demo-friends-h">
+      <p id="demo-friends-h" className="text-small font-semibold text-ink-muted">
+        Demo friends (tap to add)
+      </p>
+      <ul className="flex flex-wrap gap-2" aria-label="Demo friends">
+        {friends.map((name) => (
+          <li key={name}>
+            <Button variant="secondary" className="!min-h-[36px] !px-3 !text-[14px]" aria-label={`Add ${name}`} onClick={() => onAdd([name])}>
+              <Plus className="size-4" aria-hidden />
+              {name}
+            </Button>
+          </li>
+        ))}
+        {friends.length > 1 && (
+          <li>
+            <Button variant="link" className="!min-h-[36px]" onClick={() => onAdd(friends)}>
+              Add all {friends.length}
+            </Button>
+          </li>
+        )}
+      </ul>
+    </div>
+  );
+}
+
 /** Organizer: add invitees. Returned one-time links stay only in this component's memory. */
-export function InvitePanel({ actions, hint }: { actions: OutingActions; hint?: string }) {
+export function InvitePanel({ view, actions, hint }: { view: OutingView; actions: OutingActions; hint?: string }) {
   const [names, setNames] = useState("");
   const [links, setLinks] = useState<InviteLink[]>([]);
   const { pending, error, run } = useAction();
+  const demoFriends = view.outing.demoMode
+    ? availableDemoFriends([...view.roster.people.map((p) => p.displayName), ...splitTypedNames(names)])
+    : [];
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
-    const list = names
-      .split(/[\n,]/)
-      .map((n) => n.trim())
-      .filter(Boolean);
+    const list = splitTypedNames(names);
     if (list.length === 0) return;
     const res = await run("invite", async () => {
       const invites = await actions.addInvitees(list);
@@ -75,6 +115,7 @@ export function InvitePanel({ actions, hint }: { actions: OutingActions; hint?: 
         </h2>
       </div>
       <form onSubmit={submit} className="space-y-3">
+        <DemoFriends friends={demoFriends} onAdd={(added) => setNames((current) => appendNames(current, added))} />
         <TextAreaField
           label="Names, one per line or separated by commas"
           hint={hint ?? "We create a private link for each person. You send it to them yourself."}

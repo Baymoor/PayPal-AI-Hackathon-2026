@@ -40,6 +40,13 @@ import { assertOutingTransition } from "../domain/state-machine";
 import { buildCommitmentTerms, hashTerms, validateCommitmentDeadline, isBeforeDeadline } from "../domain/policy";
 import { assertCurrency, formatMoney } from "../domain/money";
 import {
+  DEFAULT_BUDGET_OPTIONS_MINOR,
+  MAX_BUDGET_MINOR,
+  chooseBudgetOptions,
+  validateBudgetOptions,
+  type BudgetOptionsBasis,
+} from "../domain/budget-options";
+import {
   MIN_VOTES_FOR_REVEAL,
   type AttendanceState,
   type OutingStatus,
@@ -69,16 +76,21 @@ import {
   getActiveOfferingWithMerchant,
   listActiveOfferings,
   toCatalogueForAi,
+  type CatalogueEntry,
 } from "./catalogue";
 
 /* -------------------------------------------------------------------------- */
 /* Constants and stored JSON shapes                                           */
 /* -------------------------------------------------------------------------- */
 
-/** Suggested TOTAL budgets (minor units) for budget poker. */
-export const BUDGET_OPTIONS_MINOR = [5000, 7500, 10000, 15000, 20000] as const;
-/** $100,000 — upper bound for any budget vote / agreed budget. */
-export const MAX_BUDGET_MINOR = 10_000_000;
+/**
+ * Historic TOTAL budget-poker options (minor units). New outings store their
+ * own options at creation (`budgetOptionsFor`); this list remains for outings
+ * created before that and as the last-resort fallback.
+ */
+export const BUDGET_OPTIONS_MINOR = DEFAULT_BUDGET_OPTIONS_MINOR;
+/** $100,000 — upper bound for any budget vote / agreed budget (defined with the budget-option rules). */
+export { MAX_BUDGET_MINOR };
 export const MAX_BRIEF_CHARS = 2000;
 export const MAX_NAME_CHARS = 40;
 export const MAX_PARTICIPANTS = 50;
@@ -86,6 +98,24 @@ export const MAX_INVITES_PER_REQUEST = 20;
 /** Quote stays valid this long after the deadline (>= QUOTE_SETTLEMENT_GRACE_MS). */
 export const QUOTE_VALIDITY_AFTER_DEADLINE_MS = 24 * 60 * 60 * 1000;
 export const DEFAULT_TIMEZONE = "Europe/Copenhagen";
+
+/**
+ * Budget-poker vote amounts fixed when the outing is created, with provenance.
+ * Never a price or a payment: votes stay any amount up to MAX_BUDGET_MINOR.
+ */
+export interface StoredBudgetOptions {
+  /** Five strictly increasing TOTAL amounts, integer minor units (validated). */
+  optionsMinor: number[];
+  /** AI_SUGGESTION, or which deterministic ladder anchor the app used. */
+  basis: BudgetOptionsBasis;
+  /** Who suggested the amounts: the AI's honest source for AI_SUGGESTION; null when app rules computed them. */
+  source: AiSource | null;
+  model: string | null;
+  /** Middle amount of the deterministic ladder (null for an AI suggestion). */
+  anchorMinor: number | null;
+  /** Why an AI suggestion was not used, in plain language. */
+  notes: string[];
+}
 
 /** outings.brief_extraction */
 export interface StoredBriefExtraction {
@@ -95,6 +125,8 @@ export interface StoredBriefExtraction {
   warnings: string[];
   error: string | null;
   createdAt: string;
+  /** Absent on outings created before vote amounts were stored; they use BUDGET_OPTIONS_MINOR. */
+  budgetOptions?: StoredBudgetOptions;
 }
 
 /** outings.budget_reveal — aggregate only, never names or per-person votes. */
@@ -310,6 +342,43 @@ export function storedExtraction(outing: Pick<Outing, "briefExtraction">): Store
   const v = outing.briefExtraction as StoredBriefExtraction | null;
   return v && typeof v === "object" && "extraction" in v ? v : null;
 }
+
+/**
+ * The budget-poker vote amounts for this outing: the stored options when they
+ * still pass the rules (stored JSON is re-checked, never trusted), else the
+ * historic list (outings created before options were stored).
+ */
+export function budgetOptionsFor(outing: Pick<Outing, "briefExtraction">): number[] {
+  const stored = storedExtraction(outing)?.budgetOptions?.optionsMinor;
+  const check = validateBudgetOptions(stored);
+  return check.ok ? check.optionsMinor : [...BUDGET_OPTIONS_MINOR];
+}
+
+/**
+ * Decide the vote amounts once, at creation: the AI's validated suggestion,
+ * else the deterministic ladder anchored on the brief's budget or on what the
+ * matching catalogue costs. Provenance says which; FIXTURE stays FIXTURE.
+ */
+function decideBudgetOptions(call: AiCall<BriefExtraction>, catalogue: readonly CatalogueEntry[]): StoredBudgetOptions {
+  const extraction = call.ok ? call.result.output : null;
+  const decision = chooseBudgetOptions({
+    suggestionMinor: extraction?.suggestedVoteTotalsMinor ?? null,
+    stated: extraction?.budget ?? { amountMinor: null, unit: "UNKNOWN" },
+    groupSize: extraction?.groupSize.count ?? null,
+    categories: extraction?.categories ?? [],
+    catalogue: catalogue.map(({ offering }) => ({ category: offering.category, pricingModel: offering.pricingModel, priceMinor: offering.priceMinor })),
+  });
+  const fromAi = decision.basis === "AI_SUGGESTION" && call.ok;
+  return {
+    optionsMinor: decision.optionsMinor,
+    basis: decision.basis,
+    source: fromAi ? call.result.source : null,
+    model: fromAi ? call.result.model : null,
+    anchorMinor: decision.anchorMinor,
+    notes: decision.notes,
+  };
+}
+
 export function storedReveal(outing: Pick<Outing, "budgetReveal">): StoredReveal | null {
   const v = outing.budgetReveal as StoredReveal | null;
   return v && typeof v === "object" && "aggregate" in v ? v : null;
@@ -338,7 +407,8 @@ export async function createOuting(
 
   // The brief is untrusted DATA. It is only ever passed to the AI as content to
   // interpret; nothing it says can change prices, caps, payers or policy.
-  const categories = catalogueCategories(await listActiveOfferings(db));
+  const catalogue = await listActiveOfferings(db);
+  const categories = catalogueCategories(catalogue);
   const extractInput: Parameters<OutingsAi["extractBrief"]>[0] & { categories?: string[] } = {
     brief,
     now,
@@ -354,6 +424,7 @@ export async function createOuting(
     warnings: call.ok ? call.result.warnings.slice(0, 10) : [],
     error: call.ok ? null : "The brief could not be read automatically.",
     createdAt: now.toISOString(),
+    budgetOptions: decideBudgetOptions(call, catalogue),
   };
   const title = (extraction?.title ?? "").replace(CONTROL_CHARS, "").trim().slice(0, 80) || `${organizerName}'s outing`;
 
@@ -392,7 +463,7 @@ export async function createOuting(
       outingId: outing.id,
       actor: actorOf(organizer.id),
       type: "OUTING_CREATED",
-      data: { organizerName, aiSource: stored.source, aiOk: call.ok },
+      data: { organizerName, aiSource: stored.source, aiOk: call.ok, budgetOptionsBasis: stored.budgetOptions?.basis ?? null },
     });
     return { outingId: outing.id, participantId: organizer.id };
   });

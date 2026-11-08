@@ -51,6 +51,10 @@ const CATEGORY_KEYWORDS: [RegExp, string, string][] = [
   [/escape/i, "escape-room", "Escape room"],
   [/bowling/i, "bowling", "Bowling"],
   [/dinner|restaurant|supper/i, "dinner", "Dinner"],
+  [/\b(?:movies?|films?|cinema|screening)\b/i, "cinema", "Movie night"],
+  [/\bwines?\b/i, "wine-tasting", "Wine tasting"],
+  [/\bgym\b|\bwork ?out\b|\btraining\b|\bfitness\b/i, "fitness", "Gym session"],
+  [/\bpadel\b/i, "padel", "Padel"],
 ];
 
 function groupSize(text: string): { count: number | null; isEstimate: boolean } {
@@ -214,6 +218,9 @@ export class FixtureOutingsAi implements OutingsAi {
       needs,
       uncertainties,
       summary: summary.slice(0, 6),
+      // The fixture parser never suggests vote amounts; the app's deterministic ladder
+      // (lib/domain/budget-options.ts) computes them and is labelled as such.
+      suggestedVoteTotalsMinor: null,
     };
     const v = validateBrief(raw, { categories: input.categories, sourceText: text });
     return this.wrap(v.output, ["Fixture parser: extracted with regex/keyword rules.", ...v.warnings]);
@@ -259,16 +266,26 @@ export class FixtureOutingsAi implements OutingsAi {
         reasons.push("Fixture ranker: tagged as private.");
       }
       if (reasons.length === 0) reasons.push("Fixture ranker: weak match; listed for completeness.");
-      return { item, score, reasons, concerns };
+      return { item, score, reasons, concerns, catMatch };
     });
-    scored.sort((a, b) => b.score - a.score || a.item.offeringId.localeCompare(b.item.offeringId));
+    // Category first (as the note says), so an unrelated cheap offering never outranks the activity asked for.
+    scored.sort(
+      (a, b) =>
+        Number(b.catMatch) - Number(a.catMatch) || b.score - a.score || a.item.offeringId.localeCompare(b.item.offeringId),
+    );
+    // When the brief names an activity, a different activity is at best a stretch, however well it fits otherwise.
+    const briefHasCategory = input.extraction.categories.length > 0;
+    const fitOf = (s: (typeof scored)[number]): Proposal["ranked"][number]["fit"] => {
+      if (briefHasCategory && !s.catMatch) return "STRETCH";
+      return s.score >= 7 ? "GREAT" : s.score >= 4 ? "GOOD" : "STRETCH";
+    };
     const raw: Proposal = {
       ranked: scored
         .filter((s) => s.score > 0)
         .slice(0, 5)
         .map((s) => ({
           offeringId: s.item.offeringId,
-          fit: s.score >= 7 ? "GREAT" : s.score >= 4 ? "GOOD" : "STRETCH",
+          fit: fitOf(s),
           reasons: s.reasons.slice(0, 3).map((r) => r.slice(0, 140)),
           concerns: s.concerns.slice(0, 3).map((r) => r.slice(0, 140)),
         })),

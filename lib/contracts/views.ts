@@ -113,6 +113,11 @@ export interface OutingView {
     cleanup: CleanupState;
     paymentMode: PaymentModeLabel;
     aiMode: AiModeLabel;
+    /**
+     * Server runs with DEMO_FIXTURES_ENABLED: the judge bar (act as any participant of this outing
+     * without an invitation link) is shown. Never true in a real deployment.
+     */
+    demoMode: boolean;
   };
   viewer: {
     participantId: string;

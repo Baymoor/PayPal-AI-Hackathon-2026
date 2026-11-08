@@ -464,7 +464,7 @@ export function ProposalStage({ view, actions }: { view: OutingView; actions: Ou
             )}
             <ActionErrorBanner error={error} />
           </section>
-          {view.organizer.can.addInvitees && <InvitePanel actions={actions} />}
+          {view.organizer.can.addInvitees && <InvitePanel view={view} actions={actions} />}
         </div>
         <div className="space-y-6">
           {proposed !== null && (

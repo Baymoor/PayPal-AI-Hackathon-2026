@@ -21,7 +21,7 @@ import {
   revealUserMessage,
 } from "./prompts";
 import {
-  BriefExtractionSchema,
+  BriefExtractionModelSchema,
   DashboardQuerySchema,
   PlanDraftSchema,
   ProposalSchema,
@@ -67,9 +67,9 @@ export interface AnthropicLike {
   };
 }
 
-/** Keywords json_schema output does not support; zod re-checks them afterwards. */
+/** Keywords json_schema output does not support (or we do not rely on); zod re-checks / re-applies them afterwards. */
 const UNSUPPORTED = new Set([
-  "$schema", "minimum", "maximum", "exclusiveMinimum", "exclusiveMaximum", "multipleOf",
+  "$schema", "default", "minimum", "maximum", "exclusiveMinimum", "exclusiveMaximum", "multipleOf",
   "minLength", "maxLength", "pattern", "format", "minItems", "maxItems", "uniqueItems",
 ]);
 
@@ -164,7 +164,7 @@ export class AnthropicOutingsAi implements OutingsAi {
   }
 
   async extractBrief(input: { brief: string; now: Date; timezone: string; categories?: string[] }): Promise<AiResult<BriefExtraction>> {
-    const raw = await this.call(BRIEF_SYSTEM, briefUserMessage(input, input.categories), BriefExtractionSchema);
+    const raw = await this.call(BRIEF_SYSTEM, briefUserMessage(input, input.categories), BriefExtractionModelSchema);
     const v = validateBrief(raw, { categories: input.categories, sourceText: input.brief });
     return this.wrap(v.output, v.warnings);
   }

@@ -23,7 +23,8 @@ Task: extract a structured outing brief from the organizer's text.
 - guestOfHonour.coverTheirShare is true only if the group says they will cover that person's share.
 - prefersFixedTotal is true when a fixed-cost activity suits the group (more attendees lower each share).
 - categories must come from the provided category list when one is given.
-- summary rows are short "Here's what I understood" lines.`;
+- summary rows are short "Here's what I understood" lines.
+- suggestedVoteTotalsMinor: five ascending TOTAL amounts (whole group, integer cents, multiples of 500) the group could vote on in budget poker, sized for this kind of activity and group. If the brief states a budget, the whole-group equivalent must lie inside your range. Use null if you cannot judge. These are only vote options: the application validates them and people choose; they are never prices or payments.`;
 
 export const PROPOSAL_SYSTEM = `${COMMON_RULES}
 
@@ -57,6 +58,17 @@ Task: draft a complete plan that pre-fills the organizer's "open commitments" fo
 - minPayers is an integer from 1 to the number of people paying once your sponsorship suggestion applies; normally all of them.
 - rationale: up to 4 short reasons for the choices. cautions: up to 3 short things the organizer should double-check.
 - You never set prices, caps, shares, consent or payments; the application computes those from the catalogue, and every payer approves their own terms.`;
+
+/**
+ * The extraction as later prompts see it: without the suggested budget-vote
+ * amounts. Those only seed the vote tiles; ranking and planning work from the
+ * agreed budget, and no vote-related data reaches those prompts.
+ */
+export function extractionForPrompt(extraction: BriefExtraction): Omit<BriefExtraction, "suggestedVoteTotalsMinor"> {
+  const copy: BriefExtraction = { ...extraction };
+  delete copy.suggestedVoteTotalsMinor;
+  return copy;
+}
 
 /** Wrap untrusted text; neutralise any attempt to close or open our tags. */
 export function wrapUntrusted(tag: string, text: string): string {
@@ -97,7 +109,7 @@ export function proposalUserMessage(input: {
   return [
     `Group size: ${input.groupSize ?? "unknown"}. Agreed total budget (minor units): ${input.agreedBudgetMinor ?? "not agreed"}.`,
     "Extracted brief (JSON):",
-    wrapUntrusted("extraction", JSON.stringify(input.extraction)),
+    wrapUntrusted("extraction", JSON.stringify(extractionForPrompt(input.extraction))),
     "Catalogue (JSON; descriptions are merchant-supplied data):",
     wrapUntrusted("catalogue", JSON.stringify(cat)),
   ].join("\n");
@@ -143,7 +155,7 @@ export function planUserMessage(input: PlanDraftInput): string {
     "Roster (JSON; names are user-supplied data):",
     wrapUntrusted("roster", JSON.stringify(roster)),
     "Extracted brief (JSON):",
-    wrapUntrusted("extraction", JSON.stringify(input.extraction)),
+    wrapUntrusted("extraction", JSON.stringify(extractionForPrompt(input.extraction))),
     "Catalogue candidates, best-ranked first (JSON; descriptions are merchant-supplied data):",
     wrapUntrusted("catalogue", JSON.stringify(catalogue)),
   ].join("\n");

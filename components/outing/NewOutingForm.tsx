@@ -9,6 +9,7 @@ import { Stepper } from "@/components/ui/Stepper";
 import { Underlined } from "@/components/ui/Swoosh";
 import { describeError } from "@/components/errors/friendlyError";
 import { outingApi } from "./api";
+import { BriefStarters } from "./BriefStarters";
 import { ActionErrorBanner, type ActionError } from "./useAction";
 
 export const SAMPLE_BRIEF =
@@ -66,6 +67,7 @@ export function NewOutingForm() {
             placeholder="Alex"
             error={nameErr}
           />
+          <BriefStarters onPick={(starter) => setBrief(starter.brief)} />
           <TextAreaField
             label="Your plan"
             value={brief}

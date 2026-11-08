@@ -54,8 +54,31 @@ export const BriefExtractionSchema = z.object({
     .array(z.object({ icon: SummaryIcon, text: z.string().min(1).max(80) }))
     .min(1)
     .max(6),
+  /**
+   * Five suggested TOTAL budget-poker amounts for the whole group, integer
+   * minor units; null = no suggestion. Only SHAPE here, so one bad field
+   * cannot discard the whole extraction: `validateBrief` applies the rules in
+   * lib/domain/budget-options.ts. Absent on extractions stored before the
+   * field existed.
+   */
+  suggestedVoteTotalsMinor: z.array(z.number()).nullable().optional(),
 });
 export type BriefExtraction = z.infer<typeof BriefExtractionSchema>;
+
+/**
+ * What the model must return. Structured output makes every field required,
+ * so the model always answers the vote-amount question (null is allowed);
+ * the default keeps parsing tolerant if a response ever omits it.
+ */
+export const BriefExtractionModelSchema = BriefExtractionSchema.extend({
+  suggestedVoteTotalsMinor: z
+    .array(z.number())
+    .nullable()
+    .default(null)
+    .describe(
+      "Exactly five ascending TOTAL amounts for the whole group's budget vote, in integer minor units (cents), each a multiple of 500. Fit the activity, group size and any stated budget (a stated total must lie inside the range). null if you cannot judge.",
+    ),
+});
 
 /* --------------------------- Catalogue proposals ---------------------------- */
 

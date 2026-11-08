@@ -26,7 +26,9 @@ export const retryOperation = (opId: string) =>
   request<unknown>(`/api/merchant/operations/${encodeURIComponent(opId)}/retry`, { method: "POST", body: "{}" });
 export const merchantLogin = (password: string) =>
   request<unknown>("/api/merchant/login", { method: "POST", body: JSON.stringify({ password }) });
-export const merchantDemoLogin = () => request<unknown>("/api/merchant/demo-login", { method: "POST", body: "{}" });
+/** Demo sign-in; `venue` is a demo venue slug (the server defaults to The Sound Room and 404s anything else). */
+export const merchantDemoLogin = (venue?: string) =>
+  request<unknown>("/api/merchant/demo-login", { method: "POST", body: JSON.stringify(venue ? { venue } : {}) });
 export const merchantLogout = () => request<unknown>("/api/merchant/logout", { method: "POST", body: "{}" });
 export const fetchHealth = () => request<{ demoFixturesEnabled?: boolean; paymentMode?: string; aiMode?: string }>("/api/health");
 

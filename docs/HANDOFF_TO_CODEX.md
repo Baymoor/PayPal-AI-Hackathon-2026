@@ -73,7 +73,7 @@ npm run typecheck && npm test
 E2E_DATABASE_URL=postgres://outings:outings@localhost:5432/outings_e2e npm run test:e2e   # Playwright against a production build (wipes that db)
 ```
 
-Last results (owner's Windows 11 machine, Postgres 16 in Docker, 7 Nov 2026): `tsc` clean · eslint clean · `npx vitest run` 29 files / **361 passed** · `npm run test:e2e` **6/6 passed** · `docker build` succeeds.
+Last results (owner's Windows 11 machine, Postgres 16 in Docker, 9 Nov 2026): `tsc` clean · eslint clean · `npx vitest run` 35 files / **440 passed** · `npm run test:e2e` **6/6 passed** · `docker build` succeeds.
 
 Earlier results (cloud session, 4 Nov 2026): `npx tsc --noEmit` clean · `npx eslint .` 0 problems · `npx vitest run` 28 files / **346 passed** · `npm run test:e2e` **6/6 passed** (karaoke settle, holdout cancel, organizer cancel, demo hub, capture-failure compensation, big-group $10-from-$20 under-capture) · `next build` passes.
 
@@ -113,7 +113,7 @@ Answered on 7 Nov 2026: authorization status/remainder after a partial `final_ca
 
 ## 7. Visual direction
 
-Warm cream / navy ink / coral, Fraunces display + Inter UI. Reference images `docs/design/reference/D01–D05` (+ D06 brief screen described in `docs/design/README.md`). Claude Design canvas: https://claude.ai/artifact/7vF112AViHWwk1iwENUJeq (private to the owner's account). Spec overrides: reveal is aggregate-only (D02 shows names), vote options $50–$200.
+Warm cream / navy ink / coral, Fraunces display + Inter UI. Reference images `docs/design/reference/D01–D05` (+ D06 brief screen described in `docs/design/README.md`). Claude Design canvas: https://claude.ai/artifact/7vF112AViHWwk1iwENUJeq (private to the owner's account). Spec overrides: reveal is aggregate-only (D02 shows names); vote options are per outing (see docs/CONTRACTS.md, "Budget vote amounts"), $50–$200 by default.
 
 ## 8. AG Studio licence and deployment
 

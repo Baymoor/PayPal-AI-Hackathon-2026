@@ -1,9 +1,11 @@
 "use client";
+import { Fragment } from "react";
 import type { OutingView } from "@/lib/contracts/views";
 import type { OutingActions } from "./api";
 import { BriefStage } from "./BriefStage";
 import { BudgetStage } from "./BudgetStage";
 import { CommitStage, type PaymentFlag } from "./CommitStage";
+import { JudgeBar } from "./JudgeBar";
 import { ProposalStage } from "./ProposalStage";
 import { ResultStage } from "./ResultStage";
 import { PageFrame } from "./Shell";
@@ -43,8 +45,14 @@ export function OutingScreen({
 
   return (
     <PageFrame wide={wide} back={{ href: "/", label: "Back to home" }}>
+      {view.outing.demoMode && (
+        <div className="mb-4">
+          <JudgeBar view={view} onSwitched={actions.refresh} />
+        </div>
+      )}
       {notice && <div className="mb-4">{notice}</div>}
-      {body}
+      {/* Keyed by viewer: a persona switch must not carry one person's local form state (e.g. a picked vote tile) to the next. */}
+      <Fragment key={view.viewer.participantId}>{body}</Fragment>
     </PageFrame>
   );
 }

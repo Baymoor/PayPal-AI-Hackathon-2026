@@ -127,6 +127,12 @@ function bookingRow(b: OutingBundle, merchant: Merchant, now: Date): MerchantBoo
   };
 }
 
+/** Display name of a merchant (null if unknown), for the dashboard header and subtitle. */
+export async function merchantNameFor(db: DbOrTx, merchantId: string): Promise<string | null> {
+  const m = await db.query.merchants.findFirst({ columns: { name: true }, where: eq(merchants.id, merchantId) });
+  return m?.name ?? null;
+}
+
 async function loadMerchant(db: DbOrTx, merchantId: string): Promise<Merchant> {
   const m = await db.query.merchants.findFirst({ where: eq(merchants.id, merchantId) });
   if (!m) throw notFound("Merchant not found");
