@@ -1,130 +1,90 @@
 # Outings
 
-> Turn a group plan into an approved, fairly shared booking. Budget poker, a covered guest of honour, PayPal sandbox authorizations of each person's maximum share, and a server-side deadline that either settles the booking or releases every hold.
+> **Plan together. Commit individually. Pay only when everyone is in.**
 
-Independent project for the **PayPal AI Hackathon 2026**. Uses **PayPal sandbox** payments only — no real money moves. "Outings" is a working name.
+**A group outing without anyone fronting the money.** Friends vote privately on a budget, each person authorizes only their maximum share with PayPal, and at the deadline the server either books it and charges each exact share, or releases every hold.
+
+Built for the **PayPal AI Hackathon 2026**. PayPal **sandbox** only: no real money moves.
 
 ![Outings landing page](docs/screenshots/landing.png)
 
-**Judges:** start with the [judge guide](docs/JUDGE_GUIDE.md) and the interactive [`/how-it-works`](docs/screenshots/how-it-works.png) page.
+**Judges:** the [judge guide](docs/JUDGE_GUIDE.md) gets you through the whole product in about 10 minutes.
+
+## Why
+
+| Today | With Outings |
+|---|---|
+| One friend pays the venue, then chases everyone for weeks. | Nobody fronts anything. Each person's money goes to the venue through PayPal. |
+| Nobody wants to be the one who says "that's too expensive". | **Budget poker:** votes are private and the reveal shows only the totals. |
+| Half the group commits, the booking falls through, refunds get messy. | Nobody is charged unless every required person commits by the deadline. |
 
 ## How it works
 
-1. **Brief** — the organizer writes a plain-language plan ("A karaoke night for Maya's birthday. Six of us, Friday evening. We want a private room and to cover Maya's share."). Claude extracts structured preferences (activity, date window, group size, budget unit, guest of honour) with schema-validated output.
-2. **Budget poker** — everyone privately suggests a TOTAL budget. Votes are private until reveal (enforced by the API), and the reveal shows only the aggregate. A vote is never a payment.
-3. **Invite** — Claude ranks a small merchant-owned catalogue; the organizer picks a quote (e.g. *The Sound Room — private karaoke room, $100 fixed total, up to 10 people*), optionally covers one guest of honour, and opens commitments with a deadline ≤ 48 h.
-4. **Commit** — each payer reviews the exact terms and authorizes their maximum ($100 / 5 payers = $20) through PayPal (Orders v2, intent AUTHORIZE). More payers lower the *estimated* share ($10 with 10 payers) — nothing is charged yet.
-5. **Deadline** — a durable server job (not a browser timer, not an LLM) freezes the roster. If every required person committed: capture each exact share (≤ their maximum, penny-exact) with `final_capture`. Otherwise: cancel and void every hold. If a capture fails mid-way: stop, void the rest, refund completed captures, and show the recovery.
-
-The merchant sees everything in an **AG Studio** dashboard with an AG Grid booking table, a custom *Booking Readiness* widget, and a safe natural-language query.
-
-## Quick start
-
-Requirements: Node ≥ 22.12, npm, Postgres 16.
-
-```bash
-npm ci
+```mermaid
+flowchart LR
+  A["Brief<br/>Claude reads the plan"] --> B["Budget poker<br/>private votes"]
+  B --> C["Pick a venue<br/>Claude ranks, organizer decides"]
+  C --> D["Commit<br/>each payer authorizes their maximum"]
+  D --> E{"Deadline<br/>server job"}
+  E -->|"every required person committed"| F["Capture each exact share<br/>release the rest of each hold"]
+  E -->|"someone required is missing"| G["Void every hold<br/>nobody is charged"]
 ```
 
-```bash
-cp .env.example .env.local
-```
+1. **Brief.** The organizer types the plan in their own words, or picks one of five starters. Claude extracts the activity, date, group size and budget.
+2. **Budget poker.** Everyone privately picks a total. The vote amounts fit the outing (a $60 padel court gets $30 to $120). The API never returns anyone else's vote, and the reveal needs at least 3 votes.
+3. **Pick a venue.** Claude ranks the venues' offerings against the brief and the agreed budget. The organizer can cover a guest of honour.
+4. **Commit.** Each payer reviews the exact terms and authorizes their maximum through PayPal: a $100 room split by 5 payers is a $20 hold. More payers lower the estimate; nothing is charged yet.
+5. **Deadline.** A durable server job, not a browser timer and not the AI, freezes the roster and decides. It captures penny-exact shares with `final_capture`, or voids every hold. If a capture fails midway it releases the rest and refunds what was taken.
 
-Create the role and databases that `DATABASE_URL` in `.env.example` points at (`postgres://outings:outings@localhost:5432/outings`). Run this as a Postgres superuser, for example `sudo -u postgres psql` on Linux or `psql postgres` with Homebrew. The `outings` role must own the database because the migrations create schemas.
-
-```sql
-CREATE ROLE outings LOGIN PASSWORD 'outings';
-CREATE DATABASE outings OWNER outings;
-CREATE DATABASE outings_test OWNER outings;  -- used by npm test (wiped by every test)
-CREATE DATABASE outings_e2e OWNER outings;   -- used by npm run test:e2e (wiped on every run)
-```
-
-To use an existing role or database instead, edit `DATABASE_URL` in `.env.local`.
-
-```bash
-npm run db:migrate && npm run db:seed
-```
-
-```bash
-npm run dev
-```
-
-```bash
-npm run worker   # second terminal: the deadline/settlement worker
-```
-
-Open http://localhost:3000 (consumer) and http://localhost:3000/merchant (dashboard). Without PayPal or Anthropic keys the app runs in clearly labelled **FIXTURE** modes (`DEMO_FIXTURES_ENABLED=true`): simulated approvals and deterministic AI parsing, never presented as real PayPal or real model output.
-
-- Like Next.js, `npm run db:migrate`, `db:seed`, `demo:reset` and `worker` read `.env.local` and then `.env`. Variables set in the shell take precedence over both files.
-- `SESSION_SECRET` can stay empty locally. The app then uses a random secret per process, so demo sessions reset when you restart `npm run dev`. To keep sessions across restarts, set it with `openssl rand -hex 32`. Production refuses to start without it.
-- If port 3000 is taken, run `npm run dev -- -p 3001` and set `APP_BASE_URL=http://localhost:3001` in `.env.local`. The fixture approval and invitation links are built from `APP_BASE_URL`.
-
-### Real PayPal sandbox
-
-1. In the PayPal Developer Dashboard create a sandbox REST app (Business merchant) and at least two Personal buyer accounts.
-2. Set `PAYPAL_CLIENT_ID`, `PAYPAL_CLIENT_SECRET` (and `PAYPAL_WEBHOOK_ID` for webhooks) in `.env.local`.
-3. Run the sandbox proof script: `npx tsx scripts/paypal-smoke.ts` (authorize $20 → capture $10 → void → refund), which writes redacted evidence to `docs/evidence/`. Approve each printed link as the sandbox **Personal** account, not the Business one (PayPal refuses a merchant paying itself); a private browser window avoids reusing a Business login. Each approval waits 10 minutes by default (`--approval-timeout=900` for 15).
-4. After a real outing settles, `npx tsx scripts/paypal-verify-outing.ts <outingId>` reads each authorization back from PayPal and checks it against the app's records (read-only; writes redacted evidence).
-
-### Real AI
-
-Set `OUTINGS_ANTHROPIC_API_KEY` (and optionally `OUTINGS_AI_MODEL`, default `claude-sonnet-5-5`). This is the app's runtime key, deliberately separate from any Claude Code credentials.
-
-## Tests
-
-```bash
-npm run typecheck
-```
-
-```bash
-npm test
-```
-
-Integration tests need a Postgres database at `TEST_DATABASE_URL` (default `postgres://outings:outings@localhost:5432/outings_test`, created above). `npm test` reads `TEST_DATABASE_URL` from the shell, not from `.env.local`.
-
-End-to-end tests drive real Chromium contexts (one per person) against the **production build** in FIXTURE modes: the canonical karaoke flow from brief to deadline settlement and the merchant dashboard, a required-guest-missing cancellation with voided holds, and the `/demo` persona hub. The deadline is enforced by the server; the tests advance the worker through the scheduler endpoint (`POST /api/cron/tick`).
-
-```bash
-npx playwright install chromium   # once, downloads the browser
-```
-
-```bash
-E2E_DATABASE_URL=postgres://outings:outings@localhost:5432/outings_e2e npm run test:e2e
-```
-
-This builds into `.next-e2e`, starts the app on port 3400 (it must be free), and **truncates and re-seeds the e2e database** (migrate + `demo:reset`). The database is `E2E_DATABASE_URL`, otherwise `DATABASE_URL` from the shell, otherwise the default `outings` database. The `DATABASE_URL` in `.env.local` is ignored here, so without `E2E_DATABASE_URL` the run wipes the default local demo database. `E2E_SKIP_BUILD=1` reuses an existing build; `E2E_SCREENSHOTS=1` refreshes `docs/screenshots/`.
-
-## Screenshots
-
-Captured by the e2e suite from the running app (FIXTURE payments and FIXTURE AI, labelled on every screen):
+Venues see every booking and every dollar in an [AG Studio](docs/research/AG_STUDIO.md) dashboard.
 
 | | | |
 |---|---|---|
 | ![Brief](docs/screenshots/brief.png) | ![Budget poker](docs/screenshots/budget-poker.png) | ![Invitation](docs/screenshots/invitation.png) |
-| ![Waiting](docs/screenshots/waiting.png) | ![Confirmed](docs/screenshots/confirmed.png) | ![Cancelled](docs/screenshots/cancelled.png) |
+| ![Waiting](docs/screenshots/waiting.png) | ![Confirmed](docs/screenshots/confirmed.png) | ![Merchant dashboard](docs/screenshots/merchant-dashboard.png) |
 
-![Merchant AG Studio dashboard](docs/screenshots/merchant-dashboard.png)
+## Where AI helps, and where it stops
 
-Organizer and merchant views: [reveal](docs/screenshots/reveal.png) · [sponsor & open](docs/screenshots/sponsor.png) · [merchant dashboard](docs/screenshots/merchant-dashboard.png) · [drill-down](docs/screenshots/merchant-drilldown.png) · [payments](docs/screenshots/merchant-drilldown-payments.png)
+Claude reads the brief, suggests budget vote amounts, ranks venues, summarizes the vote, drafts the organizer's plan and turns a venue's question into a dashboard filter. **It never decides money.** Every output is schema-validated and [re-checked](lib/ai/validate.ts) against real data before it is shown, and every payment decision is made by [deterministic rules](lib/domain/policy.ts). Details: [architecture](docs/ARCHITECTURE.md).
 
-## Documentation
+## What is real
 
-- [Judge guide](docs/JUDGE_GUIDE.md) · [Demo video script](docs/DEMO_SCRIPT.md) · [Devpost draft](docs/HACKATHON_SUBMISSION.md)
-- [Product & financial spec](docs/PRODUCT_SPEC.md)
-- [Architecture](docs/ARCHITECTURE.md)
-- [Module contracts & HTTP API](docs/CONTRACTS.md)
-- [Design system](docs/design/DESIGN_SYSTEM.md)
-- [PayPal integration research](docs/research/PAYPAL.md) · [AG Studio research](docs/research/AG_STUDIO.md)
-- [Security & limitations](docs/SECURITY_AND_LIMITATIONS.md) · [Testing](docs/TESTING.md) · [Deployment](docs/DEPLOYMENT.md)
-- [Source provenance](docs/PROVENANCE.md)
-- [Handoff / status](docs/HANDOFF_TO_CODEX.md)
+| Piece | Status |
+|---|---|
+| PayPal Orders v2 (authorize, under-capture, void, refund) | **Verified in the PayPal sandbox**, including one full outing settled through the app ([evidence](docs/evidence/README.md)) |
+| Deadline engine, splitting, consent, access control | Real code in every mode; 440 automated tests, most against a real Postgres, plus 6 browser tests ([testing](docs/TESTING.md)) |
+| Claude | Real API when `OUTINGS_ANTHROPIC_API_KEY` is set; otherwise a deterministic parser labelled **Fixture AI**. Real calls not yet verified. |
+| Payments without PayPal keys | A simulator labelled **Fixture · not real PayPal** on every screen |
+| Venues | Five fictional Copenhagen venues with a demo catalogue. A confirmed outing means the group's money was collected for the venue, not that a real venue reserved anything. |
 
-## Known limitations
+Limits and the threat model: [security and limitations](docs/SECURITY_AND_LIMITATIONS.md).
 
-- Verified against the PayPal sandbox: the adapter (authorize, $10-of-$20 final capture, void, refund) and one full outing through the app ($50 holds, $33.34/$33.33/$33.33 captured at the deadline) ([evidence](docs/evidence/README.md)). Webhook signature verification and negative testing are not yet verified (see the handoff).
-- One merchant, one currency (USD), fixed-total pricing for shared bookings.
-- AG Studio is commercial software used under its evaluation trial; AG Grid Community is MIT.
+## Run it (about 5 minutes)
+
+Needs Node 22.12 or newer and Postgres 16.
+
+```bash
+npm ci
+cp .env.example .env.local
+# as a Postgres superuser:
+#   CREATE ROLE outings LOGIN PASSWORD 'outings';
+#   CREATE DATABASE outings OWNER outings;
+npm run db:migrate && npm run db:seed
+npm run dev        # http://localhost:3000
+npm run worker     # second terminal: the deadline worker
+```
+
+Then open `/new`, pick a starter, and use the **Acting as** bar to play every person from one browser. The [judge guide](docs/JUDGE_GUIDE.md) has the full path, PayPal sandbox setup and the test commands.
+
+## Built with
+
+Next.js 16 · TypeScript (strict) · Postgres 16 with Drizzle · PayPal Orders v2 and Payments v2 · Claude (structured outputs) · AG Studio and AG Grid · Vitest and Playwright
+
+## Docs
+
+- **For judges:** [judge guide](docs/JUDGE_GUIDE.md) · [architecture](docs/ARCHITECTURE.md) · [security and limitations](docs/SECURITY_AND_LIMITATIONS.md) · [testing](docs/TESTING.md) · [PayPal evidence](docs/evidence/README.md)
+- **For builders:** [product spec](docs/PRODUCT_SPEC.md) · [module contracts and API](docs/CONTRACTS.md) · [design system](docs/design/DESIGN_SYSTEM.md) · [PayPal research](docs/research/PAYPAL.md) · [deployment](docs/DEPLOYMENT.md) · [status](docs/HANDOFF_TO_CODEX.md) · [provenance](docs/PROVENANCE.md)
 
 ## License
 
-MIT — see [LICENSE](LICENSE). Third-party notices in [docs/PROVENANCE.md](docs/PROVENANCE.md).
+MIT, see [LICENSE](LICENSE). AG Studio is commercial software used under its evaluation trial; AG Grid Community is MIT. Third-party notices: [provenance](docs/PROVENANCE.md).

@@ -73,7 +73,7 @@ npm run typecheck && npm test
 E2E_DATABASE_URL=postgres://outings:outings@localhost:5432/outings_e2e npm run test:e2e   # Playwright against a production build (wipes that db)
 ```
 
-Last results (owner's Windows 11 machine, Postgres 16 in Docker, 9 Nov 2026): `tsc` clean · eslint clean · `npx vitest run` 35 files / **440 passed** · `npm run test:e2e` **6/6 passed** · `docker build` succeeds.
+Last results (owner's Windows 11 machine, Postgres 16 in Docker, 8 Nov 2026): `tsc` clean · eslint clean · `npx vitest run` 35 files / **440 passed** · `npm run test:e2e` **6/6 passed** · `docker build` succeeds.
 
 Earlier results (cloud session, 4 Nov 2026): `npx tsc --noEmit` clean · `npx eslint .` 0 problems · `npx vitest run` 28 files / **346 passed** · `npm run test:e2e` **6/6 passed** (karaoke settle, holdout cancel, organizer cancel, demo hub, capture-failure compensation, big-group $10-from-$20 under-capture) · `next build` passes.
 

@@ -91,8 +91,8 @@ export function toJsonSchema(schema: z.ZodType): Record<string, unknown> {
   return js;
 }
 
-/** Newer model families reject non-default sampling params and take `effort`. */
-function isModernModel(model: string): boolean {
+/** Model families that take `output_config.effort`. */
+export function isModernModel(model: string): boolean {
   return /^claude-(sonnet-5|opus-5|opus-4-[6-9]|fable|mythos|haiku-5)/.test(model);
 }
 
@@ -128,7 +128,7 @@ export class AnthropicOutingsAi implements OutingsAi {
         format: { type: "json_schema", schema: toJsonSchema(schema) },
         ...(isModernModel(this.model) ? { effort: "low" } : {}),
       },
-      ...(isModernModel(this.model) ? {} : { temperature: 0.2 }),
+      // No temperature: the API version the SDK sends (2026-10-21) rejects sampling params on every model.
     };
 
     let res: AnthropicMessageLike | null | undefined;

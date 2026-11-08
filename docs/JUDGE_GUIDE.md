@@ -1,153 +1,103 @@
 # Judge guide
 
-Outings is an independent project for the PayPal AI Hackathon 2026. It is not a PayPal product and uses **PayPal sandbox** only; no real money moves.
+Outings lets a group book an outing without anyone fronting the money: private budget vote, PayPal holds of each person's maximum, and a server deadline that books it or releases everything. This guide walks you through it in about 10 minutes, from one browser.
 
-**What it is.** A group plans an outing, votes privately on a budget, and each person authorizes only their *maximum* share through PayPal. A server-side deadline job then either captures each person's exact share (penny-exact, never above their maximum) or voids every hold.
-**Why it matters.** Splitting a group booking today means one friend fronts the money and chases everyone. Here the money goes straight to the experience merchant and nobody is charged unless the whole agreed group commits.
+Two things to know first. Payments are **PayPal sandbox** only. Without API keys the app runs in **fixture** modes that are labelled on every screen ("Fixture · not real PayPal", "Fixture AI"); [section 6](#6-real-simulated-and-verified) lists exactly what is real.
 
-Read this before you start: some parts of the demo are **FIXTURE** (simulated and labelled as such on screen). Section 5 lists exactly which, and section 6 lists what has not been verified against the real services.
+## 1. The 10-minute path
 
-## 1. Fastest way to evaluate (about 10 minutes)
-
-| Minutes | Do this |
-|---|---|
-| 0-1 | Skim section 5 (fixture vs real). Optionally open **`/how-it-works`** and try the split calculator (same `lib/domain/money.ts` functions the server uses). |
-| 1-4 | Section 3: the consumer click path at `/demo`. Start a deadline scenario (3a) first so it is due by the time you finish. |
-| 4-6 | Section 3a: watch the deadline settle, cancel and compensate. Section 4: the merchant dashboard at `/merchant` (Bookings page, Money page, saved views). |
-| 6-9 | Section 7: read `decideSettlement`, `equalSplit`, and the compensation tests. |
-| 9-10 | Run `npm run typecheck && npm test` (section 8), or check the CI result. |
-
-## 2. Run it locally
-
-Requirements: Node >= 22.12, npm, Postgres 16.
-
-First create the Postgres role and databases that `.env.example` points at, as a Postgres superuser (for example `sudo -u postgres psql` on Linux or `psql postgres` with Homebrew). The role must own the databases because the migrations create schemas:
-
-```sql
-CREATE ROLE outings LOGIN PASSWORD 'outings';
-CREATE DATABASE outings OWNER outings;
-CREATE DATABASE outings_test OWNER outings;  -- for npm test
-```
-
-```bash
-npm ci
-cp .env.example .env.local
-npm run db:migrate && npm run db:seed
-npm run dev               # http://localhost:3000
-npm run worker            # second terminal: deadline/settlement worker
-```
-
-The scripts (`db:migrate`, `db:seed`, `demo:reset`, `worker`) read `.env.local` and then `.env`, like Next.js. Variables set in the shell take precedence. Keep `DEMO_FIXTURES_ENABLED=true`, which enables the labelled FIXTURE payment and AI modes, the demo seed, and persona switching. `SESSION_SECRET` and `CRON_SECRET` may stay empty locally. Without `SESSION_SECRET` the app uses a random secret per process, so demo sessions reset when the dev server restarts; set it with `openssl rand -hex 32` to keep them. Without `CRON_SECRET`, `POST /api/cron/tick` is open, but only in demo mode outside production. If you run on another port (`npm run dev -- -p 3001`), set `APP_BASE_URL` to match, because the fixture approval links are built from it. `npm run demo:reset` truncates every app table and re-seeds; `npm run db:seed` replaces only the fixture outings.
-
-A hosted demo URL: **TODO: add the hosted URL once deployed (see [DEPLOYMENT.md](DEPLOYMENT.md)). Until then, run locally.**
-
-## 3. The 3-minute consumer click path
-
-0. Optional: open **`/how-it-works`** (linked from the landing page). It explains the flow, what happens at the deadline and where AI stops, and has an interactive **split calculator**: change the total, payer count and sponsored guests and see the penny-exact split, the cap and the estimate, computed by the real `equalSplit`, `perPayerCap` and `estimatedShare`.
-   ![How it works](screenshots/how-it-works.png)
-
-![Brief](screenshots/brief.png)
-
-1. Open **`/demo`**. It lists personas for the seeded outing "Maya's birthday karaoke" (a $100 fixed-total private karaoke room at The Sound Room, capacity 10) and a second "Friday game night" outing for budget poker. Both pages show FIXTURE badges.
-2. **Budget poker** (the game night persona set). Switch between personas and cast votes. Each voter sees only their own vote. The API never returns other people's amounts, before or after the reveal. The organizer reveals once at least 3 people have voted, and the reveal shows an aggregate distribution only (no names).
-   ![Budget poker](screenshots/budget-poker.png) ![Reveal](screenshots/reveal.png)
-3. **Sponsored guest** (organizer view of the karaoke outing). The organizer covers Maya, the birthday guest. $100 over 5 payers gives **$20 each**, and Maya pays $0. Maya still has to accept attendance.
-   ![Sponsor](screenshots/sponsor.png)
-4. **Invitation and commit**. Switch to **Noor**, the one required payer who has not committed in the seed. Open the invitation, read the exact terms, and commit. The copy reads "Authorize up to $20. Your final share may be lower." The consent is bound to a hash of the terms.
-   ![Invitation](screenshots/invitation.png)
-5. **Fixture approval**. Pressing the pay button opens our own clearly labelled "Fixture, not real PayPal" approval page. Approve it. With real sandbox credentials this step is a redirect to PayPal instead (section 6).
-6. **Waiting**. Noor sees "$20 authorized, estimated final share $10 if 10 people pay, not charged yet". The hold stays $20 even when the estimate drops.
-   ![Waiting](screenshots/waiting.png)
-7. **Worker tick, then confirmed**. The seeded deadline is about 2 hours away, so use the scenarios in section 3a to watch settlement in about 2 minutes. At the deadline the worker freezes the roster, captures each exact share with `final_capture`, and the outing becomes **Confirmed**.
-   ![Confirmed](screenshots/confirmed.png)
-8. **Cancelled path**. If a required person never commits, the same job cancels the outing and voids every hold. The seed already contains a confirmed and a cancelled outing so you can see both without waiting.
-   ![Cancelled](screenshots/cancelled.png)
-
-### 3a. Watch a deadline settle (one-click scenarios, about 2 minutes each)
-
-On `/demo`, the **Watch a deadline settle** section creates a fresh demo outing at The Sound Room ($100 private karaoke room, capacity 10, Maya sponsored, Friday 19:00) whose commitment deadline is 1, 1.5, 2 (default) or 5 minutes away. Pick a scenario and press **Start (closes in 2 min)**. The panel that appears shows a countdown against the server clock, every person with an **Open as …** button, a **Process due work now** button, and **Open merchant drill-down**.
-
-| Scenario | Do this | What you should see |
+| Minutes | Do | You'll see |
 |---|---|---|
-| **The last payer commits in time** | Open as **Noor**, review the terms and authorize $20 before the countdown ends. Wait for "Deadline passed", then press **Process due work now** (or let `npm run worker` do it). | Confirmed. Five payers captured $20 each, Maya $0, never above anyone's $20 maximum. |
-| **A required guest holds out** | Do nothing as Noor. After the deadline, process due work. | Cancelled ("A required guest didn't commit before the deadline"), no booking payment collected, all four holds released. |
-| **A capture fails mid-settlement** | After the deadline, process due work, open as **Ben**, then process again a few seconds later. | Never confirmed. Alex, Ben and Freya are captured, Jules's capture is declined, Noor's capture is skipped. Jules's and Noor's holds are released and the three captures refunded. First pass: "Booking not confirmed. A payment failed; completed payments are being refunded." (clean-up: refund pending, because the response to Ben's refund was lost). Second pass: the refund is read back from the provider, not sent twice, and the clean-up is complete. The merchant drill-down lists three succeeded Refund operations and two Release hold operations. |
-| **Ten friends share the room** | Start it, open as **Kai** (the tenth payer), review the terms and authorize $20: "estimated final share $10". Wait for "Deadline passed", then press **Process due work now**. | Confirmed. All ten payers each authorized a $20 maximum and are each charged exactly $10 (total $100) from their $20 hold; the rest of each hold is released (under-capture, final capture). Fixture simulator, not real PayPal. |
+| 0-3 | [Plan your own outing](#3-plan-your-own-outing-in-one-browser) from a starter, playing every person | Private budget poker, AI venue ranking, consent to exact terms |
+| 3-6 | [Watch a deadline settle](#4-watch-a-deadline-settle) | Penny-exact capture, a cancellation, and a failed capture being unwound |
+| 6-8 | [Open the venue's dashboard](#5-the-venues-dashboard) | Bookings and money in AG Studio, a safe natural-language filter |
+| 8-10 | [Read the hard parts](#7-where-the-hard-parts-are) | The code and tests behind each money rule |
 
-What is real and what is simulated here:
+Optional: `/how-it-works` explains the flow and has a split calculator running the server's own [money functions](../lib/domain/money.ts).
 
-- **Real code paths.** Collection is opened by the real `openCollection` service (deadline validation, availability, `buildCommitmentTerms` / `hashTerms`, the deadline job). Maya's acceptance, each payer's consent and each hold go through the real `respond`, `consent`, `startPayment` and `approveFixturePayment` services. Settlement, capture, compensation and reconciliation are the unmodified engine (`runWorkerTick`). Only the earlier history (brief, private votes, reveal, proposal) is seeded, with the labelled FIXTURE parser.
-- **Simulated.** Every scenario hold, capture, void and refund is **FIXTURE** ("Fixture, not real PayPal"), even when PayPal sandbox keys are configured. The capture-failure scenario tells the simulator to decline Jules's capture and to drop the response to Ben's refund (`setFixtureFailure`: `DECLINE`, `TIMEOUT_AFTER`). Nothing here is evidence about PayPal's own behaviour.
-- **"Process due work now"** (`POST /api/demo/tick`) runs one pass of the same worker the scheduler runs. It only processes work that is already due: the engine freezes and settles against the stored deadline using the database clock, so pressing it early changes nothing (try it). It exists only in demo mode, and only outside production unless `DEMO_ALLOW_PUBLIC_TICK=true` is set; on a hosted demo the background worker settles within seconds anyway.
-- Scenario runs also appear under "Every other outcome" and in the merchant dashboard. **Reset demo data** removes them.
+![How it works](screenshots/how-it-works.png)
 
-To build a settlement yourself instead, create an outing at `/new` with a "Commit by" time 1 to 2 minutes ahead (the minimum window is 1 minute), have the required people commit, and let `npm run worker` run (`npm run worker:once` runs a single tick).
+## 2. Run it
 
-### 3b. Plan your own outing in one browser (starters and judge mode)
+Follow [Run it in the README](../README.md#run-it-about-5-minutes) (Node 22.12+, Postgres 16, about 5 minutes). Then:
 
-No invitation links or private windows needed. Demo mode only.
+- Keep `DEMO_FIXTURES_ENABLED=true` in `.env.local`. It turns on the fixture modes, the demo data and judge mode.
+- `SESSION_SECRET` and `CRON_SECRET` may stay empty locally. Without `CRON_SECRET` the deadline tick is open, but only in demo mode outside production.
+- On another port, set `APP_BASE_URL` to match: approval and invitation links are built from it.
+- `npm run demo:reset` wipes and re-seeds everything; `npm run db:seed` replaces only the demo outings.
 
-1. Open **`/new`** and click a starter: *Karaoke for Maya's birthday*, *Movie night*, *Wine tasting with the girlies*, *Gym session at the new gym with the boys* or *Padel doubles*. It fills in the brief, and you can edit it. Each starter matches a fictional venue with one price for the whole group (for example a $60 padel court for four, or a $240 wine tasting table for up to eight).
-2. The budget vote amounts fit the outing. In FIXTURE mode, for example, padel offers $30 to $120 and wine tasting $150 to $600. The AI may suggest them, but the server only accepts five valid amounts that include any budget the brief states. Otherwise it builds them from the brief or the venue's price, and records which basis it used.
-3. On the invite step, tap names from **Demo friends** (or **Add all**) instead of typing them. Invitation links are still created and still work.
-4. The **"Demo: acting as …"** bar on the outing page lists everyone with what they still need to do ("needs to vote", "needs to commit"). Press **Switch** to become that person, and follow the **Next:** line ("Next: switch to Ben and vote"). Votes stay private: the bar shows who has voted, never the amount.
-5. To see the booking from the venue's side, sign in at **`/merchant/login`** and pick that venue in the demo login.
+**Real PayPal sandbox (optional).** Create a sandbox REST app and a Personal buyer account in the PayPal Developer Dashboard, set `PAYPAL_CLIENT_ID` and `PAYPAL_CLIENT_SECRET`, and approve payments as the **Personal** account (PayPal refuses a business paying itself; a private window helps). `npx tsx scripts/paypal-smoke.ts` proves the adapter and writes redacted [evidence](evidence/README.md).
 
-With PayPal sandbox keys configured, a real approval still needs the sandbox *buyer* login on PayPal's page. Don't switch people while PayPal's page is open: the return only completes for the person who started the payment, so switch back to them if you did.
+**Real Claude (optional).** Set `OUTINGS_ANTHROPIC_API_KEY` (default model `claude-sonnet-5-5`, override with `OUTINGS_AI_MODEL`). `npx tsx scripts/ai-smoke.ts` checks every AI call.
 
-## 4. The merchant dashboard (AG Studio)
+## 3. Plan your own outing in one browser
 
-1. Open **`/merchant`** and use the one-click **demo login** (demo mode only; otherwise the password is `MERCHANT_DASHBOARD_PASSWORD`). Pick a venue in the demo login to see its bookings; The Sound Room holds the seeded outings and scenarios.
-2. The dashboard is a two-page AG Studio report. Switch pages with the **Bookings / Money** tabs.
-   - **Bookings** page: KPI value widgets (open, closing today, captured, refunds pending), bookings by status, money by stage, the custom **Booking Readiness** widget (how close each open outing is to being bookable), and an AG Grid bookings table. Clicking a bar, slice or readiness row cross-filters everything on the page, including the KPIs.
-   - **Money** page: KPIs, the custom **Money flow** widget (per outing, where each authorized dollar went: kept, refund due, refunded, still on hold), captured vs refunded, and holds outstanding. Authorized holds are never counted as revenue. After running the capture-failure scenario (3a), find that outing here: it shows captured money moving into refund due, then refunded.
+Judge mode (demo mode only) lets you play every person without invitation links or private windows.
+
+1. **Brief.** Open `/new`, enter a name and click a starter: *Karaoke for Maya's birthday*, *Movie night*, *Wine tasting with the girlies*, *Gym session at the new gym with the boys* or *Padel doubles*. Each matches a fictional venue with one price for the group. The right panel shows what the AI understood.
+   ![Brief](screenshots/brief.png)
+2. **Invite.** Start budget poker, then tap names under **Demo friends** (or type them). Invitation links are still created and still work.
+3. **Vote.** The vote amounts fit the outing: padel offers $30 to $120, wine tasting $150 to $600. Vote, then use the **Acting as** bar: press **Switch** next to the next person and follow its **Next:** line. The bar shows who has voted, never the amount.
+   ![Budget poker](screenshots/budget-poker.png)
+4. **Reveal.** Back as the organizer, reveal once 3 people have voted. You see only how many votes each amount got, the range and the median; no names. Agree the suggested budget, pick another, or run another round.
+   ![Reveal](screenshots/reveal.png)
+5. **Pick and open.** The AI ranks the venues against the brief and the budget (with fixture AI, the starter's own venue comes first). Optionally cover a guest of honour, then open commitments with a deadline 1 minute to 48 hours away.
+   ![Sponsor and open](screenshots/sponsor.png)
+6. **Commit.** Switch to each payer, review the exact terms ("Authorize up to $20. Your final share may be lower.") and approve. Without PayPal keys this is the labelled fixture approval page; with keys it is PayPal's sandbox checkout. Consent is bound to a hash of the terms, so any change to price, date or deadline requires consent again.
+   ![Invitation](screenshots/invitation.png) ![Waiting](screenshots/waiting.png)
+7. **Deadline.** After it passes, `npm run worker` (or **Process due work now** on `/demo`) settles the outing: confirmed with each exact share captured, or cancelled with every hold released.
+   ![Confirmed](screenshots/confirmed.png) ![Cancelled](screenshots/cancelled.png)
+
+With real PayPal, don't switch people while PayPal's page is open: the return only completes for the person who started the payment.
+
+## 4. Watch a deadline settle
+
+On `/demo`, **Watch a deadline settle** creates a fresh karaoke outing ($100 room, Maya covered, 5 payers at $20) whose deadline is 1 to 5 minutes away. Pick a scenario, press **Start**, and use the **Open as …** and **Process due work now** buttons.
+
+| Scenario | Do | Result |
+|---|---|---|
+| Last payer commits in time | Open as Noor, authorize $20 before the countdown ends, then process due work | Confirmed: five payers charged $20, Maya $0 |
+| A required guest holds out | Do nothing, then process due work | Cancelled: no payment collected, all holds released |
+| A capture fails midway | Process due work, then again a few seconds later | Never confirmed: Jules's capture is declined, the other holds released and the three captures refunded; a lost refund response is read back, not sent twice |
+| Ten friends share the room | Open as Kai, authorize $20 (estimate $10), then process due work | Confirmed: each of ten payers charged exactly $10 from a $20 hold |
+
+The services and the settlement engine are the real ones; only the payment provider is the fixture simulator, with failures injected on purpose. **Process due work now** runs the same worker as the scheduler and can't settle early: the deadline is checked against the database clock.
+
+## 5. The venue's dashboard
+
+1. Open `/merchant/login`, choose a venue in the demo login (The Sound Room holds the seeded outings and scenarios) and sign in.
+2. **Bookings** and **Money** pages in AG Studio: KPIs, bookings by status, the custom *Booking Readiness* and *Money flow* widgets, and an AG Grid table. Clicking a chart cross-filters the page. Holds are never counted as revenue.
    ![Merchant dashboard](screenshots/merchant-dashboard.png) ![Merchant money](screenshots/merchant-money.png)
-   - **Saved views** dropdown: "Closing today with missing required", "Recovery in progress", "Confirmed this week". Each applies a visible plain-language rule through Studio's report state; choose "all bookings" to clear it.
-3. Ask the natural-language box: **"Show outings closing today with missing required participants."** The model (or the labelled fixture parser) returns a validated, read-only filter. It cannot capture, void or refund anything.
-4. Click an outing name in the Bookings table (or **View details** in Booking Readiness) to open the **drill-down**. Clicking elsewhere in a row cross-filters the page instead. Scenario outings started twice have the same title, so their names are not links; open those from **Open merchant drill-down** on `/demo`. The drill-down shows per-participant status, the authorized vs allocated vs captured vs refunded money (kept as separate figures), the payment operations, and a retry for failed operations that already exist.
-   ![Merchant drill-down](screenshots/merchant-drilldown.png) ![Payments](screenshots/merchant-drilldown-payments.png)
+3. Ask: *"Show outings closing today with missing required participants."* The AI returns a validated, read-only filter; it cannot move money.
+4. Click an outing name for the drill-down: each person's status, money authorized vs allocated vs captured vs refunded, the payment operations, and a retry for failed ones.
+   ![Merchant drill-down](screenshots/merchant-drilldown.png)
 
-## 5. Fixture vs real
+## 6. Real, simulated, and verified
 
-| Piece | Default without keys | With keys |
+| Piece | Without keys | With keys | Verified |
+|---|---|---|---|
+| Payments | Fixture simulator, labelled | PayPal sandbox, Orders v2 | **Yes, 7 Nov 2026:** authorize, $10-of-$20 final capture, idempotent replay, void, refund, and one full outing settled through the app ([evidence](evidence/README.md)) |
+| AI | Deterministic parser, labelled "Fixture AI" | Claude, structured outputs | Not yet against the real API; tests use a mocked SDK |
+| Deadline, splitting, consent, access | Real code | Real code | 440 automated tests and 6 browser tests ([testing](TESTING.md)) |
+| Demo scenarios on `/demo` | Fixture, always | Fixture, always | Real services, simulated provider |
+
+Not verified: PayPal webhook signatures against real deliveries, PayPal negative testing, and any hosted deployment. `GET /api/health` shows the active modes without secrets. Limits and threat model: [security and limitations](SECURITY_AND_LIMITATIONS.md).
+
+## 7. Where the hard parts are
+
+| Rule | Code | Proof |
 |---|---|---|
-| Payments | **FIXTURE** simulator (persistent, with failure injection), labelled "Fixture, not real PayPal" | PayPal **sandbox** via Orders v2 and Payments v2, set `PAYPAL_CLIENT_ID`, `PAYPAL_CLIENT_SECRET` (and `PAYPAL_WEBHOOK_ID` for webhooks) |
-| AI | **FIXTURE** deterministic parser, labelled; never shown as model output | Anthropic Claude via `OUTINGS_ANTHROPIC_API_KEY` (optional `OUTINGS_AI_MODEL`, default `claude-sonnet-5-5`) |
-| AG Studio | Trial mode (evaluation watermark off localhost). The Studio agent panel is available only with the Anthropic key | `AG_STUDIO_LICENSE_KEY` |
-| Seeded outings | All flagged `isFixture`, created through the real fixture provider and real `decideSettlement` | n/a |
-| Deadline scenarios (`/demo`) | `isFixture` outings opened, consented and authorized through the real services; settled by the real worker; failures injected into the simulator | Still FIXTURE (scenarios never use PayPal sandbox) |
-| Deadline job, settlement, splitting, consent, access control | Real code in both modes | Same |
+| Penny-exact split: the first `total % N` payers get one extra cent | [money.ts](../lib/domain/money.ts) `equalSplit` | [money.test.ts](../tests/domain/money.test.ts) |
+| Settle or cancel, failing closed on anything unverifiable | [policy.ts](../lib/domain/policy.ts) `decideSettlement` | [policy.test.ts](../tests/domain/policy.test.ts) |
+| Consent bound to the exact terms | [policy.ts](../lib/domain/policy.ts) `hashTerms` | [outings.test.ts](../tests/services/outings.test.ts) |
+| Deadline freeze and snapshot | [deadline.ts](../lib/settlement/deadline.ts) | [deadline.test.ts](../tests/settlement/deadline.test.ts) |
+| Sequential capture, then void the rest and refund on failure | [operations.ts](../lib/settlement/operations.ts) | [operations.test.ts](../tests/settlement/operations.test.ts), [compensation.spec.ts](../tests/e2e/compensation.spec.ts) |
+| Unknown outcomes reconciled before any retry | [reconcile.ts](../lib/settlement/reconcile.ts), [paypal.ts](../lib/payments/paypal.ts) | [operations.test.ts](../tests/settlement/operations.test.ts) |
+| Private budget votes | [views.ts](../lib/services/views.ts) | [access.test.ts](../tests/access/access.test.ts) |
+| AI suggests, rules decide | [validate.ts](../lib/ai/validate.ts), [budget-options.ts](../lib/domain/budget-options.ts) | [ai.test.ts](../tests/ai/ai.test.ts), [budget-options.test.ts](../tests/domain/budget-options.test.ts) |
+| Judge mode can't cross outings or hijack a payment | [judge-persona.ts](../lib/demo/judge-persona.ts) | [judge-persona.test.ts](../tests/services/judge-persona.test.ts) |
 
-`GET /api/health` reports the active modes without secrets.
-
-To use real sandbox payments: create a sandbox REST app (Business merchant) and at least two Personal buyer accounts in the PayPal Developer Dashboard, set the variables above, and set `APP_BASE_URL` to the URL PayPal can redirect back to. The proof script is `npx tsx scripts/paypal-smoke.ts` (authorize $20, capture $10, void, refund). It writes redacted evidence to `docs/evidence/`. The matching check for Claude is `npx tsx scripts/ai-smoke.ts`, run by the owner with `OUTINGS_ANTHROPIC_API_KEY` set; no run is recorded yet.
-
-## 6. What has and has not been verified
-
-Read [HANDOFF_TO_CODEX.md](HANDOFF_TO_CODEX.md) for the authoritative status matrix. In short:
-
-- **Automated tests** cover the domain rules, the settlement engine and the PayPal adapter (the adapter against a mocked `fetch`).
-- **Verified against the PayPal sandbox (7 Nov 2026):** `scripts/paypal-smoke.ts` drives the app's real adapter: authorize $20, capture $10 with `final_capture` (the authorization then reads `CAPTURED` and the remainder is released), idempotent capture replay, void (capture afterwards refused with `AUTHORIZATION_VOIDED`), full capture and refund. Then one **full outing through the app in `PAYPAL_SANDBOX` mode**: three payers approved $50 holds through the app's redirect flow (minimum payers 2), and one scheduler tick after the deadline captured $33.34/$33.33/$33.33 and confirmed the booking; `scripts/paypal-verify-outing.ts` read every authorization back from PayPal and they match. Redacted evidence: [evidence/README.md](evidence/README.md).
-- **Not yet verified against PayPal:** webhook signature verification against real deliveries, and the `PayPal-Mock-Response` header. Open items: [research/PAYPAL.md](research/PAYPAL.md) section 14.
-- **Not yet verified against Anthropic:** tests use a mocked SDK. TODO: record a real call (`scripts/ai-smoke.ts`).
-- **Verified locally (FIXTURE modes):** 440 Vitest tests in 35 files against Postgres 16, 6 Playwright end-to-end tests (karaoke settle, holdout cancel, organizer cancel, demo hub, capture-failure compensation, big-group under-capture), eslint and `tsc` clean, `next build` and `docker build` pass. Three independent audits are done and their fixes have regression tests in `tests/audit`, `tests/audit2` and `tests/audit3`.
-- TODO: hosted URL, demo video URL and AG Studio trial expiry are not recorded.
-
-## 7. Where the hard parts are in the code
-
-| Hard part | Look at | Test that proves it |
-|---|---|---|
-| Penny-exact split: `base = floor(total/N)`, the first `total % N` payers get +1 cent in a stable order | `equalSplit`, `perPayerCap`, `estimatedShare` in `lib/domain/money.ts` | `tests/domain/money.test.ts` ("always sums exactly to the total...") |
-| The settle-or-cancel decision, fail closed on anything unverifiable | `decideSettlement` in `lib/domain/policy.ts` | `tests/domain/policy.test.ts` (two `describe` blocks: canonical examples, ALL_REQUIRED and fail-closed rules) |
-| Consent bound to exact terms | `buildCommitmentTerms`, `hashTerms` (SHA-256 of canonical JSON) in `lib/domain/policy.ts` | "any material change produces a different hash"; `tests/services/outings.test.ts` "rejects stale consent after the terms change" |
-| Deadline job, freeze, snapshot, planning operations | `lib/settlement/deadline.ts` | `tests/settlement/deadline.test.ts` |
-| Sequential capture, partial failure, compensation (void the rest, refund the captured) | `lib/settlement/operations.ts` (`processDueOperations`, `finalizeOuting`, `recomputeCleanup`) | `tests/settlement/operations.test.ts` "partial group capture failure"; end to end through the demo scenario: `tests/services/demo-scenarios.test.ts` and the browser test `tests/e2e/compensation.spec.ts` |
-| UNKNOWN outcomes reconciled before any retry; same `PayPal-Request-Id` | `lib/settlement/operations.ts`, `lib/settlement/reconcile.ts`, `lib/payments/paypal.ts` | "UNKNOWN outcomes are reconciled before any retry", "two concurrent worker ticks send each capture exactly once" |
-| Late authorizations are voided, never admitted | `lib/settlement/reconcile.ts`, `lib/services/payments.ts` | `tests/payments/service.test.ts` race-rule tests |
-| Private budget votes | `lib/services/views.ts`, `lib/services/outings.ts` | `tests/access/access.test.ts` "never exposes other people's vote amounts" |
-| AI never decides money | `lib/ai/*` (output validated and clamped), `lib/ai/validate.ts` | `tests/ai/ai.test.ts` validation block; prompt-injection tests in `tests/services` and `tests/access` |
-
-Architecture diagrams and the invariants list are in [ARCHITECTURE.md](ARCHITECTURE.md); the full test map is in [TESTING.md](TESTING.md); limits and threat model are in [SECURITY_AND_LIMITATIONS.md](SECURITY_AND_LIMITATIONS.md).
+Diagrams and invariants: [architecture](ARCHITECTURE.md).
 
 ## 8. Run the tests
 
@@ -156,4 +106,11 @@ npm run typecheck
 npm test
 ```
 
-Integration tests need Postgres at `TEST_DATABASE_URL` (default `postgres://outings:outings@localhost:5432/outings_test`, created in section 2). `npm test` reads it from the shell, not from `.env.local`. CI (`.github/workflows/ci.yml`) runs migrate, typecheck, lint and tests against Postgres 16.
+`npm test` needs Postgres at `TEST_DATABASE_URL` (default database `outings_test`, read from the shell). Browser tests run the production build on port 3400 and wipe their database:
+
+```bash
+npx playwright install chromium
+E2E_DATABASE_URL=postgres://outings:outings@localhost:5432/outings_e2e npm run test:e2e
+```
+
+CI runs migrate, typecheck, lint and tests on Postgres 16 ([ci.yml](../.github/workflows/ci.yml)). More: [testing](TESTING.md).
