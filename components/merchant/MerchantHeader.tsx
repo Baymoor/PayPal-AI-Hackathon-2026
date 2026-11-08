@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
+import { FIXTURE_PAYMENT_LABEL } from "@/components/ui/Badge";
 import { merchantLogout } from "./api";
 import { usePaymentMode } from "./modes";
 
@@ -35,7 +36,7 @@ export function MerchantHeader({ merchantName = null }: { merchantName?: string 
         <span className="m-merchant">{merchantName ? `${merchantName} · Merchant` : "Merchant"}</span>
         <span className="m-header-sp" />
         {paymentMode === "PAYPAL_SANDBOX" && <span className="m-badge" data-tone="navy">PayPal sandbox</span>}
-        {paymentMode === "FIXTURE" && <span className="m-badge" data-tone="fixture">Fixture payments · not real PayPal</span>}
+        {paymentMode === "FIXTURE" && <span className="m-badge" data-tone="fixture">{FIXTURE_PAYMENT_LABEL}</span>}
         {paymentMode === "DISABLED" && <span className="m-badge">Payments off</span>}
         {!onLogin && (
           <Link href="/setup" className="m-setup-link">

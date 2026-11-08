@@ -12,7 +12,7 @@ export default function NotFound() {
           icon={<Compass className="size-6" />}
           headingLevel={1}
           title="We can’t find that page"
-          action={<LinkButton href="/">Back to home</LinkButton>}
+          action={<LinkButton href="/" variant="secondary">Back to home</LinkButton>}
         >
           The link may be mistyped or no longer exists.
         </EmptyState>

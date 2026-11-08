@@ -3,8 +3,12 @@ import { cn } from "./cn";
 
 export const STEPS = ["Brief", "Budget", "Invite", "Commit"] as const;
 
-/** `current` is 0-based; pass 4 (or more) when every step is done (result), with `doneLabel` naming the outcome. */
-export function Stepper({ current, context, doneLabel = "Result" }: { current: number; context?: string; doneLabel?: string }) {
+/**
+ * `current` is 0-based; pass 4 (or more) when every step is done (result), with `doneLabel` naming the outcome.
+ * The mobile eyebrow carries the step only: the outing title is the screen's heading, and repeating it here
+ * made the eyebrow wrap onto two lines.
+ */
+export function Stepper({ current, doneLabel = "Result" }: { current: number; doneLabel?: string }) {
   const mobileLabel =
     current >= STEPS.length ? doneLabel : `Step ${current + 1} of ${STEPS.length}`;
   return (
@@ -12,7 +16,6 @@ export function Stepper({ current, context, doneLabel = "Result" }: { current: n
       <p className="text-center text-caption font-semibold uppercase tracking-[0.14em] text-ink-muted sm:hidden">
         <span aria-hidden className="mx-2 inline-block h-px w-6 bg-coral align-middle" />
         {mobileLabel}
-        {context ? ` · ${context}` : ""}
         <span aria-hidden className="mx-2 inline-block h-px w-6 bg-coral align-middle" />
       </p>
       <ol className="hidden items-center justify-center gap-3 sm:flex">

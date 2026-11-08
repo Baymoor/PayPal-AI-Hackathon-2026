@@ -22,6 +22,15 @@ export function formatDeadline(iso: string | null, timeZone: string): string {
   return `${parts(d, timeZone, { weekday: "long" }).format(d)}, ${hhmm(d, timeZone)}`;
 }
 
+/** "Fri 13 Nov, 19:00": compact enough for a money row's sub line. */
+export function formatShortDate(iso: string | null, timeZone: string): string {
+  if (!iso) return "To be confirmed";
+  const d = new Date(iso);
+  const p = parts(d, timeZone, { weekday: "short", day: "numeric", month: "short" }).formatToParts(d);
+  const get = (type: Intl.DateTimeFormatPartTypes) => p.find((x) => x.type === type)?.value ?? "";
+  return `${get("weekday")} ${get("day")} ${get("month")}, ${hhmm(d, timeZone)}`;
+}
+
 /** "Friday, 14 November 2026, 19:00 (America/New_York)" */
 export function formatWhenFull(iso: string | null, timeZone: string): string {
   if (!iso) return "To be confirmed";

@@ -52,7 +52,9 @@ export function SiteHeader({
               Try the demo
             </Link>
             <Link href="/merchant" className="inline-flex min-h-[44px] items-center whitespace-nowrap font-medium hover:text-coral-700">
-              Merchant view
+              {/* The full label would be cut off in the phone nav; the footer and buttons say "Merchant dashboard". */}
+              <span className="sm:hidden">Merchants</span>
+              <span className="hidden sm:inline">Merchant dashboard</span>
             </Link>
           </nav>
         )}
@@ -83,7 +85,7 @@ export function SiteFooter() {
       <div className="mx-auto flex max-w-[1180px] items-center gap-4 text-small text-ink-muted">
         <span aria-hidden className="h-px flex-1 bg-line-strong" />
         <p className="max-w-xl text-center">
-          Independent hackathon project · PayPal sandbox or clearly labelled simulated payments · No real money
+          Independent hackathon project. No real money moves.
         </p>
         <span aria-hidden className="h-px flex-1 bg-line-strong" />
       </div>

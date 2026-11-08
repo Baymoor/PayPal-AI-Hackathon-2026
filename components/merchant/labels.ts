@@ -42,6 +42,12 @@ export const ATTENDANCE_LABEL: Record<AttendanceState, string> = {
   WITHDRAWN: "Withdrawn",
 };
 
+/** Audit event type for people: "PAYMENT_ORDER_CREATED" -> "Payment order created" (the raw enum read as a debug log). */
+export function eventLabel(type: string): string {
+  const words = type.toLowerCase().replace(/_/g, " ").trim();
+  return words ? words[0].toUpperCase() + words.slice(1) : type;
+}
+
 export const OP_KIND_LABEL: Record<OperationKind, string> = { CAPTURE: "Capture", VOID: "Release hold", REFUND: "Refund" };
 
 export const OP_STATUS_LABEL: Record<OperationStatus, string> = {

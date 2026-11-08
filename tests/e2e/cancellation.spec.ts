@@ -63,9 +63,9 @@ test("a required guest never commits: deadline cancels, holds are voided, clean-
       await page.getByRole("button", { name: "Review & authorize $30" }).click();
       await page.getByRole("checkbox", { name: /I agree to authorize up to \$30/ }).check();
       await page.getByRole("button", { name: "Authorize up to $30 (fixture)" }).click();
-      await expect(page.getByText("FIXTURE — simulated approval, not PayPal")).toBeVisible();
+      await expect(page.getByText("Simulated approval page")).toBeVisible();
       await page.getByRole("button", { name: "Approve simulated hold" }).click();
-      await expect(page.getByRole("heading", { name: /^\$30 authorized · estimated final share \$30 · not charged yet\.$/ })).toBeVisible();
+      await expect(page.getByRole("heading", { name: "Your $30 hold is in place." })).toBeVisible();
     }
     const oskar = people.Oskar!;
     await oskar.goto(`/o/${outingId}`);
@@ -89,7 +89,7 @@ test("a required guest never commits: deadline cancels, holds are voided, clean-
 
     await page.reload();
     await expect(page.getByRole("heading", { name: "Outing cancelled." })).toBeVisible();
-    await expect(page.getByText(/^Outing cancelled\. No booking payment collected\. Every simulated hold has been released/)).toBeVisible();
+    await expect(page.getByText(/No booking payment was collected\. Every simulated hold has been released/)).toBeVisible();
     await expect(page.getByText("A required guest didn’t commit before the deadline.")).toBeVisible();
     await expect(page.getByText("Hold released", { exact: true })).toBeVisible();
     await shot(page, "cancelled");

@@ -5,7 +5,7 @@ import { describePaymentFailureReason } from "@/components/errors/friendlyError"
 import type { OutingView } from "@/lib/contracts/views";
 import { formatMoney } from "@/lib/domain/money";
 import { Avatar } from "@/components/ui/Avatar";
-import { ModeBadge, Pill, StatusBadge } from "@/components/ui/Badge";
+import { FIXTURE_PAYMENT_LABEL, ModeBadge, StatusBadge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Countdown } from "@/components/ui/Countdown";
@@ -29,7 +29,6 @@ export type PaymentFlag = "authorized" | "late" | "pending" | "failed" | "cancel
 
 /** `reason` is the lower-cased error code a failed payment redirect carries (`?payment=failed&reason=…`). */
 function PaymentFlagBanner({ flag, reason, view }: { flag: PaymentFlag; reason?: string; view: OutingView }) {
-  const cap = view.estimates.capMinor ?? view.quote?.capMinor ?? null;
   if (!flag) return null;
   // The ?payment= flag is a one-off redirect hint and stays in the URL; only show it while it still matches
   // the server's view (e.g. never "Authorization received" after the payer withdrew).
@@ -40,14 +39,13 @@ function PaymentFlagBanner({ flag, reason, view }: { flag: PaymentFlag; reason?:
   if ((flag === "failed" || flag === "cancelled" || flag === "canceled") && status === "AUTHORIZED") return null;
   if (flag === "authorized")
     return (
-      <StatusBanner tone="success" title="Authorization received">
-        {cap !== null ? `Your ${formatMoney(cap)} hold is in place. ` : ""}Nothing has been charged yet.
-      </StatusBanner>
+      // Title only: the waiting screen right under it already says the hold is in place and nothing is charged.
+      <StatusBanner tone="success" title="Authorization received" />
     );
   if (flag === "late")
     return (
       <StatusBanner tone="danger" title="That arrived after the deadline">
-        Late authorizations are not accepted. Any hold will be released — you have not been charged.
+        Late authorizations are not accepted. Any hold will be released, and you have not been charged.
       </StatusBanner>
     );
   if (flag === "pending") {
@@ -57,7 +55,7 @@ function PaymentFlagBanner({ flag, reason, view }: { flag: PaymentFlag; reason?:
     if (status === "UNKNOWN")
       return (
         <StatusBanner tone="pending" title={fixtureHold(view) ? "Still confirming the simulated approval" : "Still confirming with PayPal"}>
-          We haven&apos;t verified your authorization yet. This page updates on its own — you don&apos;t need to pay again.
+          We haven&apos;t verified your authorization yet. This page updates on its own, so you don&apos;t need to pay again.
         </StatusBanner>
       );
     return (
@@ -218,7 +216,7 @@ function TermsReview({ view, actions, onClose }: { view: OutingView; actions: Ou
       </div>
       <p className="text-small text-ink-muted">
         {fixture
-          ? "Fixture — not real PayPal. You'll see a simulated approval page. No money moves."
+          ? "Next is a simulated approval page, not PayPal. No money moves."
           : "You'll approve this on PayPal's sandbox page. No real money is used."}
       </p>
     </Card>
@@ -235,14 +233,17 @@ function WaitingPanel({ view, actions, clockOffsetMs }: { view: OutingView; acti
     <div className="space-y-6">
       <div className="space-y-4 text-center">
         <p className="font-display text-[22px] leading-7">{view.outing.title}</p>
-        <div className="flex flex-wrap justify-center gap-2">
+        <div className="flex justify-center">
           <StatusBadge kind="authorized" />
-          <Pill tone="neutral">Not charged yet</Pill>
         </div>
-        <h1 className="text-[32px] leading-9 sm:text-[36px] sm:leading-10">
+        {/* A short statement as the headline; the spec sentence (with its middle dots) is the lead, not the h1. */}
+        <h1 className="text-[36px] leading-10">
+          Your {formatMoney(pay.authorizedMinor)} <Underlined>hold</Underlined> is in place.
+        </h1>
+        <p className="text-lead">
           {formatMoney(pay.authorizedMinor)} authorized · {est !== null ? `estimated final share ${formatMoney(est)}` : "final share to be set at the deadline"} · not
           charged yet.
-        </h1>
+        </p>
       </div>
       <Card>
         <MoneyRows>
@@ -257,10 +258,14 @@ function WaitingPanel({ view, actions, clockOffsetMs }: { view: OutingView; acti
           <span>Commit by {formatDeadline(view.outing.deadlineAt, view.outing.displayTimezone)}</span>
           <Countdown targetIso={view.outing.deadlineAt} offsetMs={clockOffsetMs} />
         </p>
-        <p className="text-small text-ink-muted">
-          {pay.providerLabel}
-          {pay.authorizationRef ? ` · ref ${pay.authorizationRef}` : ""}
-        </p>
+        {pay.provider === "FIXTURE" ? (
+          <StatusBadge kind="fixture" label={`${FIXTURE_PAYMENT_LABEL}${pay.authorizationRef ? ` · ref ${pay.authorizationRef}` : ""}`} />
+        ) : (
+          <p className="text-small text-ink-muted">
+            {pay.providerLabel}
+            {pay.authorizationRef ? ` · ref ${pay.authorizationRef}` : ""}
+          </p>
+        )}
       </Card>
       <p className="text-center text-ink-muted">We collect your share only if the agreed group booking is confirmed.</p>
       <ActionErrorBanner error={error} />
@@ -278,8 +283,8 @@ function WaitingPanel({ view, actions, clockOffsetMs }: { view: OutingView; acti
                   ? "You're a required guest, so withdrawing cancels the outing for everyone. "
                   : "You'll no longer be part of this booking. "}
                 {fixtureHold(view)
-                  ? "Your simulated hold is released (fixture — no real money is involved)."
-                  : "Your hold is released by PayPal — it can take a few days to disappear from your account."}
+                  ? "Your simulated hold is released. No real money is involved."
+                  : "PayPal releases your hold; it can take a few days to disappear from your account."}
               </p>
               <div className="flex flex-wrap gap-3">
                 <Button
@@ -350,7 +355,8 @@ export function CommitStage({
 
   return (
     <div className="space-y-6">
-      <div className="-mx-5 -mt-6 sm:mx-0 sm:mt-0 sm:overflow-hidden sm:rounded-card-lg">
+      {/* Full-bleed on phones; it only pulls up to the header when the demo bar isn't above it. */}
+      <div className={`-mx-5 sm:mx-0 sm:mt-0 sm:overflow-hidden sm:rounded-card-lg ${view.outing.demoMode ? "" : "-mt-6"}`}>
         <InvitationHero className="h-[150px] sm:h-[180px]" />
       </div>
       <div className="space-y-3 text-center">
@@ -410,10 +416,8 @@ export function CommitStage({
       <div className="space-y-4 text-center">
         <p className="inline-flex flex-wrap items-center justify-center gap-2 rounded-pill bg-blush px-5 py-2 font-bold text-coral-800">
           <Clock className="size-5" aria-hidden />
-          Commit by {formatDeadline(q.deadlineAt, tz)}
-        </p>
-        <p className="text-small text-ink-muted">
-          <Countdown targetIso={view.outing.deadlineAt} offsetMs={clockOffsetMs} />
+          Commit by {formatDeadline(q.deadlineAt, tz)} ·
+          <Countdown targetIso={view.outing.deadlineAt} offsetMs={clockOffsetMs} icon={false} />
         </p>
         <ProgressBar
           id="commit"
@@ -445,7 +449,7 @@ export function CommitStage({
               disabled={!view.me.can.accept}
               onClick={() => run("accept", async () => { await actions.respond("ACCEPT"); await actions.refresh(); })}
             >
-              Accept — I&apos;ll be there
+              I&apos;ll be there
             </Button>
           </div>
         )
@@ -499,13 +503,9 @@ export function CommitStage({
 
       <RosterList view={view} />
       {view.organizer?.can.addInvitees && (
-        <InvitePanel view={view} actions={actions} hint="Guests added now are optional — they never block the booking." />
+        <InvitePanel view={view} actions={actions} hint="Guests added now are optional. They never block the booking." />
       )}
       {view.organizer?.can.cancel && <OrganizerTools view={view} actions={actions} />}
-      <div aria-hidden className="relative my-2 text-center text-small text-ink-muted">
-        <span className="absolute inset-x-0 top-1/2 h-px bg-line-strong" />
-        <span className="relative bg-cream px-3">{view.outing.paymentMode === "PAYPAL_SANDBOX" ? "PayPal sandbox demo" : "Demo · no real money"}</span>
-      </div>
     </div>
   );
 }
@@ -515,9 +515,9 @@ function OrganizerTools({ view, actions }: { view: OutingView; actions: OutingAc
   const [requested, setRequested] = useState(false);
   const { pending, error, run } = useAction();
   if (!view.organizer?.can.cancel) return null;
+  // A link, not a card: one action does not need a titled box. The confirmation gets the card.
   return (
-    <Card tone="blush" className="space-y-3">
-      <h2 className="text-h3">Organizer tools</h2>
+    <section aria-label="Organizer actions" className="space-y-3 text-center">
       <ActionErrorBanner error={error} />
       {requested ? (
         // The cancellation is queued for the server's settlement job (it also releases holds); until it runs the
@@ -526,14 +526,14 @@ function OrganizerTools({ view, actions }: { view: OutingView; actions: OutingAc
           The server is cancelling this outing and releasing every hold. This page updates on its own.
         </StatusBanner>
       ) : !confirm ? (
-        <Button variant="danger" onClick={() => setConfirm(true)}>
+        <Button variant="link" className="!text-danger" onClick={() => setConfirm(true)}>
           Cancel this outing
         </Button>
       ) : (
-        <div className="space-y-3">
+        <Card tone="blush" className="space-y-3 text-left">
           <p>
             Cancelling ends the plan for everyone. No booking payment is collected, and existing payment holds are released
-            {fixtureHold(view) ? " (fixture holds — no real money is involved)." : " by PayPal — which can take a few days to show."}
+            {fixtureHold(view) ? ". They are simulated holds; no real money is involved." : " by PayPal, which can take a few days to show."}
           </p>
           <div className="flex flex-wrap gap-3">
             <Button variant="danger" loading={pending === "cancel"} loadingLabel="Cancelling…" onClick={() => run("cancel", async () => { await actions.cancel(); setRequested(true); await actions.refresh(); })}>
@@ -543,8 +543,8 @@ function OrganizerTools({ view, actions }: { view: OutingView; actions: OutingAc
               Keep it
             </Button>
           </div>
-        </div>
+        </Card>
       )}
-    </Card>
+    </section>
   );
 }

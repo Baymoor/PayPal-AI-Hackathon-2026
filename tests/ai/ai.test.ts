@@ -155,6 +155,9 @@ describe("fixture dashboard + ranker + reveal", () => {
     const r = await ai.summarizeReveal({ aggregate: agg, extraction: null });
     expect(r.output.suggestedTotalMinor).toBe(10000);
     expect(r.output.headline).toMatch(/^Fixture/);
+    // Amounts read like the rest of the app ("$100"), not "100.00 USD".
+    expect(r.output.summary).toContain("$100");
+    expect(r.output.summary).not.toContain("USD");
   });
 });
 

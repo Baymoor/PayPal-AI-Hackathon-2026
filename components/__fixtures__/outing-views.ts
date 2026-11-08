@@ -137,7 +137,7 @@ const collecting = (over: DeepPartial<OutingView> = {}): OutingView =>
   });
 
 const authorizedPayment = {
-  paymentAttemptId: "pa1", status: "AUTHORIZED" as const, provider: "FIXTURE" as const, providerLabel: "Fixture — not real PayPal",
+  paymentAttemptId: "pa1", status: "AUTHORIZED" as const, provider: "FIXTURE" as const, providerLabel: "Fixture · not real PayPal",
   authorizedMinor: 2000, capturedMinor: 0, refundedMinor: 0, late: false, verified: true, authorizationRef: "…4F2A",
 };
 

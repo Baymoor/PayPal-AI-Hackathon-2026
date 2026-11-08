@@ -26,7 +26,7 @@ import {
   validateProposal,
   validateReveal,
 } from "./validate";
-import { formatMoney } from "../domain/money";
+import { formatMoney, isCurrency } from "../domain/money";
 import { zonedParts, zonedTimeToUtc } from "../services/catalogue";
 
 const BANNER = "FIXTURE output: deterministic keyword heuristics, not a model.";
@@ -297,7 +297,8 @@ export class FixtureOutingsAi implements OutingsAi {
 
   async summarizeReveal(input: { aggregate: RevealAggregate; extraction: BriefExtraction | null }): Promise<AiResult<RevealSummary>> {
     const a = input.aggregate;
-    const fmt = (m: number) => `${(m / 100).toFixed(2)} ${a.currency}`;
+    // Same money formatting as every other screen ("$45", not "45.00 USD").
+    const fmt = (m: number) => (isCurrency(a.currency) ? formatMoney(m, a.currency) : `${(m / 100).toFixed(2)} ${a.currency}`);
     const raw: RevealSummary = {
       headline: `Fixture summary: votes ranged ${fmt(a.minMinor)} to ${fmt(a.maxMinor)}`,
       summary: `Fixture summary: ${a.voteCount} of ${a.invitedCount} invitees voted; the median proposed total is ${fmt(a.medianMinor)}. Votes are proposals, not payment authorizations. The organizer chooses the final quote.`,

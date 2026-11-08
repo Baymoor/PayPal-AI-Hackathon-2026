@@ -201,7 +201,7 @@ describe("fixture evidence is never presented as PayPal sandbox", () => {
       if (v.me.payment) {
         paymentsSeen++;
         expect(v.me.payment.provider).toBe("FIXTURE");
-        expect(v.me.payment.providerLabel).toBe("Fixture — not real PayPal");
+        expect(v.me.payment.providerLabel).toBe("Fixture · not real PayPal");
         expect(v.me.payment.providerLabel.toLowerCase()).not.toContain("sandbox");
       }
     }

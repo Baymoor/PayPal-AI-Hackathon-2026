@@ -5,9 +5,9 @@ import "@fontsource-variable/inter";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: { default: "Outings — make plans, make them happen", template: "%s · Outings" },
+  title: { default: "Outings · book it together, pay only if it happens", template: "%s · Outings" },
   description:
-    "Agree on a budget. Commit your share. Go together. Independent hackathon project using PayPal sandbox payments — no real money.",
+    "Book it together, pay only if it happens. Each friend authorizes their own maximum; at the deadline everyone pays their exact share or every hold is released. Independent hackathon project on PayPal sandbox. No real money.",
 };
 
 export const viewport: Viewport = {

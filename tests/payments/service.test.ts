@@ -97,7 +97,7 @@ describe("startPayment", () => {
   it("creates an AUTHORIZE order for exactly the consented cap, labelled FIXTURE", async () => {
     const payer = s.payers[0];
     const r = await startPayment(getDb(), { outingId: s.outing.id, participantId: payer.id, now: T0 });
-    expect(r).toMatchObject({ provider: "FIXTURE", providerLabel: "Fixture — not real PayPal", reused: false });
+    expect(r).toMatchObject({ provider: "FIXTURE", providerLabel: "Fixture · not real PayPal", reused: false });
     expect(r.approveUrl).toBe(`/o/${s.outing.id}/pay/fixture?attempt=${r.paymentAttemptId}`);
 
     const a = await attemptRow(r.paymentAttemptId);

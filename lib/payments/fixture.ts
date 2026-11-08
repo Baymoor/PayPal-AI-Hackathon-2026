@@ -1,5 +1,5 @@
 /**
- * FIXTURE payment simulator — "Fixture — not real PayPal".
+ * FIXTURE payment simulator, labelled "Fixture · not real PayPal".
  *
  * A deterministic, persistent stand-in for PayPal Orders v2 / Payments v2 used
  * only in clearly labelled demo mode (DEMO_FIXTURES_ENABLED=true, no PayPal
@@ -23,6 +23,7 @@
  * a TIMEOUT_AFTER (operation applied, response "lost" -> UNKNOWN) or a
  * PENDING capture/refund for a specific authorization.
  */
+import { FIXTURE_PAYMENT_LABEL } from "../domain/labels";
 import { randomBytes } from "node:crypto";
 import { and, eq, sql } from "drizzle-orm";
 import { fixtureProviderObjects, paymentAttempts } from "../db/schema";
@@ -45,7 +46,8 @@ import type {
   RefundView,
 } from "./provider";
 
-export const FIXTURE_PROVIDER_LABEL = "Fixture — not real PayPal";
+/** Kept as an alias: the one spelling lives in lib/domain/labels.ts. */
+export const FIXTURE_PROVIDER_LABEL = FIXTURE_PAYMENT_LABEL;
 /** Fixture authorizations mirror PayPal's 29-day validity. */
 export const FIXTURE_AUTHORIZATION_VALIDITY_MS = 29 * 24 * 60 * 60 * 1000;
 

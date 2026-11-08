@@ -50,6 +50,24 @@ export const DEMO_SCENARIO_TITLES: Record<DemoScenarioKind, string> = {
   "big-group": "Ten friends · karaoke room $10 each (scenario)",
 };
 
+/**
+ * What participants see as a scenario outing's name. The stored title above stays the scenario's identity
+ * (the hub and demoScenarioStatus look the kind up by it); the "(scenario)" label is hub scaffolding and
+ * read as unfinished on the invitation itself.
+ */
+export const DEMO_SCENARIO_DISPLAY_TITLES: Record<DemoScenarioKind, string> = {
+  "settle-soon": "Maya's birthday karaoke",
+  holdout: "Maya's birthday karaoke",
+  "capture-failure": "Maya's birthday karaoke",
+  "big-group": "Karaoke with ten friends",
+};
+
+/** Participant-facing outing title: scenario outings show their display title; every other title is unchanged. */
+export function participantFacingTitle(storedTitle: string): string {
+  const kind = DEMO_SCENARIO_KINDS.find((k) => DEMO_SCENARIO_TITLES[k] === storedTitle);
+  return kind ? DEMO_SCENARIO_DISPLAY_TITLES[kind] : storedTitle;
+}
+
 export function isDemoScenarioKind(value: unknown): value is DemoScenarioKind {
   return typeof value === "string" && (DEMO_SCENARIO_KINDS as readonly string[]).includes(value);
 }

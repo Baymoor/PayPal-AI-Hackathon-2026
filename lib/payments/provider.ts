@@ -113,7 +113,7 @@ export interface OrderView {
 
 export interface PaymentProvider {
   readonly name: PaymentProviderName;
-  /** Human label for UI badges ("PayPal sandbox" / "Fixture — not real PayPal"). */
+  /** Human label for UI badges ("PayPal sandbox" / "Fixture · not real PayPal"). */
   readonly label: string;
 
   /** Create an Orders v2 order with intent AUTHORIZE for exactly `amountMinor`. */

@@ -1,5 +1,4 @@
 "use client";
-import { RefreshCw } from "lucide-react";
 import { useState } from "react";
 import type { OutingView } from "@/lib/contracts/views";
 import { formatMoney } from "@/lib/domain/money";
@@ -85,7 +84,7 @@ export function RevealPanel({ view, actions }: { view: OutingView; actions: Outi
             </div>
           </dl>
         </Card>
-        <p className="text-small text-ink-muted">Votes are shown as totals only. Nobody&apos;s name is attached to an amount.</p>
+        <p className="text-small text-ink-muted">Totals only. No names.</p>
       </div>
 
       <div className="space-y-6">
@@ -136,20 +135,17 @@ export function RevealPanel({ view, actions }: { view: OutingView; actions: Outi
             )}
             {org.newRound && (
               <Button
-                block
-                variant="secondary"
+                variant="link"
                 loading={pending === "round"}
                 loadingLabel="Starting…"
                 onClick={() => run("round", async () => { await actions.newRound(); await actions.refresh(); })}
               >
-                <RefreshCw className="size-5" aria-hidden />
-                Run another round
+                Vote again
               </Button>
             )}
           </div>
         )}
-        {!org && <StatusBanner tone="info">The organizer will agree a budget next. Nothing is charged by this.</StatusBanner>}
-        <p className="text-small text-ink-muted">Suggest a total budget. This does not authorize a payment.</p>
+        {!org && <StatusBanner tone="info">The organizer agrees the budget next.</StatusBanner>}
       </div>
     </div>
   );

@@ -14,6 +14,18 @@ Light theme only. Never write "PayPal Outings"; use "PayPal sandbox" and "Sandbo
 - No photos of people. Use illustration, gradients, lucide icons.
 - Votes are aggregate only after reveal. No name next to an amount, ever.
 
+### Copy and decoration rules (design review, 8 Nov 2026)
+1. One honesty fact, one place: the header pill says "no real money"; one muted line under the step label says which mode ("Simulated payments and AI · no real money"); the dashed Fixture pill appears only beside money; the AI badge only on blocks the AI wrote.
+2. One spelling per label, from shared constants ("Fixture · not real PayPal" lives in `lib/domain/labels.ts`).
+3. One reassurance per screen beyond that stage's spec sentence.
+4. No em-dashes in UI copy. Buttons carry no punctuation beyond "&" and "→".
+5. Icons for status only (plus the three invitation detail rows). No icon beside a heading or a list row.
+6. A card needs two rows or a control. No card inside a card.
+7. Eyebrows for the step indicator only ("STEP 2 OF 4", no outing title).
+8. Pills for fit, status and mode only, never for a fact already in the row.
+9. Headlines are short statements with a period; a spec sentence with middle dots is a lead, not an h1.
+10. No sparkles, in illustrations or as the AI icon (use `Bot`).
+
 ## 2. Tokens
 
 ### Colour
@@ -42,7 +54,7 @@ Status (text on matching bg, each pair >= 4.5:1). Label text is mandatory.
 | void-pending (hold release pending, refund pending) | `#8A5300` | `#FFF1D6` | Hold release pending / Refund pending | clock |
 | refunded | `#5B3FA0` | `#EEE8FA` | Refunded | undo-2 |
 | cancelled (also "hold released") | `#4A5568` | `#ECEEF1` | Cancelled / Hold released | x / check |
-| fixture | `#A12D6B` | `#FBE6F1` (dashed 1px `#A12D6B` border) | Fixture — not real PayPal | flask-conical |
+| fixture | `#A12D6B` | `#FBE6F1` (dashed 1px `#A12D6B` border) | Fixture · not real PayPal | flask-conical |
 | danger | `#A3261B` | `#FDE8E5` | Needs attention | triangle-alert |
 
 Pending vs final: use amber for "pending", then the final colour (gray released, purple refunded) once done. Text changes too ("Hold release pending" -> "Hold released"; "Refund pending" -> "Refunded $10").
@@ -86,7 +98,7 @@ White, 1px line border, radius 20, padding 18-28. Variants: money card (rows), p
 ### Stepper (Brief → Budget → Invite → Commit)
 Four steps, numbered 30px circles. States: current (coral-600 fill, white number, "(current)" visually-hidden-or-muted text, `aria-current="step"`), done (ink fill, check icon), upcoming (outlined). Wraps on mobile; on mobile screens show "STEP 2 OF 4" eyebrow instead.
 ### Pill / Badge
-Pill 13px 700, padding 4/12. Variants: status (table above), **Sandbox demo** (blush bg, coral-800 text, top-right of every screen and in footer divider), **Fixture — not real PayPal** (fixture colours, dashed border), deadline pill ("Commit by Thursday, 18:00", blush, calendar/clock icon).
+Pill 13px 700, padding 4/12. Variants: status (table above), **Sandbox demo** (blush bg, coral-800 text, top-right of every screen and in footer divider), **Fixture · not real PayPal** (fixture colours, dashed border), deadline pill ("Commit by Thursday, 18:00", blush, calendar/clock icon).
 ### Money row
 Label left, value right, 14-16px vertical padding, 1px line top. Emphasis row (bold, display font value). Rows: Fixed room total, Your maximum, Estimated share, Authorized, Captured, Refunded. Money never "revenue" for authorized funds.
 ### Progress bar
@@ -110,11 +122,11 @@ Pill input with sparkle icon, visible label (sr-only), "Ask" button. Placeholder
 
 ## 4. Screens (artboards in the mockup canvas)
 1. **Brief (desktop 1280, `Main.dc.html`)**: header (logo, Sandbox demo) → stepper → two columns. Left: h1 "What are we planning?" (swoosh under "planning?"), textarea, "Find an outing →", note. Right: "Here's what I understood" card, five icon-tile rows (Activity, Date window, Attendees, Guest of honour, Budget "Not set yet"), amber callout "What total budget feels comfortable?" + "Start budget poker →".
-2. **Budget poker (mobile 390, `Poker.dc.html`)**: back, logo, Sandbox demo → "STEP 2 OF 4 · MAYA'S BIRTHDAY" → h1 "Budget poker" → "Suggest a total budget." / "This does not authorize a payment." → 3x2 vote tiles ($50, $75, $100, $150, $200, Custom) → lock line → anonymous voter dots + "4 of 6 voted" → primary "Submit my $100 vote" → "A budget vote is not a payment or booking."
+2. **Budget poker (mobile 390, `Poker.dc.html`)**: back, logo, Sandbox demo → "STEP 2 OF 4" → h1 "Budget poker" → "Suggest a total budget." / "This does not authorize a payment." → 3x2 vote tiles ($50, $75, $100, $150, $200, Custom) → lock line → anonymous voter dots + "4 of 6 voted" → primary "Submit my $100 vote".
 3. **Reveal + quote (desktop, `Reveal.dc.html`)**: stepper (Budget current) → left: h1, distribution chart, Range / Median / Voted stats; right: AI summary card, navy "Proposed group budget $100 — A starting point, not a merchant quote." → "Pick a merchant-confirmed quote" catalogue (radio cards; first: The Sound Room, Private karaoke room, $100 fixed total, up to 10 people; the other two are demo fixtures) → "Continue with The Sound Room".
 4. **Treat someone special (mobile, `Sponsor.dc.html`)**: toggle card → table (Fixed room total $100, Attendees 6, Paying participants 5, Each paying participant $20, Maya pays $0) → amber consent note → "Save this split".
 5. **Invitation / Commit (mobile, `Invitation.dc.html`)**: illustrated hero band (gradient + mic line art) → "You're invited." → "Maya's birthday karaoke" → meta rows (Friday 19:00, The Sound Room, Private room up to 10) → money card → deadline pill → progress → primary button → fine print → "Decline invitation" → "Sandbox demo" divider.
-6. **Waiting (mobile, `Waiting.dc.html`)**: Authorized badge + "Not charged yet" → h1 "$20 authorized · estimated final share $10 · not charged yet." → money rows (Authorized up to $20, Estimated final share $10, Charged so far $0) → progress card.
+6. **Waiting (mobile, `Waiting.dc.html`)**: Authorized badge → h1 "Your $20 hold is in place." → lead "$20 authorized · estimated final share $10 · not charged yet." → money rows (Authorized up to $20, Estimated final share $10, Charged so far $0) → progress card.
 7. **Results (mobile, `Results.dc.html`, three states)**: Confirmed (captured share, never above max, unused hold "Released"); Expired/cancelled; Recovery. Each shows the pending form, plus a "When it finishes" example of the final form.
 8. **Merchant dashboard (desktop, `Merchant.dc.html`)**: header with PayPal sandbox + Fixture badges → h1 "Bookings" → Ask box → 4 money KPIs (Authorized (holds, not revenue), Captured, Refunded, Closing today) → three widgets: Outings by status (cross-filter, active filter chip), Money by state, Booking Readiness (custom widget: required accepted / required invited bars) → booking table (columns: Outing, Closing time, Required accepted / invited, Paying authorized, Authorized total, Final allocated, Captured, Refunded, Recovery status) with real rows first and fixture rows separated.
 
@@ -123,14 +135,14 @@ Mobile pages: single column, 20px gutter, primary CTA full width and anchored at
 ## 5. Exact copy strings
 - Brief: "What are we planning?" · "Here's what I understood" · "Find an outing" · "What total budget feels comfortable?" · "Start budget poker" · "Suggestions are not bookings or payment approvals."
 - Sample brief: "A karaoke night for Maya's birthday. Six of us, Friday evening. We want a private room and to cover Maya's share."
-- Poker: "Budget poker" · "Suggest a total budget. This does not authorize a payment." · "Your vote stays private until reveal." · "4 of 6 voted" · "Submit my $100 vote" · "A budget vote is not a payment or booking."
+- Poker: "Budget poker" · "Suggest a total budget. This does not authorize a payment." · "Your vote stays private until reveal." · "4 of 6 voted" · "Submit my $100 vote"
 - Reveal: "Proposed group budget" · "$100 — a starting point, not a merchant quote" · quote line "The Sound Room — private karaoke room, $100 fixed total, up to 10 people"
 - Sponsor: "Treat someone special" · "Cover Maya's share" · "Fixed room total" · "Attendees" · "Paying participants" · "Each paying participant" · "Maya pays" · "Everyone sees and approves this split before committing. Changing who pays requires renewed consent."
 - Invitation: "You're invited." · "Maya's birthday karaoke" · "Friday 19:00" · "The Sound Room" · "Private room up to 10" · "Fixed room total" · "6 attendees · 5 paying" · "Maya's share is covered" · "Your maximum" · "Estimated share" · "Commit by Thursday, 18:00" · "4 of 5 payers committed" · "Review & authorize $20" · "Authorize up to $20. Your final share may be lower. We collect it only if the agreed group booking is confirmed." · "Decline invitation" · "Sandbox demo"
-- Waiting: "$20 authorized · estimated final share $10 · not charged yet."
-- Expired: "Outing cancelled. No booking payment collected. We're releasing existing payment holds."
-- Recovery: "Booking not confirmed. A payment failed; completed payments are being refunded."
-- Status words: Authorized, Captured, Hold release pending, Hold released, Refund pending, Refunded, Cancelled, Fixture — not real PayPal.
+- Waiting: h1 "Your $20 hold is in place." · lead "$20 authorized · estimated final share $10 · not charged yet."
+- Expired: h1 "Outing cancelled." · banner "<reason> No booking payment was collected; we're releasing every hold."
+- Recovery: h1 "Booking not confirmed." · banner "A payment failed; completed payments are being refunded."
+- Status words: Authorized, Captured, Hold release pending, Hold released, Refund pending, Refunded, Cancelled, Fixture · not real PayPal.
 - Merchant Ask example: "Show outings closing today with missing required participants"
 
 ## 6. Accessibility

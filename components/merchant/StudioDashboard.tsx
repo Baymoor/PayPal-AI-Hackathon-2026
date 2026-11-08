@@ -63,7 +63,7 @@ function buildReport(sort: DashboardQuery["sort"], currency: string, page: Studi
         widgets: {
           "kpi-open": kpi(sum(f("isOpen")), "Open outings", "Collecting commitments now"),
           "kpi-closing": kpi(sum(f("closesTodayOpen")), "Closing today", "Open outings with a deadline today"),
-          "kpi-captured": kpi(sum(f("capturedConfirmed")), "Captured (confirmed)", "Money collected. Holds are not counted"),
+          "kpi-captured": kpi(sum(f("capturedConfirmed")), "Captured", "From confirmed bookings"),
           "kpi-refunds": kpi(sum(f("refundPending")), "Refunds pending", "Captured payments waiting to be refunded"),
           "status-chart": {
             type: "column-chart-grouped",
@@ -148,7 +148,7 @@ function buildReport(sort: DashboardQuery["sort"], currency: string, page: Studi
       {
         id: "money",
         widgets: {
-          "m-kpi-captured": kpi(sum(f("capturedConfirmed")), "Captured (confirmed)", "Collected on confirmed bookings"),
+          "m-kpi-captured": kpi(sum(f("capturedConfirmed")), "Captured", "From confirmed bookings"),
           "m-kpi-refunds": kpi(sum(f("refundPending")), "Refunds pending", "Number of refunds in flight"),
           "m-kpi-awaiting": kpi(sum(f("refundDue")), "Awaiting refund", "Captured, not yet refunded"),
           "m-kpi-holds": kpi(sum(f("authorized")), "Holds outstanding", "Authorized, not captured. Not revenue"),

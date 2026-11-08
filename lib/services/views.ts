@@ -8,6 +8,7 @@
  * - organizer-only data (AI candidates, organizer actions) only for the organizer,
  * - no tokens, no raw provider payloads; provider refs are redacted.
  */
+import { FIXTURE_PAYMENT_LABEL, PAYPAL_SANDBOX_LABEL } from "../domain/labels";
 import { and, asc, desc, eq, inArray } from "drizzle-orm";
 import type { DbOrTx } from "../db/client";
 import {
@@ -28,6 +29,7 @@ import {
   type QuoteVersion,
   type SettlementSnapshot,
 } from "../db/schema";
+import { participantFacingTitle } from "../demo/constants";
 import { config } from "../env";
 import { notFound } from "../http";
 import { ceilDiv, estimatedShare } from "../domain/money";
@@ -75,7 +77,7 @@ export function redactRef(ref: string | null | undefined): string | null {
 }
 
 export function providerLabel(provider: PaymentAttempt["provider"]): string {
-  return provider === "PAYPAL" ? "PayPal sandbox" : "Fixture — not real PayPal";
+  return provider === "PAYPAL" ? PAYPAL_SANDBOX_LABEL : FIXTURE_PAYMENT_LABEL;
 }
 
 const COMMITTED_STATUSES: ReadonlySet<PaymentStatus> = new Set(["AUTHORIZED", "CAPTURE_PENDING", "CAPTURED"]);
@@ -366,7 +368,8 @@ export async function buildOutingView(
   const view: OutingView = {
     outing: {
       id: outing.id,
-      title: outing.title,
+      // Scenario outings keep their hub label as the stored title; participants see the story name.
+      title: participantFacingTitle(outing.title),
       brief: outing.brief,
       status: outing.status,
       stage: stageFor(outing.status),

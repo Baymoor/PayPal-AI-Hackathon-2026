@@ -11,9 +11,21 @@ import { clientIp, RATE_LIMITS, takeToken } from "@/lib/rate-limit";
 const TOKEN_RE = /^[A-Za-z0-9_-]{20,128}$/;
 
 function notFoundPage(status = 404): Response {
+  // Plain HTML (this is a route, not a page), styled to match the app: same colours, header, card and button.
   const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="referrer" content="no-referrer"><title>Invitation not found · Outings</title>
-<style>body{margin:0;min-height:100vh;display:grid;place-items:center;background:#FBF6EE;color:#1B2440;font:16px/1.5 system-ui,-apple-system,Segoe UI,sans-serif}main{max-width:28rem;padding:2rem;text-align:center}h1{font-family:Georgia,serif;font-weight:600;font-size:1.75rem;margin:0 0 .5rem}a{color:#E8553E;font-weight:600}</style></head>
-<body><main><h1>This invitation link doesn't work</h1><p>It may have been mistyped or replaced. Ask the organizer to send you a fresh link.</p><p><a href="/">Go to Outings</a></p></main></body></html>`;
+<style>
+body{margin:0;min-height:100vh;display:flex;flex-direction:column;background:#FBF6F1;color:#14213D;font:16px/1.5 "Inter Variable",system-ui,-apple-system,"Segoe UI",sans-serif}
+header{border-bottom:1px solid #EADFD3;padding:10px 20px}
+.logo{font-family:"Fraunces Variable",Georgia,serif;font-weight:600;font-size:28px;color:#14213D;text-decoration:none}
+main{flex:1;display:grid;place-items:center;padding:48px 20px}
+.card{max-width:28rem;background:#fff;border:1px solid #EADFD3;border-radius:20px;padding:40px 24px;text-align:center}
+h1{font-family:"Fraunces Variable",Georgia,serif;font-weight:600;font-size:28px;line-height:1.2;margin:0 0 8px}
+p{margin:0;color:#5B6478}
+.btn{display:inline-flex;align-items:center;min-height:52px;margin-top:20px;padding:0 28px;border:1.5px solid #14213D;border-radius:999px;color:#14213D;font-weight:600;text-decoration:none}
+.btn:hover{background:#FDF1EC}
+footer{padding:24px 20px;text-align:center;font-size:14px;color:#5B6478}
+</style></head>
+<body><header><a class="logo" href="/">Outings</a></header><main><div class="card"><h1>This invitation link doesn't work</h1><p>It may have been mistyped or replaced. Ask the organizer to send you a fresh link.</p><a class="btn" href="/">Back to home</a></div></main><footer>Independent hackathon project. No real money moves.</footer></body></html>`;
   return new Response(html, {
     status,
     headers: { "content-type": "text/html; charset=utf-8", "cache-control": "no-store", "referrer-policy": "no-referrer" },

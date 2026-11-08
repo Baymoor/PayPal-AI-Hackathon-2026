@@ -23,7 +23,7 @@ test("big group: ten payers, $10 each captured from $20 holds", async ({ page })
 
   await page.goto(`/demo?deadlineSeconds=${DEADLINE_SECONDS}`);
   await expect(page.getByRole("heading", { name: "Watch a deadline settle" })).toBeVisible();
-  await expect(page.getByText(/Ten friends share the \$100 room\. Everyone authorized up to \$20/)).toBeVisible();
+  await expect(page.getByText(/Nine payers hold \$20 and you commit as Kai/)).toBeVisible();
 
   const created = page.waitForResponse((r) => r.url().endsWith("/api/demo/scenario") && r.request().method() === "POST");
   await page.getByRole("button", { name: /^Start \(closes in 70 s\) Ten friends share the room$/ }).click();
@@ -40,7 +40,7 @@ test("big group: ten payers, $10 each captured from $20 holds", async ({ page })
   await test.step("Kai reviews and authorizes $20; the estimate is $10", async () => {
     await panel.getByRole("button", { name: "Open as Kai", exact: true }).click();
     await expect(page).toHaveURL(new RegExp(`/o/${s.outingId}$`));
-    await expect(page.getByText("Fixture — not real PayPal").first()).toBeVisible();
+    await expect(page.getByText(/Simulated payments/).first()).toBeVisible();
     await expect(page.getByText("9 of 10 payers committed").first()).toBeVisible();
     await page.getByRole("button", { name: "Review & authorize $20" }).click();
     await page.getByRole("checkbox", { name: /I agree to authorize up to \$20/ }).check();
@@ -48,7 +48,8 @@ test("big group: ten payers, $10 each captured from $20 holds", async ({ page })
     await expect(page).toHaveURL(/\/pay\/fixture\?attempt=/);
     await page.getByRole("button", { name: "Approve simulated hold" }).click();
     await expect(page).toHaveURL(new RegExp(`/o/${s.outingId}\\?payment=authorized$`));
-    await expect(page.getByRole("heading", { name: "$20 authorized · estimated final share $10 · not charged yet." })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Your $20 hold is in place." })).toBeVisible();
+    await expect(page.getByText("$20 authorized · estimated final share $10 · not charged yet.")).toBeVisible();
     await expect(page.getByText("estimated final share $10").first()).toBeVisible();
   });
 

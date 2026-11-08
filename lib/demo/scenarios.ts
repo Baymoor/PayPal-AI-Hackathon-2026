@@ -5,7 +5,7 @@
  *
  * Honesty and realism
  * - Every scenario outing is `isFixture` and pays through the FIXTURE simulator
- *   ("Fixture — not real PayPal"), even when PayPal sandbox keys are configured.
+ *   ("Fixture · not real PayPal"), even when PayPal sandbox keys are configured.
  * - Only the pre-collection history (brief, private votes, reveal, proposal) is
  *   seeded, with the deterministic FIXTURE parser/ranker (`seedOuting`). From
  *   there on everything goes through the REAL services: `openCollection`

@@ -1,5 +1,9 @@
-import { Check, Clock, FlaskConical, Lock, TriangleAlert, Undo2, X, Bot, Sparkles } from "lucide-react";
+import { Check, Clock, FlaskConical, Lock, TriangleAlert, Undo2, X, Bot } from "lucide-react";
+import { FIXTURE_PAYMENT_LABEL } from "@/lib/domain/labels";
 import { cn } from "./cn";
+
+/** The one spelling of the simulated-payment label, shared with the server views. */
+export { FIXTURE_PAYMENT_LABEL };
 
 export type StatusKind =
   | "authorized"
@@ -18,7 +22,7 @@ const STATUS: Record<StatusKind, { cls: string; label: string; Icon: typeof Lock
   refunded: { cls: "bg-refunded-bg text-refunded", label: "Refunded", Icon: Undo2 },
   cancelled: { cls: "bg-cancelled-bg text-cancelled", label: "Cancelled", Icon: X },
   released: { cls: "bg-cancelled-bg text-cancelled", label: "Hold released", Icon: Check },
-  fixture: { cls: "bg-fixture-bg text-fixture border border-dashed border-fixture", label: "Fixture — not real PayPal", Icon: FlaskConical },
+  fixture: { cls: "bg-fixture-bg text-fixture border border-dashed border-fixture", label: FIXTURE_PAYMENT_LABEL, Icon: FlaskConical },
   danger: { cls: "bg-danger-bg text-danger", label: "Needs attention", Icon: TriangleAlert },
 };
 
@@ -91,8 +95,8 @@ export function ModeBadge({
   if (mode === "ANTHROPIC")
     return (
       <Pill tone="neutral">
-        <Sparkles className="size-3.5" aria-hidden />
-        AI-generated
+        <Bot className="size-3.5" aria-hidden />
+        Written by Claude
       </Pill>
     );
   return (

@@ -5,18 +5,15 @@ import {
   Bot,
   CalendarClock,
   CircleCheck,
-  Coins,
   FlaskConical,
-  Lightbulb,
   ListChecks,
-  Send,
   ShieldCheck,
   Undo2,
   X,
 } from "lucide-react";
 import { SplitCalculator } from "@/components/home/SplitCalculator";
 import { LinkButton } from "@/components/ui/Button";
-import { Card, Eyebrow, IconTile } from "@/components/ui/Card";
+import { Card, Eyebrow } from "@/components/ui/Card";
 import { SiteFooter, SiteHeader } from "@/components/ui/SiteChrome";
 import { Underlined } from "@/components/ui/Swoosh";
 import { StatusBadge } from "@/components/ui/Badge";
@@ -29,36 +26,31 @@ export const metadata: Metadata = {
 
 const STEPS = [
   {
-    Icon: Lightbulb,
     name: "Brief",
     copy: "Describe the plan in your own words. Suggestions are not bookings or payment approvals.",
   },
   {
-    Icon: Coins,
     name: "Budget",
     copy: "Suggest a total budget. This does not authorize a payment. Your vote stays private until reveal.",
   },
   {
-    Icon: Send,
     name: "Invite",
     copy: "We create a private link for each person. You send it to them yourself.",
   },
   {
-    Icon: ShieldCheck,
     name: "Commit",
     copy: "Authorize up to $20. Your final share may be lower. We collect it only if the agreed group booking is confirmed.",
   },
   {
-    Icon: CalendarClock,
     name: "Deadline",
     copy: "At the deadline we book it, or release every hold.",
   },
 ] as const;
 
-function SectionHead({ id, eyebrow, title, children }: { id: string; eyebrow: string; title: string; children?: React.ReactNode }) {
+/** Section title and lead. No numbered eyebrow: the on-page nav already orders the sections. */
+function SectionHead({ id, title, children }: { id: string; title: string; children?: React.ReactNode }) {
   return (
     <header className="mb-6 max-w-2xl space-y-2">
-      <Eyebrow>{eyebrow}</Eyebrow>
       <h2 id={id} className="text-[28px] leading-9 sm:text-h2">
         {title}
       </h2>
@@ -124,7 +116,7 @@ export default function HowItWorksPage() {
               ["#calculator", "Split calculator"],
               ["#deadline", "At the deadline"],
               ["#ai", "What AI does"],
-              ["#honesty", "Sandbox and fixtures"],
+              ["#honesty", "What is simulated"],
             ].map(([href, label]) => (
               <a key={href} href={href} className="inline-flex min-h-[44px] items-center text-coral-700 underline underline-offset-4 hover:text-coral-800">
                 {label}
@@ -135,18 +127,18 @@ export default function HowItWorksPage() {
 
         {/* (a) Steps */}
         <section id="steps" aria-labelledby="steps-h" className="mt-12 scroll-mt-6 border-t border-line pt-10">
-          <SectionHead id="steps-h" eyebrow="1 · The flow" title="Brief, budget, invite, commit, deadline" />
-          <ol className="grid gap-4 md:grid-cols-5">
-            {STEPS.map(({ Icon, name, copy }, i) => (
-              <li key={name} className="flex gap-4 rounded-card border border-line bg-surface p-5 md:flex-col md:gap-3">
-                <IconTile>
-                  <Icon className="size-5" />
-                </IconTile>
+          <SectionHead id="steps-h" title="Brief, budget, invite, commit, deadline" />
+          <ol className="grid gap-6 md:grid-cols-5 md:gap-5">
+            {STEPS.map(({ name, copy }, i) => (
+              <li key={name} className="flex gap-4 md:flex-col md:gap-2">
+                <span
+                  aria-hidden
+                  className="inline-flex size-[30px] shrink-0 items-center justify-center rounded-full border-[1.5px] border-ink text-[14px] font-bold"
+                >
+                  {i + 1}
+                </span>
                 <div className="min-w-0">
-                  <h3 className="font-display text-h3">
-                    <span className="text-ink-muted">{i + 1}. </span>
-                    {name}
-                  </h3>
+                  <h3 className="font-display text-h3">{name}</h3>
                   <p className="mt-1 text-small text-ink-muted md:text-[15px]">{copy}</p>
                 </div>
               </li>
@@ -159,7 +151,7 @@ export default function HowItWorksPage() {
 
         {/* (b) Calculator */}
         <section id="calculator" aria-labelledby="calculator-h" className="mt-14 scroll-mt-6 border-t border-line pt-10">
-          <SectionHead id="calculator-h" eyebrow="2 · Try the rules" title="The split calculator">
+          <SectionHead id="calculator-h" title="The split calculator">
             This runs the same pure functions the server settles with: <code className="rounded bg-blush-50 px-1.5 py-0.5 text-[0.9em]">equalSplit</code>,{" "}
             <code className="rounded bg-blush-50 px-1.5 py-0.5 text-[0.9em]">perPayerCap</code> and{" "}
             <code className="rounded bg-blush-50 px-1.5 py-0.5 text-[0.9em]">estimatedShare</code>. Try $100 for 3 people.
@@ -169,7 +161,7 @@ export default function HowItWorksPage() {
 
         {/* (c) Deadline */}
         <section id="deadline" aria-labelledby="deadline-h" className="mt-14 scroll-mt-6 border-t border-line pt-10">
-          <SectionHead id="deadline-h" eyebrow="3 · The server clock decides" title="What happens at the deadline">
+          <SectionHead id="deadline-h" title="What happens at the deadline">
             A server-side job freezes the roster and picks exactly one of three paths. Late approvals are voided, never admitted. If anything cannot be verified, we fail closed and cancel.
           </SectionHead>
 
@@ -240,7 +232,7 @@ export default function HowItWorksPage() {
 
         {/* (d) AI */}
         <section id="ai" aria-labelledby="ai-h" className="mt-14 scroll-mt-6 border-t border-line pt-10">
-          <SectionHead id="ai-h" eyebrow="4 · Where the model stops" title="What AI does, and doesn't do">
+          <SectionHead id="ai-h" title="What AI does, and doesn't do">
             AI helps people agree. It never touches the money.
           </SectionHead>
           <div className="grid gap-4 md:grid-cols-2">
@@ -288,7 +280,7 @@ export default function HowItWorksPage() {
 
         {/* (e) Honesty */}
         <section id="honesty" aria-labelledby="honesty-h" className="mt-14 scroll-mt-6 border-t border-line pt-10">
-          <SectionHead id="honesty-h" eyebrow="5 · No surprises" title="Sandbox and fixture honesty">
+          <SectionHead id="honesty-h" title="What is simulated">
             This is an independent hackathon project. No real money moves. Every simulated piece is labelled on screen.
           </SectionHead>
           <div className="grid gap-4 md:grid-cols-3">

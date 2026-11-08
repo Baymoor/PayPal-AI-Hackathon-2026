@@ -1,8 +1,8 @@
 "use client";
-import { Activity, CalendarDays, Gift, Info, MapPin, Users, Wallet } from "lucide-react";
+import { Info } from "lucide-react";
 import type { OutingView } from "@/lib/contracts/views";
 import { Button } from "@/components/ui/Button";
-import { Card, IconTile } from "@/components/ui/Card";
+import { Card } from "@/components/ui/Card";
 import { AiSourceBadge } from "@/components/ui/Badge";
 import { Underlined } from "@/components/ui/Swoosh";
 import { EmptyState } from "@/components/ui/States";
@@ -10,15 +10,27 @@ import type { OutingActions } from "./api";
 import { ActionErrorBanner, useAction } from "./useAction";
 import { ScreenHeader } from "./Shell";
 
-const ICONS = {
-  activity: Activity,
-  date: CalendarDays,
-  people: Users,
-  gift: Gift,
-  budget: Wallet,
-  place: MapPin,
-  note: Info,
-} as const;
+type SummaryKind = NonNullable<OutingView["brief"]["extraction"]>["summary"][number]["icon"];
+
+/** Plain labels for the parsed rows: a label/value list reads as data, an icon beside every line read as decoration. */
+const LABELS: Record<SummaryKind, string> = {
+  activity: "Activity",
+  date: "When",
+  people: "Who",
+  gift: "Treat",
+  budget: "Budget",
+  place: "Needs",
+  note: "Note",
+};
+
+function SummaryRow({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <li className="flex items-baseline justify-between gap-4 py-3 first:pt-0 last:pb-0">
+      <span className="shrink-0 text-small text-ink-muted">{label}</span>
+      <span className="text-right">{children}</span>
+    </li>
+  );
+}
 
 export function BriefStage({ view, actions }: { view: OutingView; actions: OutingActions }) {
   const { pending, error, run } = useAction();
@@ -54,26 +66,15 @@ export function BriefStage({ view, actions }: { view: OutingView; actions: Outin
           <p className="mt-3 text-ink-muted">We couldn&apos;t read details from the brief yet. You can still start budget poker.</p>
         ) : (
           <ul className="mt-4 divide-y divide-line">
-            {rows.map((r, i) => {
-              const Icon = ICONS[r.icon] ?? Info;
-              return (
-                <li key={i} className="flex items-center gap-3 py-3 first:pt-0">
-                  <IconTile>
-                    <Icon className="size-5" />
-                  </IconTile>
-                  <span className="text-body">{r.text}</span>
-                </li>
-              );
-            })}
+            {rows.map((r, i) => (
+              <SummaryRow key={i} label={LABELS[r.icon] ?? "Note"}>
+                {r.text}
+              </SummaryRow>
+            ))}
             {!hasBudgetRow && (
-              <li className="flex items-center gap-3 py-3 last:pb-0">
-                <IconTile>
-                  <Wallet className="size-5" />
-                </IconTile>
-                <span className="text-body">
-                  Budget <span className="text-ink-muted">· Not set yet</span>
-                </span>
-              </li>
+              <SummaryRow label="Budget">
+                <span className="text-ink-muted">Not set yet</span>
+              </SummaryRow>
             )}
           </ul>
         )}

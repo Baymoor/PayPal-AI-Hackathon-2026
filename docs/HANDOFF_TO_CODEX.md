@@ -21,7 +21,7 @@ Legend: **REAL_SANDBOX** = exercised against PayPal sandbox · **REAL_AI** = exe
 | Signed cookie sessions, hashed invite tokens, access checks | IMPLEMENTED | `lib/auth/*`, `lib/services/access.ts`, tests/access |
 | Settlement engine (freeze, reconcile, sequential capture, compensation, void/refund recovery, worker, cron route, webhooks) | IMPLEMENTED | `lib/settlement/*`, `lib/jobs/*`, tests/settlement (concurrent workers, timeouts) |
 | PayPal REST adapter (sandbox, server-only redirect approval) | **REAL_SANDBOX** | 7 Nov 2026 smoke runs: authorize, $10-of-$20 final capture, idempotent replay, void, refund all pass against the sandbox; also exercised by the full app outing below |
-| FIXTURE payment simulator (persistent, failure injection) | FIXTURE_ONLY | labelled "Fixture — not real PayPal" |
+| FIXTURE payment simulator (persistent, failure injection) | FIXTURE_ONLY | labelled "Fixture · not real PayPal" |
 | Outing services, read models, HTTP API, demo seed | IMPLEMENTED | tests/services; worker settles the seeded demo |
 | AI (Anthropic structured output + labelled fixture) | IMPLEMENTED — **REAL_AI not verified** | no runtime key in container; mocked SDK tests |
 | Consumer UI | IMPLEMENTED | built from Claude Design mockups; verified end to end in Chromium (production build) |

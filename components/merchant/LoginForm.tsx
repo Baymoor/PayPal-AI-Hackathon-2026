@@ -46,7 +46,8 @@ export function LoginForm() {
             <input id="m-pw" type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} aria-describedby={error ? "m-err" : undefined} required />
           </div>
           {error && <p id="m-err" className="m-error" role="alert"><MerchantErrorText error={error} /></p>}
-          <button className="m-btn m-btn-primary" type="submit" disabled={busy !== null || !password} style={{ width: "100%" }}>
+          {/* In demo mode the demo button is the path judges take, so it is the primary one. */}
+          <button className={demo ? "m-btn" : "m-btn m-btn-primary"} type="submit" disabled={busy !== null || !password} style={{ width: "100%" }}>
             {busy === "password" ? "Signing in..." : "Sign in"}
           </button>
         </form>
@@ -67,10 +68,10 @@ export function LoginForm() {
                 ))}
               </select>
             </div>
-            <button className="m-btn" type="button" onClick={() => void go("demo")} disabled={busy !== null} style={{ width: "100%" }}>
+            <button className="m-btn m-btn-primary" type="button" onClick={() => void go("demo")} disabled={busy !== null} style={{ width: "100%" }}>
               {busy === "demo" ? "Opening..." : "Open demo merchant dashboard"}
             </button>
-            <p className="m-footnote">Demo mode: includes clearly labelled synthetic fixture bookings. Not real PayPal data.</p>
+            <p className="m-footnote">Demo data, marked fixture. Not real PayPal.</p>
           </>
         )}
       </div>
