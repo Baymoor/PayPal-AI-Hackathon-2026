@@ -1,0 +1,9 @@
+# HTTPS in front of the app. SITE_ADDRESS is a domain pointing at this server, or <ip>.sslip.io;
+# Caddy gets and renews the Let's Encrypt certificate itself.
+#
+# No access log on purpose: invitation links carry their token in the path (/i/<token>).
+# Caddy discards any X-Forwarded-For a client sends and sets the real client address, so the app
+# runs with TRUSTED_PROXY_HOPS=1. Responses of unknown length (streaming) are flushed immediately.
+{$SITE_ADDRESS} {
+	reverse_proxy web:3000
+}

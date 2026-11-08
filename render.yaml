@@ -1,4 +1,5 @@
-# Render Blueprint (optional deployment target). Review plans/costs before applying.
+# Render Blueprint: an ALTERNATIVE, paid deployment (Starter web + worker + Basic Postgres).
+# The hosted demo runs on one VPS instead: deploy/vps and docs/DEPLOYMENT.md. Review plans/costs before applying.
 # Secrets are declared with sync: false and must be entered in the Render dashboard.
 databases:
   - name: outings-db
@@ -11,7 +12,7 @@ services:
     name: outings-web
     runtime: node
     plan: starter
-    buildCommand: npm ci && npm run build
+    buildCommand: npm ci --include=dev && npm run build
     preDeployCommand: npm run db:migrate
     startCommand: npm start
     healthCheckPath: /api/health
@@ -53,7 +54,7 @@ services:
     name: outings-worker
     runtime: node
     plan: starter
-    buildCommand: npm ci
+    buildCommand: npm ci --include=dev
     startCommand: npm run worker
     envVars:
       - key: DATABASE_URL
