@@ -28,12 +28,12 @@ import {
   RevealSummarySchema,
   type AiResult,
   type BriefExtraction,
-  type CatalogueItemForAi,
   type DashboardQuery,
   type OutingsAi,
   type PlanDraft,
   type PlanDraftInput,
   type Proposal,
+  type ProposalInput,
   type RevealAggregate,
   type RevealSummary,
 } from "./types";
@@ -169,12 +169,7 @@ export class AnthropicOutingsAi implements OutingsAi {
     return this.wrap(v.output, v.warnings);
   }
 
-  async proposeOfferings(input: {
-    extraction: BriefExtraction;
-    catalogue: CatalogueItemForAi[];
-    agreedBudgetMinor: number | null;
-    groupSize: number | null;
-  }): Promise<AiResult<Proposal>> {
+  async proposeOfferings(input: ProposalInput): Promise<AiResult<Proposal>> {
     const raw = await this.call(PROPOSAL_SYSTEM, proposalUserMessage(input), ProposalSchema);
     const v = validateProposal(raw, input.catalogue);
     return this.wrap(v.output, v.warnings);

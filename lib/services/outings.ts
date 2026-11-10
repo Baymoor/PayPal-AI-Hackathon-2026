@@ -41,14 +41,17 @@ import { buildCommitmentTerms, hashTerms, validateCommitmentDeadline, isBeforeDe
 import { assertCurrency, formatMoney } from "../domain/money";
 import {
   DEFAULT_BUDGET_OPTIONS_MINOR,
+  LEGACY_TOTAL_OPTIONS_MINOR,
   MAX_BUDGET_MINOR,
   chooseBudgetOptions,
   validateBudgetOptions,
   type BudgetOptionsBasis,
 } from "../domain/budget-options";
+import { budgetFit, comparableCostMinor, headcountOf, perPersonShareMinor, type BudgetFit, type Headcount } from "../domain/budget-fit";
 import {
   MIN_VOTES_FOR_REVEAL,
   type AttendanceState,
+  type BudgetUnit,
   type OutingStatus,
   type PayerType,
 } from "../domain/types";
@@ -60,6 +63,7 @@ import {
   type AiResult,
   type AiSource,
   type BriefExtraction,
+  type CatalogueItemForAi,
   type OutingsAi,
   type PlanCatalogueItem,
   type PlanDraftInput,
@@ -84,9 +88,9 @@ import {
 /* -------------------------------------------------------------------------- */
 
 /**
- * Historic TOTAL budget-poker options (minor units). New outings store their
- * own options at creation (`budgetOptionsFor`); this list remains for outings
- * created before that and as the last-resort fallback.
+ * Default PER-PERSON budget-poker options (minor units). Every outing stores
+ * its own options at creation (`budgetOptionsFor`); this list is only the
+ * last-resort fallback.
  */
 export const BUDGET_OPTIONS_MINOR = DEFAULT_BUDGET_OPTIONS_MINOR;
 /** $100,000 — upper bound for any budget vote / agreed budget (defined with the budget-option rules). */
@@ -104,7 +108,7 @@ export const DEFAULT_TIMEZONE = "Europe/Copenhagen";
  * Never a price or a payment: votes stay any amount up to MAX_BUDGET_MINOR.
  */
 export interface StoredBudgetOptions {
-  /** Five strictly increasing TOTAL amounts, integer minor units (validated). */
+  /** Five strictly increasing amounts in the outing's budget unit, integer minor units (validated). */
   optionsMinor: number[];
   /** AI_SUGGESTION, or which deterministic ladder anchor the app used. */
   basis: BudgetOptionsBasis;
@@ -125,11 +129,11 @@ export interface StoredBriefExtraction {
   warnings: string[];
   error: string | null;
   createdAt: string;
-  /** Absent on outings created before vote amounts were stored; they use BUDGET_OPTIONS_MINOR. */
+  /** Absent on outings created before vote amounts were stored; they use LEGACY_TOTAL_OPTIONS_MINOR. */
   budgetOptions?: StoredBudgetOptions;
 }
 
-/** outings.budget_reveal — aggregate only, never names or per-person votes. */
+/** outings.budget_reveal — aggregate only, never names or who cast which vote. */
 export interface StoredReveal {
   round: number;
   aggregate: RevealAggregate;
@@ -346,25 +350,28 @@ export function storedExtraction(outing: Pick<Outing, "briefExtraction">): Store
 /**
  * The budget-poker vote amounts for this outing: the stored options when they
  * still pass the rules (stored JSON is re-checked, never trusted), else the
- * historic list (outings created before options were stored).
+ * default list for the outing's unit (TOTAL outings predate stored options).
  */
-export function budgetOptionsFor(outing: Pick<Outing, "briefExtraction">): number[] {
+export function budgetOptionsFor(outing: Pick<Outing, "briefExtraction" | "budgetUnit">): number[] {
   const stored = storedExtraction(outing)?.budgetOptions?.optionsMinor;
   const check = validateBudgetOptions(stored);
-  return check.ok ? check.optionsMinor : [...BUDGET_OPTIONS_MINOR];
+  if (check.ok) return check.optionsMinor;
+  return [...(outing.budgetUnit === "PER_PERSON" ? BUDGET_OPTIONS_MINOR : LEGACY_TOTAL_OPTIONS_MINOR)];
 }
 
 /**
- * Decide the vote amounts once, at creation: the AI's validated suggestion,
- * else the deterministic ladder anchored on the brief's budget or on what the
- * matching catalogue costs. Provenance says which; FIXTURE stays FIXTURE.
+ * Decide the per-person vote amounts once, at creation: the AI's validated
+ * suggestion, else the deterministic ladder anchored on the brief's budget or
+ * on what the matching catalogue costs per person. Provenance says which;
+ * FIXTURE stays FIXTURE.
  */
 function decideBudgetOptions(call: AiCall<BriefExtraction>, catalogue: readonly CatalogueEntry[]): StoredBudgetOptions {
   const extraction = call.ok ? call.result.output : null;
   const decision = chooseBudgetOptions({
-    suggestionMinor: extraction?.suggestedVoteTotalsMinor ?? null,
+    suggestionMinor: extraction?.suggestedVotePerPersonMinor ?? null,
     stated: extraction?.budget ?? { amountMinor: null, unit: "UNKNOWN" },
     groupSize: extraction?.groupSize.count ?? null,
+    coversGuest: extraction?.guestOfHonour.coverTheirShare ?? false,
     categories: extraction?.categories ?? [],
     catalogue: catalogue.map(({ offering }) => ({ category: offering.category, pricingModel: offering.pricingModel, priceMinor: offering.priceMinor })),
   });
@@ -437,7 +444,8 @@ export async function createOuting(
         briefExtraction: stored,
         status: "DRAFT",
         currency: "USD",
-        budgetUnit: "TOTAL",
+        // Everyone votes on what they would personally pay; the app relates that to each offering's price.
+        budgetUnit: "PER_PERSON",
         displayTimezone: DEFAULT_TIMEZONE,
         createdAt: now,
         updatedAt: now,
@@ -575,12 +583,12 @@ export async function vote(db: Db, actor: ParticipantActor, input: { amountMinor
     const { outing, me } = await begin(tx, actor);
     requireStatus(outing, ["BUDGETING"], "Budget voting is not open");
     if (outing.budgetRevealedAt) throw conflict("ALREADY_REVEALED", "Votes for this round have been revealed. The organizer can start a new round.");
-    if (outing.budgetUnit !== "TOTAL") throw conflict("INVALID_UNIT", "Votes are for the TOTAL budget");
     if (!isActiveParticipant(me)) throw conflict("NOT_ATTENDING", "You declined this outing");
     // Upsert the caller's OWN vote only: participantId comes from the session, never the body.
     await tx
       .insert(budgetVotes)
-      .values({ outingId: outing.id, participantId: me.id, round: outing.budgetRound, amountMinor: amount, unit: "TOTAL", createdAt: now, updatedAt: now })
+      // A vote is always in the outing's own unit, so one round never mixes per-person and total amounts.
+      .values({ outingId: outing.id, participantId: me.id, round: outing.budgetRound, amountMinor: amount, unit: outing.budgetUnit, createdAt: now, updatedAt: now })
       .onConflictDoUpdate({
         target: [budgetVotes.outingId, budgetVotes.participantId, budgetVotes.round],
         set: { amountMinor: amount, updatedAt: now },
@@ -590,8 +598,8 @@ export async function vote(db: Db, actor: ParticipantActor, input: { amountMinor
   });
 }
 
-/** Aggregate-only summary of a set of votes (no names, no per-person mapping). */
-export function aggregateVotes(amounts: readonly number[], invitedCount: number, currency: string): RevealAggregate {
+/** Aggregate-only summary of a set of votes cast in one unit (no names, no mapping from vote to voter). */
+export function aggregateVotes(amounts: readonly number[], invitedCount: number, currency: string, unit: BudgetUnit = "TOTAL"): RevealAggregate {
   if (amounts.length === 0) throw new Error("no votes to aggregate");
   const sorted = [...amounts].sort((a, b) => a - b);
   const counts = new Map<number, number>();
@@ -599,7 +607,7 @@ export function aggregateVotes(amounts: readonly number[], invitedCount: number,
   const n = sorted.length;
   const median = n % 2 === 1 ? sorted[(n - 1) / 2] : Math.floor((sorted[n / 2 - 1] + sorted[n / 2]) / 2);
   return {
-    unit: "TOTAL",
+    unit,
     currency,
     voteCount: n,
     invitedCount: Math.max(invitedCount, n),
@@ -614,13 +622,14 @@ async function computeAggregate(tx: DbOrTx, outing: Outing): Promise<RevealAggre
   const rows = await tx
     .select({ amountMinor: budgetVotes.amountMinor })
     .from(budgetVotes)
-    .where(and(eq(budgetVotes.outingId, outing.id), eq(budgetVotes.round, outing.budgetRound), eq(budgetVotes.unit, "TOTAL")));
+    .where(and(eq(budgetVotes.outingId, outing.id), eq(budgetVotes.round, outing.budgetRound), eq(budgetVotes.unit, outing.budgetUnit)));
   if (rows.length < MIN_VOTES_FOR_REVEAL) return null;
   const roster = await loadRoster(tx, outing.id);
   return aggregateVotes(
     rows.map((r) => r.amountMinor),
     roster.filter(isActiveParticipant).length,
     outing.currency,
+    outing.budgetUnit,
   );
 }
 
@@ -701,22 +710,61 @@ export async function newRound(db: Db, actor: ParticipantActor, now: Date = new 
   });
 }
 
+/** The amount the organizer agreed and what it means; outings created before per-person voting agreed a TOTAL. */
+interface AgreedBudget {
+  amountMinor: number;
+  unit: BudgetUnit;
+}
+
+/** Who is coming and who pays right now: everyone who has not declined, minus the sponsored guest. */
+function rosterHeadcount(active: readonly Pick<Participant, "payerType">[]): Headcount {
+  return headcountOf(Math.max(1, active.length), active.filter((p) => p.payerType === "SPONSORED").length);
+}
+
+/**
+ * The headcount to rank against: the live roster once anyone is invited, else
+ * what the brief says (its group size, minus a guest whose share the group
+ * covers). Null when the organizer is alone and the brief gives no size.
+ */
+function rankingHeadcount(roster: Headcount, extraction: BriefExtraction): Headcount | null {
+  if (roster.attendees > 1) return roster;
+  const stated = extraction.groupSize.count;
+  if (stated === null) return null;
+  return headcountOf(stated, extraction.guestOfHonour.coverTheirShare ? 1 : 0);
+}
+
+/** Adds the application's own per-person share to each item, so the ranker compares it and never computes one. */
+function withPerPersonShares(catalogue: CatalogueItemForAi[], headcount: Headcount | null, unit: BudgetUnit): CatalogueItemForAi[] {
+  if (unit !== "PER_PERSON") return catalogue;
+  return catalogue.map((c) => ({ ...c, perPersonShareMinor: headcount ? perPersonShareMinor(c, headcount) : null }));
+}
+
+function overBudgetConcern(fit: BudgetFit, unit: BudgetUnit): string {
+  if (unit !== "PER_PERSON") return "Above the agreed budget.";
+  return `About ${formatMoney(fit.costMinor)} each, above the agreed ${formatMoney(fit.budgetMinor)} per person.`;
+}
+
 /** Deterministic, clearly-labelled ranking used only when the AI call failed. */
 function deterministicProposal(
   catalogue: ReturnType<typeof toCatalogueForAi>,
-  budgetMinor: number,
-  groupSize: number,
+  budget: AgreedBudget,
+  headcount: Headcount,
+  invitedCount: number,
 ): Proposal {
   const ranked = catalogue
-    .filter((c) => c.capacity >= groupSize)
+    .filter((c) => c.capacity >= invitedCount)
     .map((c) => {
       const fixed = c.pricingModel === "FIXED_TOTAL";
-      const within = fixed && c.priceMinor <= budgetMinor;
+      const fit = budgetFit(comparableCostMinor(c, headcount, budget.unit), budget.amountMinor);
+      // Only a fixed total can be shared, so a per-attendee offering is never more than a stretch.
+      const within = fixed && fit.kind === "WITHIN";
+      const concerns = fit.kind === "OVER" ? [overBudgetConcern(fit, budget.unit)] : [];
+      if (!fixed) concerns.push("Priced per attendee, so the total grows with each person who joins.");
       return {
         offeringId: c.offeringId,
         fit: (within ? "GOOD" : "STRETCH") as Proposal["ranked"][number]["fit"],
         reasons: [`Fits up to ${c.capacity} people.`, fixed ? "Fixed total: more attendees lower each share." : "Listed for comparison."],
-        concerns: fixed ? (within ? [] : ["Above the agreed budget."]) : ["Priced per attendee, so the total grows with each person who joins."],
+        concerns,
         score: (within ? 2 : 0) + (fixed ? 1 : 0),
       };
     })
@@ -736,15 +784,24 @@ export async function agreeBudget(
   const pre = await db.transaction(async (tx) => {
     const { outing } = await begin(tx, actor, { organizer: true });
     requireStatus(outing, ["BUDGETING", "PROPOSED"], "The budget can only be agreed before collection opens");
-    const roster = await loadRoster(tx, outing.id);
-    return { outing, groupSize: roster.filter(isActiveParticipant).length };
+    const active = (await loadRoster(tx, outing.id)).filter(isActiveParticipant);
+    return { outing, groupSize: active.length, roster: rosterHeadcount(active) };
   });
 
   const entries = await listActiveOfferings(db);
   const catalogue = toCatalogueForAi(entries);
   const extraction = storedExtraction(pre.outing)?.extraction ?? fallbackExtraction(pre.outing);
+  const budget: AgreedBudget = { amountMinor: budgetMinor, unit: pre.outing.budgetUnit };
+  const headcount = rankingHeadcount(pre.roster, extraction);
   const call = await callAi((ai) =>
-    ai.proposeOfferings({ extraction, catalogue, agreedBudgetMinor: budgetMinor, groupSize: pre.groupSize > 1 ? pre.groupSize : extraction.groupSize.count }),
+    ai.proposeOfferings({
+      extraction,
+      catalogue: withPerPersonShares(catalogue, headcount, budget.unit),
+      agreedBudgetMinor: budget.amountMinor,
+      budgetUnit: budget.unit,
+      groupSize: headcount?.attendees ?? null,
+      payerCount: headcount?.payers ?? null,
+    }),
   );
 
   // Keep only offerings that exist in OUR active catalogue and fit the group.
@@ -779,7 +836,7 @@ export async function agreeBudget(
     source = "FIXTURE";
     model = null;
     if (call.ok) warnings.push("AI output did not match the proposal schema.");
-    proposal = deterministicProposal(catalogue, budgetMinor, pre.groupSize);
+    proposal = deterministicProposal(catalogue, budget, headcount ?? pre.roster, pre.groupSize);
   }
 
   return db.transaction(async (tx) => {
@@ -808,7 +865,7 @@ export async function agreeBudget(
       outingId: outing.id,
       actor: actorOf(me.id),
       type: "BUDGET_AGREED",
-      data: { proposedBudgetMinor: budgetMinor, candidates: proposal.ranked.length, aiSource: source },
+      data: { proposedBudgetMinor: budgetMinor, budgetUnit: budget.unit, candidates: proposal.ranked.length, aiSource: source },
     });
     return stored;
   });
@@ -1038,7 +1095,7 @@ export const PLAN_DRAFT_RATE_LIMIT: RateLimitRule = { capacity: 5, refillPerMinu
  * Ask the AI to draft the organizer's "open commitments" form. Read-only:
  * nothing is selected, sponsored or persisted as terms; the organizer reviews
  * every field and opens commitments explicitly. The AI sees the brief
- * extraction, the agreed TOTAL, public catalogue data with availability and
+ * extraction, the agreed budget, public catalogue data with availability and
  * roster NAMES with payer/sponsor flags; never votes, ids or private amounts.
  * Every value is validated deterministically (`validatePlanDraft`); invalid
  * fields are dropped with a note, never adjusted.
@@ -1082,6 +1139,7 @@ export async function draftPlan(db: Db, input: { outingId: string; organizerId: 
   const aiInput: PlanDraftInput = {
     extraction: storedExtraction(outing)?.extraction ?? fallbackExtraction(outing),
     agreedBudgetMinor: outing.proposedBudgetMinor,
+    budgetUnit: outing.budgetUnit,
     catalogue,
     selectedOfferingId: outing.selectedOfferingId,
     roster: aiRoster,

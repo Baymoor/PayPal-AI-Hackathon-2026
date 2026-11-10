@@ -132,7 +132,7 @@ export function validateBrief(raw: BriefExtraction, opts: BriefValidationOptions
     .filter((r) => r.text.length > 0);
   if (summary.length === 0) summary.push({ icon: "note", text: title.slice(0, 80) });
 
-  const voteTotals = validVoteTotals(b.suggestedVoteTotalsMinor ?? null, warnings);
+  const voteAmounts = validVoteAmounts(b.suggestedVotePerPersonMinor ?? null, warnings);
 
   const output: BriefExtraction = {
     title,
@@ -149,13 +149,13 @@ export function validateBrief(raw: BriefExtraction, opts: BriefValidationOptions
     needs: cleanList(b.needs, 60),
     uncertainties: cleanList(b.uncertainties, 120),
     summary,
-    suggestedVoteTotalsMinor: voteTotals,
+    suggestedVotePerPersonMinor: voteAmounts,
   };
   return { output, warnings };
 }
 
 /** Suggested vote amounts that pass the budget-option rules; anything else is dropped with a warning, never adjusted. */
-function validVoteTotals(suggestion: number[] | null, warnings: string[]): number[] | null {
+function validVoteAmounts(suggestion: number[] | null, warnings: string[]): number[] | null {
   if (suggestion === null) return null;
   const check = validateBudgetOptions(suggestion);
   if (check.ok) return check.optionsMinor;

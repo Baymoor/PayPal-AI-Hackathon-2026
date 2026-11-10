@@ -259,7 +259,7 @@ describe("AnthropicOutingsAi (mocked client)", () => {
 
   it("validates proposals, reveals and dashboard queries from the model", async () => {
     const p = await make(reply({ ranked: [{ offeringId: "nope", fit: "GOOD", reasons: ["r"], concerns: [] }, { offeringId: "off_k", fit: "GREAT", reasons: ["r"], concerns: [] }], note: "n" })).ai.proposeOfferings({
-      extraction: BriefExtractionSchema.parse(briefJson), catalogue, agreedBudgetMinor: null, groupSize: 6,
+      extraction: BriefExtractionSchema.parse(briefJson), catalogue, agreedBudgetMinor: null, budgetUnit: "PER_PERSON", groupSize: 6, payerCount: 6,
     });
     expect(p.output.ranked.map((r) => r.offeringId)).toEqual(["off_k"]);
     expect(p.warnings.length).toBe(1);
@@ -295,30 +295,64 @@ describe("suggested budget-vote amounts", () => {
   };
 
   it("asks the model for the field (required, nullable, no unsupported keywords) and keeps a valid suggestion", async () => {
-    const { create, ai } = make({ ...briefJson, suggestedVoteTotalsMinor: [15000, 20000, 30000, 40000, 50000] });
+    const { create, ai } = make({ ...briefJson, suggestedVotePerPersonMinor: [1500, 2000, 3000, 4000, 5000] });
     const r = await ai.extractBrief({ brief, now: NOW, timezone: "UTC" });
-    expect(r.output.suggestedVoteTotalsMinor).toEqual([15000, 20000, 30000, 40000, 50000]);
+    expect(r.output.suggestedVotePerPersonMinor).toEqual([1500, 2000, 3000, 4000, 5000]);
     const schema = create.mock.calls[0][0].output_config.format.schema;
-    expect(schema.required).toContain("suggestedVoteTotalsMinor");
-    expect(JSON.stringify(schema.properties.suggestedVoteTotalsMinor)).toMatch(/"null"/);
+    expect(schema.required).toContain("suggestedVotePerPersonMinor");
+    expect(JSON.stringify(schema.properties.suggestedVotePerPersonMinor)).toMatch(/"null"/);
     expect(JSON.stringify(schema)).not.toMatch(/"default"/);
-    expect(create.mock.calls[0][0].system).toMatch(/suggestedVoteTotalsMinor/);
+    expect(create.mock.calls[0][0].system).toMatch(/suggestedVotePerPersonMinor/);
+  });
+
+  it("asks for per-person amounts only: the model never sees the legacy whole-group field", async () => {
+    const { create, ai } = make(briefJson);
+    await ai.extractBrief({ brief, now: NOW, timezone: "UTC" });
+    const request = create.mock.calls[0][0];
+    expect(request.output_config.format.schema.properties.suggestedVoteTotalsMinor).toBeUndefined();
+    expect(request.system).not.toMatch(/suggestedVoteTotalsMinor/);
+    expect(JSON.stringify(request.output_config.format.schema.properties.suggestedVotePerPersonMinor)).toMatch(/never the whole group's total/);
+    // A stored extraction from before per-person voting still parses.
+    expect(BriefExtractionSchema.safeParse({ ...briefJson, suggestedVoteTotalsMinor: [15000, 20000, 30000, 40000, 50000] }).success).toBe(true);
   });
 
   it("drops an invalid suggestion with a warning instead of discarding the whole brief", async () => {
-    const r = await make({ ...briefJson, suggestedVoteTotalsMinor: [30000, 20000, 10000.5] }).ai.extractBrief({ brief, now: NOW, timezone: "UTC" });
+    const r = await make({ ...briefJson, suggestedVotePerPersonMinor: [3000, 2000, 1000.5] }).ai.extractBrief({ brief, now: NOW, timezone: "UTC" });
     expect(r.output.title).toBe("Wine tasting");
-    expect(r.output.suggestedVoteTotalsMinor).toBeNull();
+    expect(r.output.suggestedVotePerPersonMinor).toBeNull();
     expect(r.warnings.join(" ")).toMatch(/Dropped suggested vote amounts/);
     // An older-shaped reply without the field still parses (stored extractions predate it too).
-    expect((await make(briefJson).ai.extractBrief({ brief, now: NOW, timezone: "UTC" })).output.suggestedVoteTotalsMinor).toBeNull();
+    expect((await make(briefJson).ai.extractBrief({ brief, now: NOW, timezone: "UTC" })).output.suggestedVotePerPersonMinor).toBeNull();
   });
 
   it("never sends the suggestion to the ranking prompt", async () => {
     const { create, ai } = make({ ranked: [], note: "n" });
-    const extraction = BriefExtractionSchema.parse({ ...briefJson, suggestedVoteTotalsMinor: [15000, 20000, 30000, 40000, 50000] });
-    await ai.proposeOfferings({ extraction, catalogue, agreedBudgetMinor: 30000, groupSize: 6 });
-    expect(create.mock.calls[0][0].messages[0].content).not.toMatch(/suggestedVoteTotals/);
+    const extraction = BriefExtractionSchema.parse({
+      ...briefJson,
+      suggestedVotePerPersonMinor: [1500, 2000, 3000, 4000, 5000],
+      suggestedVoteTotalsMinor: [15000, 20000, 30000, 40000, 50000],
+    });
+    await ai.proposeOfferings({ extraction, catalogue, agreedBudgetMinor: 3000, budgetUnit: "PER_PERSON", groupSize: 6, payerCount: 6 });
+    expect(create.mock.calls[0][0].messages[0].content).not.toMatch(/suggestedVote/);
+  });
+
+  it("tells the ranker the budget is per person and hands it the app's own share for each offering", async () => {
+    const { create, ai } = make({ ranked: [], note: "n" });
+    const extraction = BriefExtractionSchema.parse(briefJson);
+    const withShares = catalogue.map((item, i) => ({ ...item, perPersonShareMinor: 2000 + i }));
+    await ai.proposeOfferings({ extraction, catalogue: withShares, agreedBudgetMinor: 2000, budgetUnit: "PER_PERSON", groupSize: 6, payerCount: 5 });
+    const request = create.mock.calls[0][0];
+    expect(request.messages[0].content).toMatch(/People coming: 6\. People paying: 5\. Agreed budget PER PERSON[^:]*: 2000\./);
+    expect(request.messages[0].content).toMatch(/"perPersonShareMinor":2000/);
+    expect(request.system).toMatch(/Never work out a share yourself/);
+  });
+
+  it("keeps the whole-group wording, without shares, for an outing that agreed a total", async () => {
+    const { create, ai } = make({ ranked: [], note: "n" });
+    await ai.proposeOfferings({ extraction: BriefExtractionSchema.parse(briefJson), catalogue, agreedBudgetMinor: 30000, budgetUnit: "TOTAL", groupSize: 6, payerCount: 6 });
+    const content = create.mock.calls[0][0].messages[0].content;
+    expect(content).toMatch(/Agreed TOTAL budget for the whole group[^:]*: 30000\./);
+    expect(content).not.toMatch(/perPersonShareMinor/);
   });
 
   it("the fixture parser recognises the starter themes and never suggests amounts", async () => {
@@ -333,7 +367,7 @@ describe("suggested budget-vote amounts", () => {
     ] as const) {
       const out = (await ai.extractBrief({ brief: text, now: NOW, timezone: "UTC" })).output;
       expect(out.categories, text).toContain(category);
-      expect(out.suggestedVoteTotalsMinor).toBeNull();
+      expect(out.suggestedVotePerPersonMinor).toBeNull();
     }
   });
 });

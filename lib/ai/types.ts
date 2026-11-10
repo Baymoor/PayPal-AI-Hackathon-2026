@@ -5,6 +5,7 @@
  * before use. Pasted group chat text is treated as data, never instructions.
  */
 import { z } from "zod";
+import type { BudgetUnit } from "../domain/types";
 
 export type AiSource = "ANTHROPIC" | "FIXTURE";
 
@@ -55,11 +56,17 @@ export const BriefExtractionSchema = z.object({
     .min(1)
     .max(6),
   /**
-   * Five suggested TOTAL budget-poker amounts for the whole group, integer
-   * minor units; null = no suggestion. Only SHAPE here, so one bad field
-   * cannot discard the whole extraction: `validateBrief` applies the rules in
-   * lib/domain/budget-options.ts. Absent on extractions stored before the
-   * field existed.
+   * Five suggested PER-PERSON budget-poker amounts ("what would you personally
+   * pay?"), integer minor units; null = no suggestion. Only SHAPE here, so one
+   * bad field cannot discard the whole extraction: `validateBrief` applies the
+   * rules in lib/domain/budget-options.ts. Absent on extractions stored before
+   * the field existed.
+   */
+  suggestedVotePerPersonMinor: z.array(z.number()).nullable().optional(),
+  /**
+   * Legacy: whole-group TOTAL amounts, stored on outings created before
+   * per-person voting. Never requested from the model and never read for new
+   * outings; kept so those stored extractions still parse.
    */
   suggestedVoteTotalsMinor: z.array(z.number()).nullable().optional(),
 });
@@ -70,13 +77,13 @@ export type BriefExtraction = z.infer<typeof BriefExtractionSchema>;
  * so the model always answers the vote-amount question (null is allowed);
  * the default keeps parsing tolerant if a response ever omits it.
  */
-export const BriefExtractionModelSchema = BriefExtractionSchema.extend({
-  suggestedVoteTotalsMinor: z
+export const BriefExtractionModelSchema = BriefExtractionSchema.omit({ suggestedVoteTotalsMinor: true }).extend({
+  suggestedVotePerPersonMinor: z
     .array(z.number())
     .nullable()
     .default(null)
     .describe(
-      "Exactly five ascending TOTAL amounts for the whole group's budget vote, in integer minor units (cents), each a multiple of 500. Fit the activity, group size and any stated budget (a stated total must lie inside the range). null if you cannot judge.",
+      "Exactly five ascending PER-PERSON amounts for the budget vote: what ONE person would personally pay, never the whole group's total. Integer minor units (cents), each a whole dollar (a multiple of 100). Fit the activity and any stated budget (a stated per-person amount, or a stated total divided by the people paying, must lie inside the range). null if you cannot judge.",
     ),
 });
 
@@ -94,6 +101,26 @@ export interface CatalogueItemForAi {
   capacity: number;
   minAttendees: number;
   tags: string[];
+  /**
+   * What one payer would pay, computed by the application (booking total /
+   * people paying). Set only when ranking against a PER_PERSON budget with a
+   * known headcount; the model compares it, never recomputes it.
+   */
+  perPersonShareMinor?: number | null;
+}
+
+/** What the ranker sees. Shares are computed by the application; the model only compares and explains. */
+export interface ProposalInput {
+  extraction: BriefExtraction;
+  catalogue: CatalogueItemForAi[];
+  /** Agreed budget in minor units, expressed in `budgetUnit` (a starting point, not a quote). */
+  agreedBudgetMinor: number | null;
+  /** PER_PERSON: what each payer would pay. TOTAL: the whole group's budget (outings created before per-person voting). */
+  budgetUnit: BudgetUnit;
+  /** People coming (not declined). */
+  groupSize: number | null;
+  /** People paying: everyone coming minus a covered guest. */
+  payerCount: number | null;
 }
 
 export const ProposalSchema = z.object({
@@ -113,9 +140,10 @@ export type Proposal = z.infer<typeof ProposalSchema>;
 
 /* ------------------------------ Budget reveal ------------------------------- */
 
-/** Aggregate-only input. Never contains names or per-person votes. */
+/** Aggregate-only input. Never contains names or who cast which vote. */
 export interface RevealAggregate {
-  unit: "TOTAL";
+  /** What each vote means: PER_PERSON = what one person would personally pay; TOTAL = the whole group's budget (older outings). */
+  unit: BudgetUnit;
   currency: string;
   voteCount: number;
   invitedCount: number;
@@ -223,8 +251,10 @@ export interface PlanRosterEntry {
 
 export interface PlanDraftInput {
   extraction: BriefExtraction;
-  /** Agreed TOTAL budget in minor units (a starting point, not a quote). */
+  /** Agreed budget in minor units, expressed in `budgetUnit` (a starting point, not a quote). */
   agreedBudgetMinor: number | null;
+  /** PER_PERSON: what each payer would pay. TOTAL: the whole group's budget (outings created before per-person voting). */
+  budgetUnit: BudgetUnit;
   /** Candidates in ranked order, best first. */
   catalogue: PlanCatalogueItem[];
   selectedOfferingId: string | null;
@@ -288,12 +318,7 @@ export interface PlanDraftResponse {
 export interface OutingsAi {
   readonly source: AiSource;
   extractBrief(input: { brief: string; now: Date; timezone: string; categories?: string[] }): Promise<AiResult<BriefExtraction>>;
-  proposeOfferings(input: {
-    extraction: BriefExtraction;
-    catalogue: CatalogueItemForAi[];
-    agreedBudgetMinor: number | null;
-    groupSize: number | null;
-  }): Promise<AiResult<Proposal>>;
+  proposeOfferings(input: ProposalInput): Promise<AiResult<Proposal>>;
   summarizeReveal(input: { aggregate: RevealAggregate; extraction: BriefExtraction | null }): Promise<AiResult<RevealSummary>>;
   dashboardQuery(input: { question: string; now: Date }): Promise<AiResult<DashboardQuery>>;
   /**

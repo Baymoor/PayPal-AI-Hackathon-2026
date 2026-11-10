@@ -125,7 +125,7 @@ export const outings = pgTable(
     budgetRevealedAt: ts("budget_revealed_at"),
     /** Stored aggregate-only reveal (RevealAggregate) + AI summary with provenance. No names. */
     budgetReveal: jsonb("budget_reveal"),
-    /** Organizer-chosen proposal budget (TOTAL, minor units). Not a payment authorization. */
+    /** Organizer-chosen proposal budget in `budgetUnit` (per person for new outings), minor units. Not a payment authorization. */
     proposedBudgetMinor: integer("proposed_budget_minor"),
     /** AI-ranked catalogue proposal (validated against the catalogue) + provenance. */
     proposal: jsonb("proposal"),

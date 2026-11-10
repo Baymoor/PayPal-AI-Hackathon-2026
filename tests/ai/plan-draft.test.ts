@@ -79,6 +79,7 @@ async function planInput(over: Partial<PlanDraftInput> = {}, brief = CANONICAL):
   return {
     extraction: await canonicalExtraction(brief),
     agreedBudgetMinor: 10_000,
+    budgetUnit: "TOTAL",
     catalogue: [ROOM, SUITE, POTTERY],
     selectedOfferingId: null,
     roster: ROSTER,
