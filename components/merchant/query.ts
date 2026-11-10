@@ -1,5 +1,7 @@
 import { DashboardQuerySchema, type DashboardQuery } from "@/lib/ai/types";
 import type { MerchantBookingRow } from "@/lib/contracts/views";
+import { formatMoney } from "./format";
+import { CLEANUP_LABEL, OUTING_STATUS_LABEL } from "./labels";
 
 /**
  * Applies a validated, read-only DashboardQuery to booking rows entirely in the browser.
@@ -92,22 +94,35 @@ export function parseDashboardQuery(raw: unknown): DashboardQuery {
 
 export const FIELD_LABEL: Record<Field, string> = {
   status: "Status",
-  closesWithinHours: "Closes within (h)",
+  closesWithinHours: "Closes within (hours)",
   closesToday: "Closes today",
   missingRequired: "Missing required",
   requiredAccepted: "Required accepted",
   requiredInvited: "Required invited",
   payersAuthorized: "Payers authorized",
-  minPayers: "Min payers",
-  authorizedTotalMinor: "Authorized holds (minor units)",
-  capturedTotalMinor: "Captured (minor units)",
-  refundedTotalMinor: "Refunded (minor units)",
+  minPayers: "Minimum payers",
+  authorizedTotalMinor: "Authorized holds",
+  capturedTotalMinor: "Captured",
+  refundedTotalMinor: "Refunded",
   cleanup: "Recovery status",
-  isFixture: "Fixture row",
+  isFixture: "Simulated (Fixture)",
 };
 
-const OP_LABEL = { eq: "=", neq: "≠", gt: ">", gte: "≥", lt: "<", lte: "≤", in: "in" } as const;
+const OP_LABEL = { eq: "is", neq: "is not", gt: "more than", gte: "at least", lt: "less than", lte: "at most", in: "is one of" } as const;
+const MONEY: ReadonlySet<Field> = new Set<Field>(["authorizedTotalMinor", "capturedTotalMinor", "refundedTotalMinor"]);
+const YES_NO: ReadonlySet<Field> = new Set<Field>(["closesToday", "isFixture"]);
+
+/** One filter value in the words the dashboard shows, never the stored code ("Collecting", not COLLECTING; "$50.00", not 5000). */
+function valueText(field: Field, raw: string | number | boolean): string {
+  if (YES_NO.has(field)) return raw === true || raw === "true" ? "yes" : "no";
+  if (MONEY.has(field) && Number.isFinite(Number(raw))) return formatMoney(Number(raw));
+  const labels: Record<string, string> | null = field === "status" ? OUTING_STATUS_LABEL : field === "cleanup" ? CLEANUP_LABEL : null;
+  return labels?.[String(raw)] ?? String(raw);
+}
+
+/** A filter as a short phrase for the chips under the question box, e.g. "Closes today: yes" or "Captured at least $50.00". */
 export function describeFilter(f: DashboardQuery["filters"][number]): string {
-  const v = Array.isArray(f.value) ? f.value.join(", ") : String(f.value);
-  return `${FIELD_LABEL[f.field]} ${OP_LABEL[f.op]} ${v}`;
+  const values = (Array.isArray(f.value) ? f.value : [f.value]).map((v) => valueText(f.field, v)).join(", ");
+  if (YES_NO.has(f.field) && (f.op === "eq" || f.op === "in")) return `${FIELD_LABEL[f.field]}: ${values}`;
+  return `${FIELD_LABEL[f.field]} ${OP_LABEL[f.op]} ${values}`;
 }

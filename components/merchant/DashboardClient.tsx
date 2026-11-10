@@ -163,20 +163,20 @@ export default function DashboardClient({ licenseKey, fixtures, aiEnabled, merch
             </button>
           ))}
         </div>
-        <span className="m-footnote" style={{ margin: 0 }}>{counts.sandbox} sandbox · {counts.fixture} fixture outings loaded</span>
+        <span className="m-footnote" style={{ margin: 0 }}>{counts.sandbox} paid through PayPal sandbox · {counts.fixture} simulated (Fixture)</span>
       </div>
 
       {activeSegment === "BOTH" && (
         <div className="m-banner" role="note" data-tone="danger">
           <AlertTriangle size={18} aria-hidden />
-          <span>Totals below combine real PayPal sandbox transactions with synthetic fixture rows. Fixture rows are labelled in the table; switch to a single source for clean totals.</span>
+          <span>These totals mix PayPal sandbox payments with simulated ones. Simulated bookings are marked Fixture in the table. Pick Sandbox or Fixture for totals that mean one thing.</span>
         </div>
       )}
-      {/* No banner for the fixture segment: the header badge and the per-row "Fixture" label already say it. */}
+      {/* No banner for the Fixture segment: the header badge and the per-row "Fixture" label already say it. */}
       {activeSegment === "SANDBOX" && (
         <div className="m-banner" role="note" data-tone="info">
           <Info size={18} aria-hidden />
-          <span>Showing bookings paid through the real PayPal sandbox (test money, no real funds). Synthetic fixtures are excluded.</span>
+          <span>Showing bookings paid through PayPal&apos;s sandbox: PayPal&apos;s own test system, with test money. Simulated demo bookings are under Fixture.</span>
         </div>
       )}
       {otherCurrency > 0 && (
@@ -220,7 +220,7 @@ export default function DashboardClient({ licenseKey, fixtures, aiEnabled, merch
               <button type="button" className="m-btn m-btn-sm" onClick={() => { viewRef.current = ""; setViewId(""); if (apiRef.current) applySavedView(apiRef.current, null); }}>Clear view</button>
             </span>
           )}
-          <span className="m-view-note">Numbers on both pages follow the same filters; click any bar, outing or row to cross-filter.</span>
+          <span className="m-view-note">Click any bar, outing or row to filter everything else. Both pages follow the same filters.</span>
         </div>
       )}
 
@@ -232,7 +232,7 @@ export default function DashboardClient({ licenseKey, fixtures, aiEnabled, merch
             <p>
               <strong>No bookings match.</strong>
               <br />
-              {applied ? "Clear the AI filter or switch data source." : activeSegment === "SANDBOX" ? "No real PayPal sandbox bookings yet. Switch to Fixture to explore demo data." : "Nothing to show yet."}
+              {applied ? "Clear the filter above, or switch between Sandbox and Fixture." : activeSegment === "SANDBOX" ? "No PayPal sandbox bookings yet. Switch to Fixture to explore the demo bookings." : "Nothing to show yet."}
             </p>
           </div>
         )}
@@ -254,10 +254,8 @@ export default function DashboardClient({ licenseKey, fixtures, aiEnabled, merch
         )}
       </div>
       {studioError && <p className="m-footnote" role="status">AG Studio notice: {studioError}</p>}
-      <p className="m-footnote">
-        Charts and tables above are cross-filtered: click a bar or an outing name to filter the other widgets.
-        {!licenseKey && " AG Studio is running without a licence key (trial mode)."}
-      </p>
+      {/* The "click to filter" hint lives next to the page tabs; it is not repeated down here. */}
+      {!licenseKey && <p className="m-footnote">AG Studio is running without a licence key (trial mode).</p>}
     </div>
   );
 }

@@ -72,7 +72,7 @@ export function AskBox({ applied, onApply, onClear, fixtures }: {
         </button>
       </form>
       <p className="m-footnote" style={{ margin: "8px 0 0" }}>
-        Read-only: your question only becomes filters on this page. It can never capture, void, refund or retry a payment.
+        Your question only filters what you see on this page. It can never charge, refund or change a payment.
       </p>
       <div aria-live="polite">
         {error && <p className="m-error" role="alert"><MerchantErrorText error={error} /></p>}

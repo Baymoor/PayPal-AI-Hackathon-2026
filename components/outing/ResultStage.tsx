@@ -97,7 +97,7 @@ export function ResultStage({ view }: { view: OutingView }) {
       <StatusBanner tone={done ? "info" : outing.cleanup === "NEEDS_ATTENTION" ? "danger" : "pending"} title={done ? "Refunded" : "Refund pending"}>
         {done
           ? fixture
-            ? "A payment failed, so the completed fixture payments were refunded. No real money moved."
+            ? "A payment failed, so the completed simulated payments were refunded. No real money moved."
             : "A payment failed, so the completed payments were refunded. Your bank may take a few days to show it."
           : outing.cleanup === "NEEDS_ATTENTION"
             ? "A payment failed, and a refund needs manual attention. Contact the organizer or merchant."
