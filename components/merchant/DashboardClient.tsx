@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AlertTriangle, Bot, Info, RefreshCw } from "lucide-react";
 import type { MerchantBookingRow } from "@/lib/contracts/views";
@@ -16,20 +16,28 @@ import type { AgStudioApi } from "ag-studio";
 import { AskBox, type AppliedQuery } from "./AskBox";
 import { Badge } from "./Badge";
 import { labelRows, usePaymentMode } from "./modes";
+import { studioInstanceKey, studioRowsSignature } from "./studioInstance";
 
-const StudioDashboard = dynamic(() => import("./StudioDashboard"), {
+const LazyStudioDashboard = dynamic(() => import("./StudioDashboard"), {
   ssr: false,
   loading: () => <div className="m-skel" role="status">Loading AG Studio dashboard...</div>,
 });
+// Every render of the Studio wrapper makes Studio re-apply its panels, which takes the assistant out of
+// the page and puts it back (the message box loses focus). This page re-renders on every 30 s refresh,
+// so Studio only renders when one of its own props really changed.
+const StudioDashboard = memo(LazyStudioDashboard);
+
+/** The same array for as long as nothing Studio shows has changed, so a refresh without news leaves Studio untouched. */
+function useStableStudioRows(rows: MerchantBookingRow[]): MerchantBookingRow[] {
+  const signature = useMemo(() => studioRowsSignature(rows), [rows]);
+  const [stable, setStable] = useState({ signature, rows });
+  if (stable.signature === signature) return stable.rows;
+  setStable({ signature, rows });
+  return rows;
+}
 
 type Segment = "SANDBOX" | "FIXTURE" | "BOTH";
 const SEGMENT_LABEL: Record<Segment, string> = { SANDBOX: "Sandbox", FIXTURE: "Fixture", BOTH: "All" };
-
-function hash(s: string): string {
-  let h = 5381;
-  for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) | 0;
-  return (h >>> 0).toString(36);
-}
 
 export interface DashboardClientProps {
   /** AG Studio licence key from the server env (a configuration value; never logged). */
@@ -94,7 +102,13 @@ export default function DashboardClient({ licenseKey, fixtures, aiEnabled, merch
   }, [rows]);
 
   // Default: show real sandbox rows if any exist, otherwise the fixtures (never silently mixed).
-  const activeSegment: Segment = segment ?? (counts.sandbox > 0 || counts.fixture === 0 ? "SANDBOX" : "FIXTURE");
+  const suggestedSegment: Segment = counts.sandbox > 0 || counts.fixture === 0 ? "SANDBOX" : "FIXTURE";
+  // The default is settled once, when there are rows and their payment mode is known. After that only the
+  // merchant changes the data source: a refresh that brings the first sandbox booking must not swap the
+  // whole dashboard, and the assistant's chat with it, under someone who is using it.
+  const [startSegment, setStartSegment] = useState<Segment | null>(null);
+  if (startSegment === null && paymentMode !== null && (rows?.length ?? 0) > 0) setStartSegment(suggestedSegment);
+  const activeSegment: Segment = segment ?? startSegment ?? suggestedSegment;
 
   const currency = useMemo(() => {
     const tally = new Map<string, number>();
@@ -108,10 +122,16 @@ export default function DashboardClient({ licenseKey, fixtures, aiEnabled, merch
   }, [rows, activeSegment, currency]);
 
   const visible = useMemo(() => applyDashboardQuery(scoped, applied?.query ?? null), [scoped, applied]);
+  const studioRows = useStableStudioRows(visible);
   const otherCurrency = (rows ?? []).filter((r) => r.currency !== currency).length;
 
-  const studioKey = `${activeSegment}|${applied?.id ?? 0}|${hash(JSON.stringify(visible))}`;
+  // Never keyed on the row values: a refresh must update the running Studio, not rebuild it (see studioInstanceKey).
+  const studioKey = studioInstanceKey({ segment: activeSegment, appliedQueryId: applied?.id ?? 0, currency, rows: visible });
   const openOuting = useCallback((id: string) => router.push(`/merchant/outings/${id}`), [router]);
+  const onStudioApi = useCallback((api: AgStudioApi) => {
+    apiRef.current = api;
+    if (viewRef.current) applySavedView(api, viewRef.current);
+  }, []);
 
   const onApply = useCallback((q: AppliedQuery) => {
     setApplied(q);
@@ -149,20 +169,20 @@ export default function DashboardClient({ licenseKey, fixtures, aiEnabled, merch
             </button>
           ))}
         </div>
-        <span className="m-footnote" style={{ margin: 0 }}>{counts.sandbox} sandbox · {counts.fixture} fixture outings loaded</span>
+        <span className="m-footnote" style={{ margin: 0 }}>{counts.sandbox} paid through PayPal sandbox · {counts.fixture} simulated (Fixture)</span>
       </div>
 
       {activeSegment === "BOTH" && (
         <div className="m-banner" role="note" data-tone="danger">
           <AlertTriangle size={18} aria-hidden />
-          <span>Totals below combine real PayPal sandbox transactions with synthetic fixture rows. Fixture rows are labelled in the table; switch to a single source for clean totals.</span>
+          <span>These totals mix PayPal sandbox payments with simulated ones. Simulated bookings are marked Fixture in the table. Pick Sandbox or Fixture for totals that mean one thing.</span>
         </div>
       )}
-      {/* No banner for the fixture segment: the header badge and the per-row "Fixture" label already say it. */}
+      {/* No banner for the Fixture segment: the header badge and the per-row "Fixture" label already say it. */}
       {activeSegment === "SANDBOX" && (
         <div className="m-banner" role="note" data-tone="info">
           <Info size={18} aria-hidden />
-          <span>Showing bookings paid through the real PayPal sandbox (test money, no real funds). Synthetic fixtures are excluded.</span>
+          <span>Showing bookings paid through PayPal&apos;s sandbox: PayPal&apos;s own test system, with test money. Simulated demo bookings are under Fixture.</span>
         </div>
       )}
       {otherCurrency > 0 && (
@@ -206,7 +226,7 @@ export default function DashboardClient({ licenseKey, fixtures, aiEnabled, merch
               <button type="button" className="m-btn m-btn-sm" onClick={() => { viewRef.current = ""; setViewId(""); if (apiRef.current) applySavedView(apiRef.current, null); }}>Clear view</button>
             </span>
           )}
-          <span className="m-view-note">Numbers on both pages follow the same filters; click any bar, outing or row to cross-filter.</span>
+          <span className="m-view-note">Click any bar, outing or row to filter everything else. Both pages follow the same filters.</span>
         </div>
       )}
 
@@ -218,22 +238,19 @@ export default function DashboardClient({ licenseKey, fixtures, aiEnabled, merch
             <p>
               <strong>No bookings match.</strong>
               <br />
-              {applied ? "Clear the AI filter or switch data source." : activeSegment === "SANDBOX" ? "No real PayPal sandbox bookings yet. Switch to Fixture to explore demo data." : "Nothing to show yet."}
+              {applied ? "Clear the filter above, or switch between Sandbox and Fixture." : activeSegment === "SANDBOX" ? "No PayPal sandbox bookings yet. Switch to Fixture to explore the demo bookings." : "Nothing to show yet."}
             </p>
           </div>
         )}
         {rows && visible.length > 0 && (
           <StudioDashboard
             key={studioKey}
-            rows={visible}
+            rows={studioRows}
             currency={currency}
             sort={applied?.query.sort ?? null}
             focus={applied?.query.focus ?? null}
             page={page}
-            onApi={(api) => {
-              apiRef.current = api;
-              if (viewRef.current) applySavedView(api, viewRef.current);
-            }}
+            onApi={onStudioApi}
             licenseKey={licenseKey}
             aiEnabled={aiEnabled}
             mode={assistant ? "edit" : "view"}
@@ -243,10 +260,8 @@ export default function DashboardClient({ licenseKey, fixtures, aiEnabled, merch
         )}
       </div>
       {studioError && <p className="m-footnote" role="status">AG Studio notice: {studioError}</p>}
-      <p className="m-footnote">
-        Charts and tables above are cross-filtered: click a bar or an outing name to filter the other widgets.
-        {!licenseKey && " AG Studio is running without a licence key (trial mode)."}
-      </p>
+      {/* The "click to filter" hint lives next to the page tabs; it is not repeated down here. */}
+      {!licenseKey && <p className="m-footnote">AG Studio is running without a licence key (trial mode).</p>}
     </div>
   );
 }

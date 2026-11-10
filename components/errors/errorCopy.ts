@@ -204,7 +204,7 @@ export const ERROR_COPY: Readonly<Record<string, ErrorCopy>> = {
   },
   PAYMENTS_DISABLED: {
     title: "Payments are switched off here",
-    explanation: "This deployment isn't set up to take payment holds for this outing.",
+    explanation: "This site isn't set up to take payment holds for this outing.",
     nextStep: "To try the full flow, use the outings on the Try the demo page.",
   },
   PROVIDER_UNAVAILABLE: {
@@ -378,7 +378,7 @@ export const ERROR_COPY: Readonly<Record<string, ErrorCopy>> = {
 export const MERCHANT_ERROR_COPY: Readonly<Record<string, ErrorCopy>> = {
   LOGIN_DISABLED: {
     title: "Password sign-in isn't set up here",
-    explanation: "This deployment doesn't have a dashboard password.",
+    explanation: "This site doesn't have a dashboard password.",
     nextStep: "Ask whoever runs it to set one.",
     tone: "info",
   },
@@ -390,7 +390,7 @@ export const MERCHANT_ERROR_COPY: Readonly<Record<string, ErrorCopy>> = {
   MERCHANT_NOT_SEEDED: {
     title: "The merchant isn't set up yet",
     explanation: "There's no merchant account in the database yet.",
-    nextStep: "Whoever runs this deployment needs to run the seed script (npm run db:seed).",
+    nextStep: "Whoever runs this site needs to load its starting data (npm run db:seed).",
     tone: "danger",
   },
   NOT_RETRYABLE: { title: "This operation can't be retried", tone: "info" },

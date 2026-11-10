@@ -18,7 +18,7 @@ import { PARTICIPANT_COOKIE, participantSessionFromCookieValue } from "@/lib/aut
 import { assertCurrency, formatMoney } from "@/lib/domain/money";
 
 export const metadata: Metadata = {
-  title: "Simulated approval (fixture)",
+  title: "Simulated approval",
   robots: { index: false, follow: false },
 };
 
@@ -75,7 +75,7 @@ export default async function FixtureApprovalPage({
           Simulated approval page
         </p>
         <p className="mt-1 text-small">
-          This stands in for PayPal&apos;s approval screen. No PayPal account, and no real or sandbox money.
+          This stands in for PayPal&apos;s approval screen. You need no PayPal account, and no money moves.
         </p>
       </div>
 
@@ -127,7 +127,7 @@ export default async function FixtureApprovalPage({
           </div>
         ) : (
           <p className="mt-6 rounded-xl bg-cancelled-bg p-3 text-small text-cancelled">
-            This simulated approval is no longer open (status: {attempt.status.toLowerCase().replace(/_/g, " ")}).
+            This simulated approval is no longer open. Go back to the outing to see where things stand.
           </p>
         )}
       </section>

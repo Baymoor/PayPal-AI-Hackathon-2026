@@ -86,7 +86,7 @@ export default function OutingDetailClient({ outingId, fixtures }: { outingId: s
     setRetryBusy(true);
     try {
       if (!fixtures) await retryOperation(retrying.operationId);
-      setNotice({ tone: "info", text: fixtures ? "Fixture mode: no request was sent." : `Retry queued for ${OP_KIND_LABEL[retrying.kind].toLowerCase()} (${retrying.participantName}). The same operation will be re-sent with its original idempotency key.` });
+      setNotice({ tone: "info", text: fixtures ? "Fixture mode: no request was sent." : `Retry queued for ${OP_KIND_LABEL[retrying.kind].toLowerCase()} (${retrying.participantName}). The same request is sent again with its original reference, so it can't be applied twice.` });
       setRetrying(null);
       await load();
     } catch (e) {
@@ -114,7 +114,7 @@ export default function OutingDetailClient({ outingId, fixtures }: { outingId: s
     { headerName: "Capture ref", valueGetter: (p) => redactRef(p.data?.captureRef), minWidth: 110 },
     { headerName: "Refund ref", valueGetter: (p) => redactRef(p.data?.refundRef), minWidth: 105 },
     { field: "authorizedMinor", headerName: "Authorized hold", type: "rightAligned", valueFormatter: (p) => money(p.value), minWidth: 135 },
-    { field: "allocationMinor", headerName: "Final allocated", type: "rightAligned", valueFormatter: (p) => (p.value === null ? "–" : money(p.value)), minWidth: 130 },
+    { field: "allocationMinor", headerName: "Final share", type: "rightAligned", valueFormatter: (p) => (p.value === null ? "–" : money(p.value)), minWidth: 130 },
     { field: "capturedMinor", headerName: "Captured", type: "rightAligned", valueFormatter: (p) => money(p.value), minWidth: 110 },
     { field: "refundedMinor", headerName: "Refunded", type: "rightAligned", valueFormatter: (p) => money(p.value), minWidth: 110 },
   ], [money]);
@@ -170,7 +170,7 @@ export default function OutingDetailClient({ outingId, fixtures }: { outingId: s
       <div className="m-title-row">
         <div>
           <h1 className="m-h1">{b.title}</h1>
-          <p className="m-sub">{b.offeringName ?? "No offering selected"} · activity {formatInstant(b.activityAt, tz)}</p>
+          <p className="m-sub">{b.offeringName ?? "No option chosen yet"} · activity {formatInstant(b.activityAt, tz)}</p>
         </div>
         <span className="m-spacer" />
         <Badge tone={outingTone(b.status)}>{OUTING_STATUS_LABEL[b.status]}</Badge>
@@ -186,7 +186,7 @@ export default function OutingDetailClient({ outingId, fixtures }: { outingId: s
           <div className="m-stat"><dt>Required accepted</dt><dd>{b.requiredAccepted} / {b.requiredInvited}</dd></div>
           <div className="m-stat"><dt>Payers authorized</dt><dd>{b.payersAuthorized}{b.minPayers !== null ? ` / ${b.minPayers} min` : ""}</dd></div>
           <div className="m-stat"><dt>Authorized holds (not revenue)</dt><dd>{money(b.authorizedTotalMinor)}</dd></div>
-          <div className="m-stat"><dt>Final allocated</dt><dd>{money(b.allocatedTotalMinor)}</dd></div>
+          <div className="m-stat"><dt>Final shares</dt><dd>{money(b.allocatedTotalMinor)}</dd></div>
           <div className="m-stat"><dt>Captured</dt><dd>{money(b.capturedTotalMinor)}</dd></div>
           <div className="m-stat"><dt>Refunded</dt><dd>{money(b.refundedTotalMinor)}</dd></div>
           {ready && <div className="m-stat"><dt>Readiness</dt><dd className="m-sm">{VERDICT_LABEL[ready.verdict]}: {ready.reasons.join(". ")}</dd></div>}
@@ -200,12 +200,12 @@ export default function OutingDetailClient({ outingId, fixtures }: { outingId: s
             <dl className="m-terms">
               <dt>Version</dt><dd>v{q.version}</dd>
               <dt>Total ({q.pricingModel === "FIXED_TOTAL" ? "fixed" : "per attendee"})</dt><dd>{money(q.totalMinor)}</dd>
-              <dt>Per-payer cap</dt><dd>{money(q.capMinor)}</dd>
-              <dt>Min payers / capacity</dt><dd>{q.minPayers} / {q.capacity}</dd>
+              <dt>Maximum per payer</dt><dd>{money(q.capMinor)}</dd>
+              <dt>Minimum payers / capacity</dt><dd>{q.minPayers} / {q.capacity}</dd>
               <dt>Commit deadline</dt><dd>{formatInstant(q.deadlineAt, tz)}</dd>
               <dt>Activity</dt><dd>{formatInstant(q.activityAt, tz)}</dd>
               <dt>Terms hash</dt><dd><code>{q.termsHash.slice(0, 12)}…</code></dd>
-              <dt>Availability</dt><dd>{q.availabilitySource === "FIXTURE" ? "Demo catalogue (fixture)" : "Merchant API"}</dd>
+              <dt>Availability</dt><dd>{q.availabilitySource === "FIXTURE" ? "Demo catalogue (sample data)" : "Merchant's own system"}</dd>
               <dt>Sponsored</dt><dd>{q.sponsoredNames.length ? q.sponsoredNames.join(", ") : "None"}</dd>
             </dl>
           ) : (
@@ -245,7 +245,7 @@ export default function OutingDetailClient({ outingId, fixtures }: { outingId: s
 
       <section className="m-card" aria-labelledby="ops-h">
         <h2 className="m-h2" id="ops-h">Payment operations</h2>
-        <p className="m-footnote" style={{ marginTop: -6 }}>Retry re-sends an existing operation only. It never creates a new capture or refund.</p>
+        <p className="m-footnote" style={{ marginTop: -6 }}>Retry sends an existing request again. It never creates a new charge or refund.</p>
         <div className="m-grid-wrap" style={{ height: Math.min(380, 120 + detail.operations.length * 42) }}>
           <AgGridReact<MerchantOperationRow>
             theme={outingsGridTheme}
@@ -263,9 +263,9 @@ export default function OutingDetailClient({ outingId, fixtures }: { outingId: s
           <>
             <h2 className="m-h2" id="retry-h">Retry this operation?</h2>
             <p>
-              This re-sends the <strong>same {OP_KIND_LABEL[retrying.kind].toLowerCase()}</strong> of <strong>{money(retrying.amountMinor)}</strong> for {retrying.participantName} with its original idempotency key. PayPal will not apply it twice.
+              This sends the <strong>same {OP_KIND_LABEL[retrying.kind].toLowerCase()}</strong> of <strong>{money(retrying.amountMinor)}</strong> for {retrying.participantName} again, with its original reference. PayPal will not apply it twice.
             </p>
-            {retrying.status === "UNKNOWN" && <p className="m-footnote">The last outcome is unknown. The system reconciles with PayPal before re-sending.</p>}
+            {retrying.status === "UNKNOWN" && <p className="m-footnote">We don&apos;t know how the last attempt ended, so we check with PayPal first and only send it again if it is still needed.</p>}
             <div className="m-dialog-actions">
               <button type="button" className="m-btn" onClick={() => setRetrying(null)} disabled={retryBusy}>Cancel</button>
               <button type="button" className="m-btn m-btn-primary" onClick={() => void confirmRetry()} disabled={retryBusy}>{retryBusy ? "Retrying..." : "Retry operation"}</button>

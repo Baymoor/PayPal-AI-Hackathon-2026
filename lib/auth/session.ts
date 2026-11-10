@@ -3,7 +3,8 @@
  *
  * - Participant session: maps outingId -> participantId for every invitation
  *   this browser has opened (one browser can hold several outings).
- * - Merchant session: the merchant id the dashboard is scoped to.
+ * - Merchant session: the merchant id the dashboard is scoped to, and how the
+ *   session was opened (dashboard password or one-click demo sign-in).
  *
  * Route handlers read cookies from the Request (not next/headers) so they are
  * unit-testable by constructing a Request with a Cookie header.
@@ -27,10 +28,18 @@ export interface ParticipantSession {
   outings: Record<string, string>;
 }
 
+/** How a merchant session was opened. */
+export type MerchantSignIn = "password" | "demo";
+
 export interface MerchantSession {
   v: 1;
   merchantId: string;
   iat: number;
+  /**
+   * Signed into the cookie at sign-in. The demo sign-in needs no credentials, so owner-only pages
+   * (/setup) ask for "password". A cookie without this field (issued before it existed) counts as "demo".
+   */
+  via?: MerchantSignIn;
 }
 
 function sign(payload: string, secret: string): string {
@@ -84,6 +93,11 @@ function validMerchantSession(s: MerchantSession | null, nowSec: number): Mercha
   return s;
 }
 
+/** True only for a session opened with the dashboard password (never for the one-click demo sign-in). */
+export function isPasswordSession(session: MerchantSession | null): boolean {
+  return session?.via === "password";
+}
+
 export function readMerchantSession(req: Request, nowSec: number = Math.floor(Date.now() / 1000)): MerchantSession | null {
   const raw = parseCookieHeader(req.headers.get("cookie"))[MERCHANT_COOKIE];
   return validMerchantSession(decodeSigned<MerchantSession>(raw), nowSec);
@@ -112,8 +126,9 @@ export function participantCookie(session: ParticipantSession): string {
   return cookieHeader(PARTICIPANT_COOKIE, encodeSigned(session));
 }
 
-export function merchantCookie(merchantId: string): string {
-  return cookieHeader(MERCHANT_COOKIE, encodeSigned({ v: 1, merchantId, iat: Math.floor(Date.now() / 1000) } satisfies MerchantSession), {
+/** `via` defaults to the least-privileged kind, so only the password route can open owner access. */
+export function merchantCookie(merchantId: string, via: MerchantSignIn = "demo"): string {
+  return cookieHeader(MERCHANT_COOKIE, encodeSigned({ v: 1, merchantId, iat: Math.floor(Date.now() / 1000), via } satisfies MerchantSession), {
     maxAge: MERCHANT_SESSION_MAX_AGE_SECONDS,
   });
 }

@@ -2,7 +2,8 @@
  * POST /api/merchant/demo-login {venue?} — one-click sign-in, only when demo fixtures are enabled.
  * `venue` is a demo venue slug (default The Sound Room); any other value is 404, so this can
  * never open a session for a merchant outside the demo set. The session is scoped to that one
- * merchant, which then sees only its own bookings.
+ * merchant, which then sees only its own bookings. It is marked as a demo sign-in, so it never
+ * opens the owner's /setup diagnostics.
  */
 import { eq } from "drizzle-orm";
 import { z } from "zod";
@@ -24,5 +25,5 @@ export const POST = handle(async (req: Request) => {
   if (!isDemoVenueSlug(venue)) throw notFound("That demo venue does not exist");
   const merchant = await getDb().query.merchants.findFirst({ where: eq(merchants.slug, venue) });
   if (!merchant) throw new ServiceError("MERCHANT_NOT_SEEDED", 503, "The demo merchant has not been seeded yet (run npm run db:seed)");
-  return json({ ok: true, merchant: { id: merchant.id, name: merchant.name } }, { headers: { "set-cookie": merchantCookie(merchant.id) } });
+  return json({ ok: true, merchant: { id: merchant.id, name: merchant.name } }, { headers: { "set-cookie": merchantCookie(merchant.id, "demo") } });
 });

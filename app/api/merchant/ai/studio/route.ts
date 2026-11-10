@@ -164,7 +164,7 @@ export const POST = handle(async (req: Request): Promise<Response> => {
   const { merchantId } = requireMerchant(req);
   const cfg = config();
   if (!cfg.anthropic || cfg.aiMode !== "ANTHROPIC") {
-    return json({ error: { code: "AI_UNAVAILABLE", message: "The dashboard assistant needs a real model key (OUTINGS_ANTHROPIC_API_KEY). It is switched off in fixture mode; use the filter box instead." } }, { status: 503 });
+    return json({ error: { code: "AI_UNAVAILABLE", message: "The assistant is switched off on this site because no AI model is connected. Use the filter box above the dashboard instead." } }, { status: 503 });
   }
   rateLimit(merchantId);
 
@@ -203,7 +203,7 @@ export const POST = handle(async (req: Request): Promise<Response> => {
   const reservation = budget.tryReserve(estimateStudioTurnTokens(text.length, MAX_OUTPUT_TOKENS));
   if (!reservation) {
     return json(
-      { error: { code: "AI_DAILY_LIMIT_REACHED", message: "The dashboard assistant has reached today's usage limit on this demo. It starts again at midnight UTC; use the filter box instead." } },
+      { error: { code: "AI_DAILY_LIMIT_REACHED", message: "The assistant has reached today's usage limit on this demo. It starts again at midnight UTC. Until then, use the filter box above the dashboard." } },
       { status: 503 },
     );
   }

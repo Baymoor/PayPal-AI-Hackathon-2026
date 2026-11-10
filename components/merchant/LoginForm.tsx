@@ -39,7 +39,7 @@ export function LoginForm() {
     <div className="m-login">
       <div className="m-card">
         <h1 className="m-h1" style={{ fontSize: 32, lineHeight: "38px" }}>Merchant sign in</h1>
-        <p className="m-sub">See your venue&apos;s group bookings as they move from holds to captures and refunds.</p>
+        <p className="m-sub">See a venue&apos;s group bookings as they move from holds to collected payments and refunds.</p>
         <form onSubmit={(e) => { e.preventDefault(); void go("password"); }}>
           <div className="m-field">
             <label htmlFor="m-pw">Dashboard password</label>
@@ -50,6 +50,9 @@ export function LoginForm() {
           <button className={demo ? "m-btn" : "m-btn m-btn-primary"} type="submit" disabled={busy !== null || !password} style={{ width: "100%" }}>
             {busy === "password" ? "Signing in..." : "Sign in"}
           </button>
+          <p className="m-footnote">
+            The password is for the venue&apos;s own team.{demo && " Just looking around? Open a demo venue below. It needs no password."}
+          </p>
         </form>
         {demo && (
           <>
@@ -71,7 +74,7 @@ export function LoginForm() {
             <button className="m-btn m-btn-primary" type="button" onClick={() => void go("demo")} disabled={busy !== null} style={{ width: "100%" }}>
               {busy === "demo" ? "Opening..." : "Open demo merchant dashboard"}
             </button>
-            <p className="m-footnote">Demo data, marked fixture. Not real PayPal.</p>
+            <p className="m-footnote">A sample venue with demo bookings and simulated payments. Not real PayPal.</p>
           </>
         )}
       </div>

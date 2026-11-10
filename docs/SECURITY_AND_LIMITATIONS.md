@@ -72,7 +72,7 @@ These statements are exactly as strong as the evidence; see [testing](TESTING.md
 The build makes these deliberate trade-offs; each is a known gap, not a bug.
 
 - **Sandbox only.** No real money; live PayPal endpoints are not configurable.
-- **Demo catalogue.** Five seeded demo merchants, four of them fictional venues; no merchant onboarding. Password sign-in opens The Sound Room only; demo sign-in can open any of the five.
+- **Demo catalogue.** Five seeded demo merchants, four of them fictional venues; no merchant onboarding. Password sign-in opens The Sound Room only; demo sign-in can open any of the five. The owner's `/setup` diagnostics (settings overview, PayPal and Anthropic test buttons) open only to a password sign-in: the session cookie records how it was opened, and the page and its API routes refuse demo sign-ins.
 - **USD and `FIXED_TOTAL` only** for shared bookings; `PER_ATTENDEE` offerings are rejected at opening. No venue booking API, escrow, pooled balance or organizer payout.
 - **48-hour commitment window**, so holds stay inside PayPal's honor period; reauthorization is not implemented.
 - **In-memory rate limiter**, per process and reset on restart. With the default `TRUSTED_PROXY_HOPS=0` no forwarding header is trusted and all callers share one bucket per route; set it to the number of proxies in front of the app ([DEPLOYMENT.md](DEPLOYMENT.md)). Too high lets a client pick its key with a forged `X-Forwarded-For`.

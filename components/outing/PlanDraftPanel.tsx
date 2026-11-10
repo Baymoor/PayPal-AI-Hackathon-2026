@@ -32,7 +32,7 @@ export interface AppliedPlanDraft {
 }
 
 const FIELD_LABEL: Record<PlanDraftField, string> = {
-  offeringId: "Offering",
+  offeringId: "Option",
   activityStart: "Activity time",
   deadline: "Commit by",
   minPayers: "Minimum payers",
@@ -62,13 +62,13 @@ async function applyDraft(view: OutingView, actions: OutingActions, res: PlanDra
     if (d.offeringId === selected) offeringApplied = true;
     else if (selected) {
       // Never override the organizer's own choice.
-      notApplied.push(`AI suggested ${d.offeringName ?? "another offering"}; your current selection was kept. Change it yourself if you agree.`);
+      notApplied.push(`AI suggested ${d.offeringName ?? "another option"}; your current choice was kept. Change it yourself if you agree.`);
     } else {
       try {
         await actions.select(d.offeringId);
         offeringApplied = true;
       } catch (e) {
-        notApplied.push(`${d.offeringName ?? "Offering"}: ${errorSummary(describeError(e, "draft"))}`);
+        notApplied.push(`${d.offeringName ?? "Option"}: ${errorSummary(describeError(e, "draft"))}`);
       }
     }
   }
@@ -112,7 +112,7 @@ function DraftSummary({ view, applied }: { view: OutingView; applied: AppliedPla
   const { draft, dropped } = applied.response;
   const tz = view.outing.displayTimezone;
   const rows: { label: string; value: string | null }[] = [
-    { label: "Offering", value: applied.offeringApplied ? draft.offeringName : null },
+    { label: "Option", value: applied.offeringApplied ? draft.offeringName : null },
     { label: "Activity", value: draft.activityAt ? formatWhenFull(draft.activityAt, tz) : null },
     { label: "Commit by", value: draft.deadlineAt ? formatWhenFull(draft.deadlineAt, tz) : null },
     { label: "Minimum payers", value: draft.minPayers !== null ? String(draft.minPayers) : null },
@@ -176,7 +176,7 @@ function DraftSummary({ view, applied }: { view: OutingView; applied: AppliedPla
       {notes.length > 0 && (
         <div>
           <h3 className="text-small font-bold">Left for you</h3>
-          <p className="text-small text-ink-muted">These suggestions failed our checks, so they were not filled in.</p>
+          <p className="text-small text-ink-muted">These suggestions didn&apos;t pass our checks, so they were not filled in.</p>
           <ul className="mt-1 space-y-1 text-small">
             {notes.map((n) => (
               <li key={n.key} className="flex items-start gap-2">
@@ -226,8 +226,8 @@ export function PlanDraftPanel({
         <AiSourceBadge source={source} />
       </div>
       <p className="text-ink-muted">
-        From your brief, the agreed budget and the ranked options, the AI suggests the offering, activity time, commitment deadline,
-        minimum payers and who is covered. It never sees individual budget votes.
+        From your plan, the agreed budget and the ranked options, the AI suggests which option to book, when, the deadline to commit,
+        the minimum number of payers and whose share is covered. It never sees individual budget votes.
       </p>
       <p className="font-semibold">{AI_REVIEW_COPY}</p>
       <Button variant="secondary" loading={pending === "draft"} loadingLabel="Drafting…" onClick={ask} disabled={!view.organizer?.can.draftPlan}>

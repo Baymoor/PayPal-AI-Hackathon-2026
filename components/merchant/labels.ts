@@ -32,7 +32,7 @@ export const PAYMENT_STATUS_LABEL: Record<PaymentStatus, string> = {
   REFUND_PENDING: "Refund pending",
   REFUNDED: "Refunded",
   FAILED: "Failed",
-  UNKNOWN: "Unknown (reconciling)",
+  UNKNOWN: "Unknown (being checked)",
 };
 
 export const ATTENDANCE_LABEL: Record<AttendanceState, string> = {
@@ -52,7 +52,7 @@ export const OP_KIND_LABEL: Record<OperationKind, string> = { CAPTURE: "Capture"
 
 export const OP_STATUS_LABEL: Record<OperationStatus, string> = {
   PENDING: "Pending",
-  IN_FLIGHT: "In flight",
+  IN_FLIGHT: "In progress",
   SUCCEEDED: "Succeeded",
   FAILED: "Failed",
   UNKNOWN: "Unknown",

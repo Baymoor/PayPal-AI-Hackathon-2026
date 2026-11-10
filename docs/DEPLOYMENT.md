@@ -244,5 +244,5 @@ The image includes devDependencies because `db:migrate` and `worker` run through
 ## Safety
 
 - Sandbox only: the PayPal base URL is hard-coded to `api-m.sandbox.paypal.com`.
-- The hosted demo runs in judge mode (`DEMO_FIXTURES_ENABLED=true`). Anyone in an outing can act as anyone else in it, the merchant dashboard has a one-click demo sign-in, and anyone can reset the demo outings. Never put real personal data or live credentials on it.
+- The hosted demo runs in judge mode (`DEMO_FIXTURES_ENABLED=true`). Anyone in an outing can act as anyone else in it, the merchant dashboard has a one-click demo sign-in (it does not open `/setup`, which needs `MERCHANT_DASHBOARD_PASSWORD`), and anyone can reset the demo outings. Never put real personal data or live credentials on it.
 - Never enable live credentials or paid add-ons without the owner's explicit decision.

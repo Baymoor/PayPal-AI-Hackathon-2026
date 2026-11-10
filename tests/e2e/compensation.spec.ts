@@ -144,7 +144,7 @@ test("a capture fails mid-settlement: never confirmed, holds released, captured 
     const ben = await openAs(panel, s.outingId, "Ben");
     await expect(ben.getByRole("heading", { name: "Booking not confirmed." })).toBeVisible();
     await expect(ben.getByRole("status").filter({ hasText: /^Refunded/ })).toBeVisible();
-    await expect(ben.getByText("A payment failed, so the completed fixture payments were refunded. No real money moved.")).toBeVisible();
+    await expect(ben.getByText("A payment failed, so the completed simulated payments were refunded. No real money moved.")).toBeVisible();
     await expect(ben.getByText("Refunded $20", { exact: true })).toBeVisible();
     const v = await viewOf(ben, s.outingId);
     expect(v.outing).toMatchObject({ status: "CANCELLED", cleanup: "COMPLETE" });
