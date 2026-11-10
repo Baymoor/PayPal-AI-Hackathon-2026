@@ -16,6 +16,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
 import { isModernModel } from "@/lib/ai/anthropic";
+import { estimateStudioTurnTokens, studioTokenBudget } from "@/lib/ai/studio-budget";
 import { config } from "@/lib/env";
 import { assertSameOrigin, handle, json, ServiceError } from "@/lib/http";
 import { requireMerchant } from "@/lib/services/access";
@@ -197,6 +198,16 @@ export const POST = handle(async (req: Request): Promise<Response> => {
   endOnUserTurn(messages, toolChoice?.type === "auto" ? requiredToolHint(parsed.toolChoice, forwardedNames) : null);
   const model = cfg.anthropic.model;
 
+  // Daily ceiling on what this public proxy may spend: reserve an upper estimate now, settle to real usage below.
+  const budget = studioTokenBudget();
+  const reservation = budget.tryReserve(estimateStudioTurnTokens(text.length, MAX_OUTPUT_TOKENS));
+  if (!reservation) {
+    return json(
+      { error: { code: "AI_DAILY_LIMIT_REACHED", message: "The dashboard assistant has reached today's usage limit on this demo. It starts again at midnight UTC; use the filter box instead." } },
+      { status: 503 },
+    );
+  }
+
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
       const id = `resp_${crypto.randomUUID()}`;
@@ -283,6 +294,8 @@ export const POST = handle(async (req: Request): Promise<Response> => {
           }),
         );
       } finally {
+        // No usage means Claude never started the turn, so nothing was spent.
+        budget.settle(reservation, usage ? usage.inputTokens + usage.outputTokens : 0);
         controller.close();
       }
     },
