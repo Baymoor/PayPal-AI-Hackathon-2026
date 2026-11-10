@@ -1,6 +1,21 @@
+import { ArrowUpRight } from "lucide-react";
 import Link from "next/link";
 import { SandboxBadge } from "./Badge";
 import { cn } from "./cn";
+
+/**
+ * A link from the guest side to the merchant side. It opens in a new tab so a visitor can keep the
+ * outing in one tab and the merchant dashboard in the other; the arrow and the hidden text say so.
+ */
+export function MerchantSideLink({ className, children }: { className?: string; children: React.ReactNode }) {
+  return (
+    <Link href="/merchant" target="_blank" rel="noopener noreferrer" className={cn("gap-1", className)}>
+      {children}
+      <ArrowUpRight className="size-4 shrink-0" aria-hidden />
+      <span className="sr-only"> (opens in a new tab)</span>
+    </Link>
+  );
+}
 
 export function Logo({ className }: { className?: string }) {
   return (
@@ -51,11 +66,11 @@ export function SiteHeader({
             <Link href="/demo" className="inline-flex min-h-[44px] items-center whitespace-nowrap font-medium hover:text-coral-700">
               Try the demo
             </Link>
-            <Link href="/merchant" className="inline-flex min-h-[44px] items-center whitespace-nowrap font-medium hover:text-coral-700">
+            <MerchantSideLink className="inline-flex min-h-[44px] items-center whitespace-nowrap font-medium hover:text-coral-700">
               {/* The full label would be cut off in the phone nav; the footer and buttons say "Merchant dashboard". */}
               <span className="sm:hidden">Merchants</span>
               <span className="hidden sm:inline">Merchant dashboard</span>
-            </Link>
+            </MerchantSideLink>
           </nav>
         )}
         <div className="flex items-center gap-3">
@@ -78,9 +93,7 @@ export function SiteFooter() {
         <Link href="/demo" className={link}>
           Try the demo
         </Link>
-        <Link href="/merchant" className={link}>
-          Merchant dashboard
-        </Link>
+        <MerchantSideLink className={link}>Merchant dashboard</MerchantSideLink>
       </nav>
       <div className="mx-auto flex max-w-[1180px] items-center gap-4 text-small text-ink-muted">
         <span aria-hidden className="h-px flex-1 bg-line-strong" />
