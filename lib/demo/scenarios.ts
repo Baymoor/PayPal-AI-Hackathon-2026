@@ -326,24 +326,24 @@ function headlineFor(s: Omit<DemoScenarioStatus, "headline">, nowMs: number): st
     case "COLLECTING": {
       const due = s.deadlineAt !== null && Date.parse(s.deadlineAt) <= nowMs;
       return due
-        ? "The deadline has passed. The next worker pass freezes the roster and settles it."
+        ? "The deadline has passed. The guest list is locked and the booking is settled within moments."
         : `Collecting: ${s.payers.committed} of ${s.payers.total} payers hold their maximum. Nothing is settled before the deadline.`;
     }
     case "SETTLING":
-      return "Settling: capturing each exact share, one at a time.";
+      return "Settling: collecting each exact share, one at a time.";
     case "CONFIRMED":
-      return `Confirmed: ${ops.CAPTURE.SUCCEEDED ?? 0} shares captured, ${formatMoney(s.capturedMinor)} in total (fixture).`;
+      return `Confirmed: ${ops.CAPTURE.SUCCEEDED ?? 0} shares collected, ${formatMoney(s.capturedMinor)} in total (simulated).`;
     case "COMPENSATING":
-      return "Recovering: a capture failed, so the remaining holds are released and captured shares refunded.";
+      return "Recovering: a payment failed, so the remaining holds are released and the shares already collected are refunded.";
     case "CANCELLING":
     case "CANCELLED": {
       if (s.cancelReasons.includes("CAPTURE_FAILED")) {
-        if (s.cleanup === "COMPLETE") return `Not confirmed: a capture failed. All ${formatMoney(s.refundedMinor)} captured was refunded and every other hold released (fixture).`;
-        if (s.cleanup === "NEEDS_ATTENTION") return "Not confirmed: a capture failed and a refund or release needs manual attention.";
-        return "Not confirmed: a capture failed. Completed payments are being refunded.";
+        if (s.cleanup === "COMPLETE") return `Not confirmed: a payment failed. All ${formatMoney(s.refundedMinor)} collected was refunded and every other hold released (simulated).`;
+        if (s.cleanup === "NEEDS_ATTENTION") return "Not confirmed: a payment failed, and a refund or hold release needs someone to look at it.";
+        return "Not confirmed: a payment failed. Completed payments are being refunded.";
       }
-      if (s.cleanup === "COMPLETE" || s.cleanup === "NONE") return "Cancelled at the deadline: no booking payment collected, every hold released (fixture).";
-      if (s.cleanup === "NEEDS_ATTENTION") return "Cancelled: a hold release needs manual attention.";
+      if (s.cleanup === "COMPLETE" || s.cleanup === "NONE") return "Cancelled at the deadline: no booking payment collected, every hold released (simulated).";
+      if (s.cleanup === "NEEDS_ATTENTION") return "Cancelled: a hold release needs someone to look at it.";
       return "Cancelled at the deadline: releasing every hold.";
     }
     default:

@@ -182,7 +182,7 @@ describe("the real engine settles each scenario at the deadline", () => {
     expect(attempts.some((a) => a.participantId === personaId(s, "Maya"))).toBe(false);
 
     const status = (await demoScenarioStatus(db, s.outingId))!;
-    expect(status.headline).toBe("Confirmed: 5 shares captured, $100 in total (fixture).");
+    expect(status.headline).toBe("Confirmed: 5 shares collected, $100 in total (simulated).");
   });
 
   it("holdout: Noor never commits, so the deadline cancels and every hold is released", async () => {
@@ -235,7 +235,7 @@ describe("the real engine settles each scenario at the deadline", () => {
     expect(ops.find((o) => o.kind === "CAPTURE" && o.status === "FAILED")!.providerStatus).toBe("INSTRUMENT_DECLINED");
     expect(byKind("REFUND")).toEqual({ Alex: "SUCCEEDED", Ben: "UNKNOWN", Freya: "SUCCEEDED" });
     expect(byKind("VOID")).toEqual({ Jules: "SUCCEEDED", Noor: "SUCCEEDED" });
-    expect((await demoScenarioStatus(db, s.outingId))!.headline).toBe("Not confirmed: a capture failed. Completed payments are being refunded.");
+    expect((await demoScenarioStatus(db, s.outingId))!.headline).toBe("Not confirmed: a payment failed. Completed payments are being refunded.");
 
     // Pass 2, once the retry backoff has elapsed: the engine reads the provider back and records the refund (no second refund).
     await db
@@ -266,7 +266,7 @@ describe("the real engine settles each scenario at the deadline", () => {
 
     const status = (await demoScenarioStatus(db, s.outingId))!;
     expect(status).toMatchObject({ capturedMinor: 6_000, refundedMinor: 6_000, cleanup: "COMPLETE" });
-    expect(status.headline).toBe("Not confirmed: a capture failed. All $60 captured was refunded and every other hold released (fixture).");
+    expect(status.headline).toBe("Not confirmed: a payment failed. All $60 collected was refunded and every other hold released (simulated).");
   });
 
   it("a demo reset removes scenario outings and their simulator objects", async () => {
@@ -341,7 +341,7 @@ describe("big-group: ten payers share the $100 room", () => {
       expect(cap).toMatchObject({ status: "COMPLETED", amountMinor: 1_000, finalCapture: true });
     }
     expect((await opsOf(s.outingId)).filter((o) => o.kind === "VOID" || o.kind === "REFUND")).toHaveLength(0);
-    expect((await demoScenarioStatus(db, s.outingId))!.headline).toBe("Confirmed: 10 shares captured, $100 in total (fixture).");
+    expect((await demoScenarioStatus(db, s.outingId))!.headline).toBe("Confirmed: 10 shares collected, $100 in total (simulated).");
   });
 });
 
