@@ -102,7 +102,13 @@ export default function DashboardClient({ licenseKey, fixtures, aiEnabled, merch
   }, [rows]);
 
   // Default: show real sandbox rows if any exist, otherwise the fixtures (never silently mixed).
-  const activeSegment: Segment = segment ?? (counts.sandbox > 0 || counts.fixture === 0 ? "SANDBOX" : "FIXTURE");
+  const suggestedSegment: Segment = counts.sandbox > 0 || counts.fixture === 0 ? "SANDBOX" : "FIXTURE";
+  // The default is settled once, when there are rows and their payment mode is known. After that only the
+  // merchant changes the data source: a refresh that brings the first sandbox booking must not swap the
+  // whole dashboard, and the assistant's chat with it, under someone who is using it.
+  const [startSegment, setStartSegment] = useState<Segment | null>(null);
+  if (startSegment === null && paymentMode !== null && (rows?.length ?? 0) > 0) setStartSegment(suggestedSegment);
+  const activeSegment: Segment = segment ?? startSegment ?? suggestedSegment;
 
   const currency = useMemo(() => {
     const tally = new Map<string, number>();
