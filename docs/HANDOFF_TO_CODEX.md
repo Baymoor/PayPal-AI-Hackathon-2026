@@ -34,6 +34,7 @@ Legend: **REAL_SANDBOX** = exercised against PayPal sandbox · **REAL_AI** = exe
 | Real-AI verification script | READY, NOT RUN | `npx tsx scripts/ai-smoke.ts` with OUTINGS_ANTHROPIC_API_KEY |
 | AG Studio depth: Money flow custom widget, Money page, Studio KPIs, saved views, grid → drill-down links | DONE | trial mode |
 | `/setup` diagnostics (dashboard-password sign-in only; the demo sign-in is refused) | DONE | tests PayPal OAuth / Claude without exposing secrets |
+| Merchant assistant kept across data refreshes (Fable, 10 Nov) | DONE | the AG Studio instance was keyed on a hash of the rows, so the 30 s refresh rebuilt it and wiped the chat; now keyed only on what Studio reads once (`components/merchant/studioInstance.ts`); `tests/ui/studio-instance.test.ts`, `tests/e2e/merchant-refresh.spec.ts` |
 | AI plan draft (organizer) | IMPLEMENTED — REAL_AI not verified | `POST /api/outings/:id/plan-draft`; every field validated (`validatePlanDraft`), invalid fields dropped with notes; organizer confirms |
 | Third audit: code added after audit 2 (demo scenarios, /setup, AI plan draft, headers, hardening) (Fable) | DONE | 1 medium (scenario button rewrote the shared catalogue) + 1 low (HSTS at runtime) fixed with tests (tests/audit3); AI draft no longer overrides organizer choices |
 | Security headers (nonce CSP, HSTS in prod, frame/sniff/permissions) | DONE | `proxy.ts`, `lib/security/headers.ts`; 0 CSP violations across pages in a production build |
