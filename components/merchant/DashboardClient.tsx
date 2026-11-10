@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AlertTriangle, Bot, Info, RefreshCw } from "lucide-react";
 import type { MerchantBookingRow } from "@/lib/contracts/views";
@@ -16,20 +16,28 @@ import type { AgStudioApi } from "ag-studio";
 import { AskBox, type AppliedQuery } from "./AskBox";
 import { Badge } from "./Badge";
 import { labelRows, usePaymentMode } from "./modes";
+import { studioInstanceKey, studioRowsSignature } from "./studioInstance";
 
-const StudioDashboard = dynamic(() => import("./StudioDashboard"), {
+const LazyStudioDashboard = dynamic(() => import("./StudioDashboard"), {
   ssr: false,
   loading: () => <div className="m-skel" role="status">Loading AG Studio dashboard...</div>,
 });
+// Every render of the Studio wrapper makes Studio re-apply its panels, which takes the assistant out of
+// the page and puts it back (the message box loses focus). This page re-renders on every 30 s refresh,
+// so Studio only renders when one of its own props really changed.
+const StudioDashboard = memo(LazyStudioDashboard);
+
+/** The same array for as long as nothing Studio shows has changed, so a refresh without news leaves Studio untouched. */
+function useStableStudioRows(rows: MerchantBookingRow[]): MerchantBookingRow[] {
+  const signature = useMemo(() => studioRowsSignature(rows), [rows]);
+  const [stable, setStable] = useState({ signature, rows });
+  if (stable.signature === signature) return stable.rows;
+  setStable({ signature, rows });
+  return rows;
+}
 
 type Segment = "SANDBOX" | "FIXTURE" | "BOTH";
 const SEGMENT_LABEL: Record<Segment, string> = { SANDBOX: "Sandbox", FIXTURE: "Fixture", BOTH: "All" };
-
-function hash(s: string): string {
-  let h = 5381;
-  for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) | 0;
-  return (h >>> 0).toString(36);
-}
 
 export interface DashboardClientProps {
   /** AG Studio licence key from the server env (a configuration value; never logged). */
@@ -108,10 +116,16 @@ export default function DashboardClient({ licenseKey, fixtures, aiEnabled, merch
   }, [rows, activeSegment, currency]);
 
   const visible = useMemo(() => applyDashboardQuery(scoped, applied?.query ?? null), [scoped, applied]);
+  const studioRows = useStableStudioRows(visible);
   const otherCurrency = (rows ?? []).filter((r) => r.currency !== currency).length;
 
-  const studioKey = `${activeSegment}|${applied?.id ?? 0}|${hash(JSON.stringify(visible))}`;
+  // Never keyed on the row values: a refresh must update the running Studio, not rebuild it (see studioInstanceKey).
+  const studioKey = studioInstanceKey({ segment: activeSegment, appliedQueryId: applied?.id ?? 0, currency, rows: visible });
   const openOuting = useCallback((id: string) => router.push(`/merchant/outings/${id}`), [router]);
+  const onStudioApi = useCallback((api: AgStudioApi) => {
+    apiRef.current = api;
+    if (viewRef.current) applySavedView(api, viewRef.current);
+  }, []);
 
   const onApply = useCallback((q: AppliedQuery) => {
     setApplied(q);
@@ -225,15 +239,12 @@ export default function DashboardClient({ licenseKey, fixtures, aiEnabled, merch
         {rows && visible.length > 0 && (
           <StudioDashboard
             key={studioKey}
-            rows={visible}
+            rows={studioRows}
             currency={currency}
             sort={applied?.query.sort ?? null}
             focus={applied?.query.focus ?? null}
             page={page}
-            onApi={(api) => {
-              apiRef.current = api;
-              if (viewRef.current) applySavedView(api, viewRef.current);
-            }}
+            onApi={onStudioApi}
             licenseKey={licenseKey}
             aiEnabled={aiEnabled}
             mode={assistant ? "edit" : "view"}
