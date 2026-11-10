@@ -9,11 +9,14 @@ import { getDb } from "@/lib/db/client";
 import { assertSameOrigin, handle, json, readJson } from "@/lib/http";
 import { requireParticipant } from "@/lib/services/access";
 import { startPayment } from "@/lib/services/payments";
+import { RATE_LIMITS, rateLimit } from "@/lib/rate-limit";
 
 const Body = z.object({ termsHash: z.string().min(1).max(128).optional() });
 
 export const POST = handle(async (req: Request, ctx: { params: Promise<{ id: string }> }) => {
   assertSameOrigin(req);
+  // Every start (even a resumed one) calls the payment provider with our credentials: bound it per client.
+  rateLimit(req, "payments:start", RATE_LIMITS.mutation);
   const { id } = await ctx.params;
   const db = getDb();
   const { participant } = await requireParticipant(db, req, id);
