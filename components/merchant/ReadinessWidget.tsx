@@ -38,13 +38,10 @@ export interface DashboardContext {
 
 const ICON: Record<Verdict, typeof CheckCircle2> = { READY: CheckCircle2, AT_RISK: AlertTriangle, WILL_CANCEL: XCircle };
 
-function Bar({ value, max, tone, label }: { value: number; max: number; tone: Verdict; label: string }) {
-  const pct = max <= 0 ? 100 : Math.min(100, Math.round((value / max) * 100));
-  return (
-    <div className="mw-bar" role="img" aria-label={label}>
-      <div className="mw-bar-fill" data-tone={tone} style={{ width: `${pct}%` }} />
-    </div>
-  );
+/** "closes in 1h 52m", or "closed 5m ago" once the deadline has passed. */
+function deadlineText(minutesLeft: number | null): string {
+  if (minutesLeft === null) return "No deadline";
+  return `${minutesLeft < 0 ? "closed" : "closes"} ${formatCountdown(minutesLeft)}`;
 }
 
 function BookingReadiness(p: AgWidgetParams<ReadinessWidgetState>) {
@@ -111,50 +108,43 @@ function BookingReadiness(p: AgWidgetParams<ReadinessWidgetState>) {
           {items.map((it) => {
             const Icon = ICON[it.a.verdict];
             return (
-              <li key={it.id} className="mw-item" data-tone={it.a.verdict}>
+              <li key={it.id} className="mw-item">
+                {/* One status chip per card; the numbers sit on one line so two or three outings fit without scrolling. */}
                 <div className="mw-head">
                   <button
                     type="button"
                     className="mw-title"
-                    title="Cross-filter the other widgets to this outing"
+                    title={`${it.title}: cross-filter the other widgets to this outing`}
                     onClick={() => p.widgetApi.toggleCrossFilter({ type: "value", group: 0, field: it.field, value: it.id })}
                   >
                     {it.title}
                   </button>
-                  {it.mode === "Fixture" && <span className="m-badge" data-tone="fixture">Fixture</span>}
                   <span className="mw-verdict" data-tone={it.a.verdict}>
-                    <Icon size={14} aria-hidden /> {VERDICT_LABEL[it.a.verdict]}
+                    <Icon size={13} aria-hidden /> {VERDICT_LABEL[it.a.verdict]}
                   </span>
                 </div>
-                <div className="mw-metrics">
-                  <div>
-                    <span className="mw-k">Required accepted</span>
-                    <span className="mw-v">{it.accepted} / {it.invited}</span>
-                    <Bar value={it.accepted} max={it.invited} tone={it.a.verdict} label={`${it.accepted} of ${it.invited} required people accepted`} />
-                  </div>
-                  <div>
-                    <span className="mw-k">Payers authorized</span>
-                    <span className="mw-v">{it.payers} / {it.min} min</span>
-                    <Bar value={it.payers} max={it.min} tone={it.a.verdict} label={`${it.payers} of ${it.min} minimum payers authorized`} />
-                  </div>
-                  <div>
-                    <span className="mw-k">Deadline</span>
-                    <span className="mw-v">{formatCountdown(it.minutesLeft)}</span>
-                    <a
-                      className="mw-link"
-                      href={`/merchant/outings/${it.id}`}
-                      onClick={(e) => {
-                        if (ctx.openOuting) {
-                          e.preventDefault();
-                          ctx.openOuting(it.id);
-                        }
-                      }}
-                    >
-                      View details
-                    </a>
-                  </div>
-                </div>
-                <p className="mw-reason">{it.a.reasons.join(". ")}.</p>
+                <p className="mw-facts">
+                  {/* Fixture rows stay labelled, as plain text rather than a second badge. */}
+                  {it.mode === "Fixture" && <span className="mw-fixture">Fixture</span>}
+                  <span>{it.accepted}/{it.invited} accepted</span>
+                  <span>{it.payers}/{it.min} holds</span>
+                  <span>{deadlineText(it.minutesLeft)}</span>
+                </p>
+                <p className="mw-reason">
+                  {it.a.reasons.join(". ")}.{" "}
+                  <a
+                    className="mw-link"
+                    href={`/merchant/outings/${it.id}`}
+                    onClick={(e) => {
+                      if (ctx.openOuting) {
+                        e.preventDefault();
+                        ctx.openOuting(it.id);
+                      }
+                    }}
+                  >
+                    View details
+                  </a>
+                </p>
               </li>
             );
           })}

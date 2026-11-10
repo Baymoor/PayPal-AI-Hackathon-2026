@@ -1,5 +1,6 @@
 "use client";
-import { ArrowRight } from "lucide-react";
+import { useState } from "react";
+import { ArrowRight, ChevronDown } from "lucide-react";
 import type { OutingView } from "@/lib/contracts/views";
 import { describeTodo, judgeBoard, type JudgePerson } from "@/lib/demo/judge";
 import { Button } from "@/components/ui/Button";
@@ -23,6 +24,8 @@ function personState(person: JudgePerson): string | null {
 export function JudgeBar({ view, onSwitched }: { view: OutingView; onSwitched: () => Promise<void> }) {
   const board = judgeBoard(view);
   const { pending, error, run } = useAction();
+  // Phones only: the list starts closed so the outing itself is on the first screen. From `sm` up it is always shown.
+  const [peopleOpen, setPeopleOpen] = useState(false);
 
   async function switchTo(person: JudgePerson) {
     await run(`persona:${person.participantId}`, async () => {
@@ -33,13 +36,33 @@ export function JudgeBar({ view, onSwitched }: { view: OutingView; onSwitched: (
 
   return (
     <section aria-labelledby="judge-bar-h" className="rounded-card bg-ink p-4 text-cream sm:p-5">
-      <p className="text-small text-cream/75">Demo controls</p>
-      <h2 id="judge-bar-h" className="text-[17px] font-semibold leading-6">
-        Acting as {board.acting.displayName}
-        {board.acting.isOrganizer ? " (organizer)" : ""}
-      </h2>
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-small text-cream/75">Demo controls</p>
+          <h2 id="judge-bar-h" className="text-[17px] font-semibold leading-6">
+            Acting as {board.acting.displayName}
+            {board.acting.isOrganizer ? " (organizer)" : ""}
+          </h2>
+        </div>
+        {board.others.length > 0 && (
+          <button
+            type="button"
+            className="inline-flex min-h-[40px] shrink-0 items-center gap-1 rounded-pill border-[1.5px] border-cream/60 px-4 text-[14px] font-semibold hover:bg-cream/10 sm:hidden"
+            aria-expanded={peopleOpen}
+            aria-controls="judge-bar-people"
+            onClick={() => setPeopleOpen((open) => !open)}
+          >
+            {peopleOpen ? "Hide people" : "Switch person"}
+            <ChevronDown className={`size-4 transition-transform ${peopleOpen ? "rotate-180" : ""}`} aria-hidden />
+          </button>
+        )}
+      </div>
       {board.others.length > 0 && (
-        <ul className="mt-3 divide-y divide-cream/15 border-y border-cream/15" aria-label="Other people in this outing">
+        <ul
+          id="judge-bar-people"
+          className={`mt-3 divide-y divide-cream/15 border-y border-cream/15 sm:block ${peopleOpen ? "" : "hidden"}`}
+          aria-label="Other people in this outing"
+        >
           {board.others.map((person) => {
             const state = personState(person);
             return (

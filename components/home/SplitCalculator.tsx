@@ -53,7 +53,7 @@ function Stepper({
           value={value}
           aria-describedby={hint ? `${id}-hint` : undefined}
           onChange={(e) => onChange(clampInt(e.target.value, min, max, value))}
-          className="min-h-[48px] w-20 rounded-chip border border-line-strong bg-white px-3 text-center font-display text-[22px] font-semibold tabular-nums focus-visible:border-ink"
+          className="min-h-[48px] w-20 rounded-chip border border-line-strong bg-white px-3 text-center font-money text-[22px] focus-visible:border-ink"
         />
         <button type="button" className={btn} aria-label={`Increase ${label.toLowerCase()}`} disabled={value >= max} onClick={() => onChange(value + 1)}>
           <Plus className="size-5" aria-hidden />
@@ -156,7 +156,7 @@ export function SplitCalculator() {
             aria-invalid={amountError ? true : undefined}
             aria-describedby={amountError ? `${uid}-amt-e` : undefined}
             className={cn(
-              "mt-2 min-h-[52px] w-full rounded-chip border border-line-strong bg-white px-4 font-display text-[24px] font-semibold tabular-nums focus-visible:border-ink",
+              "mt-2 min-h-[52px] w-full rounded-chip border border-line-strong bg-white px-4 font-money text-[24px] focus-visible:border-ink",
               amountError && "border-danger",
             )}
           />
@@ -217,7 +217,7 @@ export function SplitCalculator() {
         <Card tone="navy" className="space-y-5">
           <div>
             <p className="text-caption font-semibold uppercase tracking-[0.14em] text-[#C9D1E3]">Booking total</p>
-            <p className="font-display text-[44px] leading-[48px] font-semibold tabular-nums">{now ? formatMoney(now.total) : "—"}</p>
+            <p className="font-money text-[44px] leading-[48px]">{now ? formatMoney(now.total) : "—"}</p>
             <p className="text-small text-[#C9D1E3]">
               {now ? `${now.payers} paying ${now.payers === 1 ? "person" : "people"}${sponsored ? `, ${sponsored} covered` : ""}` : "Fix the amount to see the split."}
             </p>
@@ -225,12 +225,12 @@ export function SplitCalculator() {
           <dl className="grid grid-cols-2 gap-4 border-t border-white/20 pt-4">
             <div>
               <dt className="text-small text-[#C9D1E3]">Each person&apos;s maximum</dt>
-              <dd className="font-display text-[28px] leading-8 font-semibold tabular-nums">{now ? formatMoney(now.cap) : "—"}</dd>
+              <dd className="font-money text-[28px] leading-8">{now ? formatMoney(now.cap) : "—"}</dd>
               <dd className="mt-1 text-small text-[#C9D1E3]">ceil(total ÷ {minPayers} min payers). The hold.</dd>
             </div>
             <div>
               <dt className="text-small text-[#C9D1E3]">Estimated share now</dt>
-              <dd className="font-display text-[28px] leading-8 font-semibold tabular-nums">{now ? formatMoney(now.estimate) : "—"}</dd>
+              <dd className="font-money text-[28px] leading-8">{now ? formatMoney(now.estimate) : "—"}</dd>
               <dd className="mt-1 text-small text-[#C9D1E3]">Display only. Never above the maximum.</dd>
             </div>
           </dl>
@@ -249,7 +249,7 @@ export function SplitCalculator() {
                   return (
                     <li key={s.key} className="flex items-baseline justify-between gap-2 border-t border-line py-2.5">
                       <span className="text-small text-ink-muted">{s.key}</span>
-                      <span className="font-display text-[18px] font-semibold tabular-nums">
+                      <span className="font-money text-[18px]">
                         {formatMoney(s.amountMinor, "USD", { alwaysShowCents: unequal })}
                         {s.amountMinor > base && <span className="sr-only"> (includes the extra cent)</span>}
                       </span>

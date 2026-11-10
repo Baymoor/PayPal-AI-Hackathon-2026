@@ -42,6 +42,18 @@ const SORT_COLUMN: Partial<Record<NonNullable<DashboardQuery["sort"]>["field"], 
 
 export type StudioPage = "bookings" | "money";
 
+/**
+ * Style of a chart that counts outings. Studio cannot set an axis step, so a small count got ticks at 0.5 and
+ * 1.5. The count is written on each bar instead, and the value axis keeps only its baseline.
+ */
+const COUNT_BARS = {
+  theme: {
+    common: { legend: { enabled: false } },
+    bar: { series: { label: { enabled: true, color: "#FFFFFF", fontWeight: "bold" as const, fontSize: 14 } } },
+  },
+  custom: { valueAxis: { label: { color: "transparent" }, gridLine: { enabled: false }, tick: { enabled: false } } },
+};
+
 const kpi = (
   field: { id: string; aggregation: "sum" },
   title: string,
@@ -65,21 +77,27 @@ function buildReport(sort: DashboardQuery["sort"], currency: string, page: Studi
           "kpi-closing": kpi(sum(f("closesTodayOpen")), "Closing today", "Open outings with a deadline today"),
           "kpi-captured": kpi(sum(f("capturedConfirmed")), "Captured", "From confirmed bookings"),
           "kpi-refunds": kpi(sum(f("refundPending")), "Refunds pending", "Captured payments waiting to be refunded"),
+          // Stacked over one 0/1 measure per status family: each status has a single non-zero segment, so its
+          // bar takes that family's palette colour (confirmed green, recovering purple, collecting blue, cancelled slate).
           "status-chart": {
-            type: "column-chart-grouped",
-            dataMapping: { categoryKey: [{ id: f("status") }], valueKey: [{ id: f("title"), aggregation: "count" }] },
+            type: "column-chart-stacked",
+            dataMapping: {
+              categoryKey: [{ id: f("status") }],
+              valueKey: [sum(f("countConfirmed")), sum(f("countRecovering")), sum(f("countCollecting")), sum(f("countCancelled"))],
+            },
             format: {
               title: { enabled: true, text: "Bookings by status" },
               subtitle: { enabled: true, text: "Click a bar to filter the page" },
               crossFilter: "filter",
-              style: { theme: { common: { legend: { enabled: false } } } },
+              style: COUNT_BARS,
             },
           },
           "money-chart": {
             type: "column-chart-grouped",
             dataMapping: {
               categoryKey: [{ id: f("status") }],
-              valueKey: [sum(f("authorized")), sum(f("captured")), sum(f("refunded"))],
+              // Palette order: captured, refunded, authorized.
+              valueKey: [sum(f("captured")), sum(f("refunded")), sum(f("authorized"))],
             },
             format: {
               title: { enabled: true, text: `Money by stage (${currency})`, wrapping: true },
@@ -139,8 +157,8 @@ function buildReport(sort: DashboardQuery["sort"], currency: string, page: Studi
           "kpi-closing": at(6, 0, 6, 5),
           "kpi-captured": at(12, 0, 6, 5),
           "kpi-refunds": at(18, 0, 6, 5),
-          "status-chart": at(0, 5, 6, 19),
-          "money-chart": at(6, 5, 10, 19),
+          "status-chart": at(0, 5, 7, 19),
+          "money-chart": at(7, 5, 9, 19),
           readiness: at(16, 5, 8, 19),
           bookings: at(0, 24, 24, 22),
         },
@@ -182,9 +200,13 @@ function buildReport(sort: DashboardQuery["sort"], currency: string, page: Studi
               style: legendBottom,
             },
           },
+          // Stacked over the holds of each status family, like the status chart: a status keeps its colour.
           "holds-by-status": {
-            type: "bar-chart-grouped",
-            dataMapping: { categoryKey: [{ id: f("status") }], valueKey: [sum(f("authorized"))] },
+            type: "bar-chart-stacked",
+            dataMapping: {
+              categoryKey: [{ id: f("status") }],
+              valueKey: [sum(f("holdConfirmed")), sum(f("holdRecovering")), sum(f("holdCollecting")), sum(f("holdCancelled"))],
+            },
             format: {
               title: { enabled: true, text: `Holds outstanding (${currency})`, wrapping: true },
               subtitle: { enabled: true, text: "Uncaptured authorizations by outing status" },

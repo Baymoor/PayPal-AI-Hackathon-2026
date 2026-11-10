@@ -63,7 +63,7 @@ export function VoteGrid({
               />
               <span
                 className={cn(
-                  "flex h-[84px] items-center justify-center rounded-tile border-[1.5px] font-display text-[28px] font-semibold transition-colors",
+                  "flex h-[84px] items-center justify-center rounded-tile border-[1.5px] font-money text-[28px] transition-colors",
                   "border-[#E2D4C4] bg-surface text-ink hover:border-coral peer-focus-visible:shadow-[var(--focus-ring)]",
                   "peer-checked:border-coral-600 peer-checked:bg-coral-600 peer-checked:text-white",
                   "peer-disabled:opacity-60",
@@ -93,7 +93,7 @@ export function VoteGrid({
           />
           <span
             className={cn(
-              "flex h-[84px] items-center justify-center rounded-tile border-[1.5px] font-display text-[22px] font-semibold transition-colors",
+              "flex h-[84px] items-center justify-center rounded-tile border-[1.5px] font-money text-[22px] transition-colors",
               "border-[#E2D4C4] bg-surface text-ink hover:border-coral peer-focus-visible:shadow-[var(--focus-ring)]",
               "peer-checked:border-coral-600 peer-checked:bg-coral-600 peer-checked:text-white",
             )}
@@ -114,7 +114,7 @@ export function VoteGrid({
             Custom total (USD)
           </label>
           <div className="flex items-center gap-2">
-            <span aria-hidden className="font-display text-[24px]">
+            <span aria-hidden className="font-money text-[24px]">
               $
             </span>
             <input

@@ -463,17 +463,18 @@ export function DemoHub({ initialDeadlineSeconds }: { initialDeadlineSeconds?: n
   const others = state.outings.filter((o) => o !== main && o !== budget);
 
   const personaList = (o: DemoOuting) => (
-    <ul className="grid gap-3 sm:grid-cols-2">
+    // One person per row: in two columns the button squeezed the status text until it overlapped.
+    <ul className="grid gap-2">
       {o.personas.map((p, i) => (
-        <li key={p.participantId} className="flex items-center gap-3 rounded-chip border border-line p-3">
-          <Avatar name={p.displayName} index={i} />
+        <li key={p.participantId} className="flex items-center gap-3 rounded-chip border border-line px-3 py-2.5">
+          <Avatar name={p.displayName} index={i} size={40} />
           <div className="min-w-0 flex-1">
             <p className="font-semibold">{p.displayName}</p>
             <p className="text-small text-ink-muted">{p.hint}</p>
           </div>
           <Button
             variant="secondary"
-            className="!min-h-[44px] !px-4 !text-[15px]"
+            className="!min-h-[44px] shrink-0 !px-4 !text-[15px]"
             loading={pending === "persona:" + p.participantId}
             loadingLabel="Opening…"
             aria-label={`Open ${o.title} as ${p.displayName}`}

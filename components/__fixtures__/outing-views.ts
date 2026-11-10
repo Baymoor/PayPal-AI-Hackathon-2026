@@ -51,7 +51,7 @@ const candidates: CatalogueCandidateView[] = [
 ];
 
 const quote = (over: Partial<QuoteView> = {}): QuoteView => ({
-  id: "q1", version: 1, merchantName: "The Sound Room", offeringName: "Private karaoke room", location: "Downtown", pricingModel: "FIXED_TOTAL",
+  id: "q1", version: 1, merchantName: "The Sound Room", offeringName: "Private karaoke room", category: "karaoke", location: "Downtown", pricingModel: "FIXED_TOTAL",
   totalMinor: 10000, currency: "USD", capMinor: 2000, minPayers: 5, capacity: 10, activityAt: ACTIVITY, deadlineAt: DEADLINE,
   expiresAt: "2026-11-14T00:00:00.000Z", termsHash: "hash-v1", merchantConfirmedAt: "2026-11-11T14:00:00.000Z", availabilitySource: "FIXTURE",
   sponsoredNames: ["Maya"], requiredCount: 5, ...over,

@@ -9,7 +9,7 @@ function PreviewRow({ label, sub, value, strong }: { label: string; sub?: string
         {label}
         {sub && <span className="block text-ink-muted">{sub}</span>}
       </span>
-      <span className={`font-display ${strong ? "text-[19px]" : "text-[17px]"}`}>{value}</span>
+      <span className={`font-money ${strong ? "text-[19px]" : "text-[17px]"}`}>{value}</span>
     </div>
   );
 }

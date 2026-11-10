@@ -148,6 +148,7 @@ export function makeFixtureDetail(b: MerchantBookingRow, now = Date.now()): Merc
     version: 1,
     merchantName: "The Sound Room",
     offeringName: b.offeringName ?? "Private karaoke room",
+    category: "karaoke",
     location: "Downtown",
     pricingModel: "FIXED_TOTAL",
     totalMinor: b.totalMinor,

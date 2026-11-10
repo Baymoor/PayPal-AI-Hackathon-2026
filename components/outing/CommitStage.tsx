@@ -13,7 +13,6 @@ import { InvitationHero } from "@/components/ui/Illustrations";
 import { MoneyRow, MoneyRows } from "@/components/ui/MoneyRow";
 import { ProgressBar } from "@/components/ui/ProgressBar";
 import { StatusBanner } from "@/components/ui/StatusBanner";
-import { Underlined } from "@/components/ui/Swoosh";
 import type { OutingActions } from "./api";
 import { formatDeadline, formatWhen, formatWhenFull } from "./format";
 import { InvitePanel } from "./InvitePanel";
@@ -108,7 +107,8 @@ function RosterList({ view }: { view: OutingView }) {
                   {p.participantId === view.viewer.participantId && <span className="font-normal text-ink-muted"> (you)</span>}
                 </p>
                 <p className="text-small text-ink-muted">
-                  {p.payerType === "SPONSORED" ? "Guest · covered" : p.role === "ORGANIZER" ? "Organizer" : "Guest"} ·{" "}
+                  {/* Short enough to stay on one line in a phone row, so no separator is left hanging. */}
+                  {p.payerType === "SPONSORED" ? "Covered" : p.role === "ORGANIZER" ? "Organizer" : "Guest"} ·{" "}
                   {p.required ? "required" : "optional"}
                 </p>
               </div>
@@ -238,7 +238,7 @@ function WaitingPanel({ view, actions, clockOffsetMs }: { view: OutingView; acti
         </div>
         {/* A short statement as the headline; the spec sentence (with its middle dots) is the lead, not the h1. */}
         <h1 className="text-[36px] leading-10">
-          Your {formatMoney(pay.authorizedMinor)} <Underlined>hold</Underlined> is in place.
+          Your {formatMoney(pay.authorizedMinor)} hold is in place.
         </h1>
         <p className="text-lead">
           {formatMoney(pay.authorizedMinor)} authorized · {est !== null ? `estimated final share ${formatMoney(est)}` : "final share to be set at the deadline"} · not
@@ -357,20 +357,12 @@ export function CommitStage({
     <div className="space-y-6">
       {/* Full-bleed on phones; it only pulls up to the header when the demo bar isn't above it. */}
       <div className={`-mx-5 sm:mx-0 sm:mt-0 sm:overflow-hidden sm:rounded-card-lg ${view.outing.demoMode ? "" : "-mt-6"}`}>
-        <InvitationHero className="h-[150px] sm:h-[180px]" />
+        <InvitationHero className="h-[150px] sm:h-[180px]" category={q.category} />
       </div>
       <div className="space-y-3 text-center">
         <ModeRow view={view} />
         <h1 className="text-[44px] leading-[48px]">
-          {view.viewer.isOrganizer ? (
-            <>
-              Commit your <Underlined>share.</Underlined>
-            </>
-          ) : (
-            <>
-              You&apos;re <Underlined>invited.</Underlined>
-            </>
-          )}
+          {view.viewer.isOrganizer ? "Commit your share." : "You're invited."}
         </h1>
         <p className="font-display text-[26px] leading-8">{view.outing.title}</p>
         <ul className="flex flex-col items-center justify-center gap-2 text-body sm:flex-row sm:gap-5">
@@ -414,10 +406,18 @@ export function CommitStage({
       </Card>
 
       <div className="space-y-4 text-center">
-        <p className="inline-flex flex-wrap items-center justify-center gap-2 rounded-pill bg-blush px-5 py-2 font-bold text-coral-800">
-          <Clock className="size-5" aria-hidden />
-          Commit by {formatDeadline(q.deadlineAt, tz)} ·
-          <Countdown targetIso={view.outing.deadlineAt} offsetMs={clockOffsetMs} icon={false} />
+        {/* Two deliberate lines on phones, one line with a separator from sm up: the dot never ends a line. */}
+        <p className="inline-flex flex-col items-center justify-center gap-x-2 rounded-[22px] bg-blush px-5 py-2 font-bold text-coral-800 sm:flex-row sm:rounded-pill">
+          <span className="inline-flex items-center gap-2">
+            <Clock className="size-5" aria-hidden />
+            Commit by {formatDeadline(q.deadlineAt, tz)}
+          </span>
+          <span aria-hidden className="hidden sm:inline">
+            ·
+          </span>
+          <span className="font-semibold">
+            <Countdown targetIso={view.outing.deadlineAt} offsetMs={clockOffsetMs} icon={false} />
+          </span>
         </p>
         <ProgressBar
           id="commit"

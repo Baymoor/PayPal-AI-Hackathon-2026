@@ -145,6 +145,7 @@ export function buildQuoteView(
     version: quote.version,
     merchantName: terms?.merchantName ?? ctx.merchant?.name ?? "",
     offeringName: terms?.offeringName ?? ctx.offering?.name ?? "",
+    category: ctx.offering?.category ?? "",
     location: ctx.offering?.location ?? "",
     pricingModel: quote.pricingModel,
     totalMinor: quote.totalMinor,

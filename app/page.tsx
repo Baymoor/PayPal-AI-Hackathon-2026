@@ -26,7 +26,7 @@ export default function Home() {
         </Suspense>
         <div className="grid items-center gap-12 lg:grid-cols-[1.25fr_1fr] lg:gap-16">
           <div className="space-y-6">
-            <h1 className="text-[44px] leading-[48px] sm:text-hero">
+            <h1 className="text-[44px]/[52px] sm:text-hero">
               Book it <Underlined>together.</Underlined>
               <br />
               Pay only if it happens.

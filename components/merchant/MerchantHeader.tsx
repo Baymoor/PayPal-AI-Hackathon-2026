@@ -31,7 +31,11 @@ export function MerchantHeader({ merchantName = null }: { merchantName?: string 
     <header className="m-header">
       <div className="m-header-in">
         <Link href="/merchant" className="m-brand">
-          Outings<span>.</span>
+          Outings
+          {/* Same spark as the consumer logo (components/ui/SiteChrome.tsx): one mark for the whole product. */}
+          <svg aria-hidden viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round">
+            <path d="M5 14 L9 12 M7 7 L11 9 M12 4 L12 9" />
+          </svg>
         </Link>
         <span className="m-merchant">{merchantName ? `${merchantName} · Merchant` : "Merchant"}</span>
         <span className="m-header-sp" />

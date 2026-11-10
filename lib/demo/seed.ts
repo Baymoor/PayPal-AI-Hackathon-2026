@@ -402,7 +402,7 @@ export async function seedOuting(db: Db, spec: OutingSpec, secret: string): Prom
         {
           offeringId: agreed.offering.id,
           fit: "GREAT",
-          reasons: ["Fixture ranker: category matches the brief.", "Fixture ranker: fixed total, so more attendees lower each share."],
+          reasons: ["Fixture ranker: category matches the brief.", "Fixed total, so more attendees lower each share."],
           concerns: [],
         },
       ],

@@ -15,7 +15,6 @@ import { SplitCalculator } from "@/components/home/SplitCalculator";
 import { LinkButton } from "@/components/ui/Button";
 import { Card, Eyebrow } from "@/components/ui/Card";
 import { SiteFooter, SiteHeader } from "@/components/ui/SiteChrome";
-import { Underlined } from "@/components/ui/Swoosh";
 import { StatusBadge } from "@/components/ui/Badge";
 
 export const metadata: Metadata = {
@@ -105,7 +104,7 @@ export default function HowItWorksPage() {
         <div className="max-w-3xl space-y-5">
           <Eyebrow>How it works</Eyebrow>
           <h1 className="text-[40px] leading-[44px] sm:text-[56px] sm:leading-[60px]">
-            Nobody fronts the money. Nobody pays <Underlined>alone.</Underlined>
+            Nobody fronts the money. Nobody pays alone.
           </h1>
           <p className="text-lead">
             Everyone authorizes only their own maximum. At the deadline we either collect each person&apos;s exact share, penny for penny, or release every hold.

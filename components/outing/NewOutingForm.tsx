@@ -4,7 +4,6 @@ import { useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { TextAreaField, TextField } from "@/components/ui/Field";
 import { Stepper } from "@/components/ui/Stepper";
-import { Underlined } from "@/components/ui/Swoosh";
 import { describeError } from "@/components/errors/friendlyError";
 import { outingApi } from "./api";
 import { BriefStarters } from "./BriefStarters";
@@ -48,7 +47,7 @@ export function NewOutingForm() {
       <Stepper current={0} />
       <form onSubmit={submit} className="space-y-5" noValidate>
         <h1 className="text-[36px] leading-10 sm:text-h1 sm:leading-[3rem]">
-          What are we <Underlined>planning?</Underlined>
+          What are we planning?
         </h1>
         <p className="text-lead text-ink">
           Describe it in your own words, group-chat style. We pull out the activity, the date, who&apos;s coming and anyone you want to treat.

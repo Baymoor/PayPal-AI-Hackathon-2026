@@ -4,7 +4,6 @@ import type { OutingView } from "@/lib/contracts/views";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { AiSourceBadge } from "@/components/ui/Badge";
-import { Underlined } from "@/components/ui/Swoosh";
 import { EmptyState } from "@/components/ui/States";
 import type { OutingActions } from "./api";
 import { ActionErrorBanner, useAction } from "./useAction";
@@ -46,7 +45,7 @@ export function BriefStage({ view, actions }: { view: OutingView; actions: Outin
         center={false}
         titleNode={
           <>
-            What are we <Underlined>planning?</Underlined>
+            What are we planning?
           </>
         }
       />

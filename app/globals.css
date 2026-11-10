@@ -24,6 +24,19 @@ h1, h2, h3, .font-display {
   letter-spacing: -0.01em;
 }
 
+/* Figures inside serif headings sit on the baseline at cap height. */
+h1, h2, h3, .font-display {
+  font-variant-numeric: lining-nums;
+}
+
+/* Amounts: Inter with tabular lining figures. Fraunces' round zero reads as a capital O ("$1OO"). */
+.font-money {
+  font-family: var(--font-sans);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums lining-nums;
+  letter-spacing: -0.015em;
+}
+
 /* Focus ring: never removed. */
 :focus-visible {
   outline: none;

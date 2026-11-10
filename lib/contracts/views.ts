@@ -62,6 +62,8 @@ export interface QuoteView {
   version: number;
   merchantName: string;
   offeringName: string;
+  /** Catalogue category, e.g. "karaoke"; decorative use only (picks the invitation picture). */
+  category: string;
   location: string;
   pricingModel: PricingModel;
   totalMinor: number;

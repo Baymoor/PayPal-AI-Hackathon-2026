@@ -460,7 +460,7 @@ export function ProposalStage({ view, actions }: { view: OutingView; actions: Ou
           {proposed !== null && (
             <Card tone="navy">
               <Eyebrow className="!text-cream/80">Agreed group budget</Eyebrow>
-              <p className="font-display text-[40px] leading-[44px] tabular-nums">{formatMoney(proposed)}</p>
+              <p className="font-money text-[40px] leading-[44px]">{formatMoney(proposed)}</p>
               <p className="text-cream/90">A starting point, not a merchant quote.</p>
             </Card>
           )}

@@ -8,7 +8,8 @@ export function Swoosh({ className }: { className?: string }) {
       focusable="false"
       viewBox="0 0 200 14"
       preserveAspectRatio="none"
-      className={cn("pointer-events-none absolute left-0 right-0 -bottom-1 h-[10px] w-full", className)}
+      // Sized and placed in em so it hugs the baseline at any heading size and never reaches the next line.
+      className={cn("pointer-events-none absolute left-0 right-0 bottom-[0.02em] h-[0.16em] w-full", className)}
     >
       <path d="M3 9 C 40 2, 90 12, 130 6 S 185 4, 197 7" fill="none" stroke="#E8604C" strokeWidth="4" strokeLinecap="round" />
     </svg>

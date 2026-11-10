@@ -36,6 +36,21 @@ export interface StudioRow {
   refundPending: number;
   /** KPI helpers (0/1 or major units) so Studio value widgets cross-filter like everything else. */
   isOpen: number;
+  /**
+   * One measure per status family, in palette order (see studioTheme.ts): confirmed, recovering, collecting,
+   * cancelled. An outing has a value in its own family only, so a stacked chart over them draws each status
+   * bar in that family's token colour (Studio has no per-bar colour option). `count*` is 1; `hold*` is the
+   * outing's uncaptured holds in major units. The other families are null, not 0: a zero segment would print
+   * a stray "0" label on the bar.
+   */
+  countConfirmed: number | null;
+  countRecovering: number | null;
+  countCollecting: number | null;
+  countCancelled: number | null;
+  holdConfirmed: number | null;
+  holdRecovering: number | null;
+  holdCollecting: number | null;
+  holdCancelled: number | null;
   closesTodayOpen: number;
   closesTodayFlag: number;
   capturedConfirmed: number;
@@ -44,6 +59,37 @@ export interface StudioRow {
 }
 
 const WEEK_MS = 7 * 24 * 3600 * 1000;
+
+export type StatusFamily = "confirmed" | "recovering" | "collecting" | "cancelled";
+
+type StatusFamilyMeasures = Pick<
+  StudioRow,
+  "countConfirmed" | "countRecovering" | "countCollecting" | "countCancelled" | "holdConfirmed" | "holdRecovering" | "holdCollecting" | "holdCancelled"
+>;
+
+/** Which colour family a status belongs to. Anything still open (collecting, settling) counts as collecting. */
+export function statusFamily(status: MerchantBookingRow["status"]): StatusFamily {
+  if (status === "CONFIRMED") return "confirmed";
+  if (status === "COMPENSATING") return "recovering";
+  if (status === "CANCELLED" || status === "CANCELLING") return "cancelled";
+  return "collecting";
+}
+
+/** The outing's count (1) and its holds, placed in its own family's measures; every other family is null. */
+export function statusFamilyMeasures(status: MerchantBookingRow["status"], holds: number): StatusFamilyMeasures {
+  const family = statusFamily(status);
+  const only = (f: StatusFamily, value: number) => (family === f ? value : null);
+  return {
+    countConfirmed: only("confirmed", 1),
+    countRecovering: only("recovering", 1),
+    countCollecting: only("collecting", 1),
+    countCancelled: only("cancelled", 1),
+    holdConfirmed: only("confirmed", holds),
+    holdRecovering: only("recovering", holds),
+    holdCollecting: only("collecting", holds),
+    holdCancelled: only("cancelled", holds),
+  };
+}
 
 export function toStudioRow(r: MerchantBookingRow, now = Date.now()): StudioRow {
   return {
@@ -74,6 +120,7 @@ export function toStudioRow(r: MerchantBookingRow, now = Date.now()): StudioRow 
     voidPending: r.voidPendingCount,
     refundPending: r.refundPendingCount,
     isOpen: r.status === "COLLECTING" ? 1 : 0,
+    ...statusFamilyMeasures(r.status, r.authorizedTotalMinor / 100),
     closesTodayOpen: r.status === "COLLECTING" && r.closesToday ? 1 : 0,
     closesTodayFlag: r.closesToday ? 1 : 0,
     // Same definition the old KPI cards used: money actually collected on confirmed bookings.
@@ -113,16 +160,16 @@ export function buildStudioData(rows: MerchantBookingRow[], currency: string): A
           { id: "closingLabel", name: "Closes (merchant time)", format: "textFormat" },
           { id: "requiredAccepted", name: "Required accepted", format: "integerFormat" },
           { id: "requiredInvited", name: "Required invited", format: "integerFormat" },
-          { id: "requiredLabel", name: "Required (accepted / invited)", format: "textFormat" },
-          { id: "payersLabel", name: "Payers (authorized / min)", format: "textFormat" },
+          { id: "requiredLabel", name: "Required in", format: "textFormat", description: "Required people who accepted, out of those invited." },
+          { id: "payersLabel", name: "Payers / min", format: "textFormat", description: "Payers who authorized, out of the minimum needed." },
           { id: "missingRequired", name: "Missing required", format: "integerFormat" },
           { id: "payersAuthorized", name: "Payers authorized", format: "integerFormat" },
           { id: "minPayers", name: "Min payers", format: "integerFormat" },
           { id: "authorized", name: "Authorized holds", format: "currencyFormat", formatOptions: money, description: "Uncaptured holds. Not revenue." },
-          { id: "allocated", name: "Final allocated", format: "currencyFormat", formatOptions: money },
+          { id: "allocated", name: "Allocated", format: "currencyFormat", formatOptions: money, description: "Final shares set by the settlement." },
           { id: "captured", name: "Captured", format: "currencyFormat", formatOptions: money },
           { id: "refunded", name: "Refunded", format: "currencyFormat", formatOptions: money },
-          { id: "recovery", name: "Recovery status", format: "textFormat" },
+          { id: "recovery", name: "Recovery", format: "textFormat", description: "Money clean-up after a cancellation or failed settlement." },
           { id: "holdMinor", name: "Still on hold (minor units)", format: "integerFormat", hide: true, description: "Uncaptured holds in cents. Not revenue." },
           { id: "allocatedMinor", name: "Final allocated (minor units)", format: "integerFormat", hide: true },
           { id: "capturedMinor", name: "Captured (minor units)", format: "integerFormat", hide: true },
@@ -131,6 +178,14 @@ export function buildStudioData(rows: MerchantBookingRow[], currency: string): A
           { id: "voidPending", name: "Hold releases pending", format: "integerFormat" },
           { id: "refundPending", name: "Refunds pending", format: "integerFormat" },
           { id: "isOpen", name: "Open outing (1/0)", format: "integerFormat", hide: true },
+          { id: "countConfirmed", name: "Confirmed", format: "integerFormat", hide: true, description: "1 for a confirmed outing, else 0." },
+          { id: "countRecovering", name: "Recovering", format: "integerFormat", hide: true, description: "1 while a failed settlement is being refunded, else 0." },
+          { id: "countCollecting", name: "Collecting", format: "integerFormat", hide: true, description: "1 while the outing is still open or settling, else 0." },
+          { id: "countCancelled", name: "Cancelled", format: "integerFormat", hide: true, description: "1 for a cancelled outing, else 0." },
+          { id: "holdConfirmed", name: "Holds, confirmed", format: "currencyFormat", formatOptions: money, hide: true, description: "Uncaptured holds of confirmed outings. Not revenue." },
+          { id: "holdRecovering", name: "Holds, recovering", format: "currencyFormat", formatOptions: money, hide: true, description: "Uncaptured holds of outings in refund recovery. Not revenue." },
+          { id: "holdCollecting", name: "Holds, collecting", format: "currencyFormat", formatOptions: money, hide: true, description: "Uncaptured holds of open outings. Not revenue." },
+          { id: "holdCancelled", name: "Holds, cancelled", format: "currencyFormat", formatOptions: money, hide: true, description: "Uncaptured holds of cancelled outings, waiting to be released. Not revenue." },
           { id: "closesTodayOpen", name: "Open and closing today (1/0)", format: "integerFormat", hide: true },
           { id: "closesTodayFlag", name: "Closes today (1/0)", format: "integerFormat", hide: true },
           { id: "capturedConfirmed", name: "Captured on confirmed bookings", format: "currencyFormat", formatOptions: money, hide: true },

@@ -39,7 +39,7 @@ export function DistributionChart({ view }: { view: OutingView }) {
                 className={cn("w-full rounded-t-chip", isModal ? "bg-coral-600" : "bg-[#EBCFC6]")}
                 style={{ height: `${c === 0 ? 3 : (c / max) * 150}px` }}
               />
-              <span className="mt-2 font-display text-[18px] font-semibold tabular-nums">{formatMoney(m)}</span>
+              <span className="mt-2 font-money text-[18px]">{formatMoney(m)}</span>
             </div>
           );
         })}
@@ -68,17 +68,17 @@ export function RevealPanel({ view, actions }: { view: OutingView; actions: Outi
           <dl className="grid grid-cols-3 gap-3 border-t border-line pt-4 text-center">
             <div>
               <dt className="text-caption font-semibold uppercase tracking-[0.14em] text-ink-muted">Range</dt>
-              <dd className="font-display text-[22px] tabular-nums">
+              <dd className="font-money text-[22px]">
                 {formatMoney(agg.minMinor)}–{formatMoney(agg.maxMinor)}
               </dd>
             </div>
             <div>
               <dt className="text-caption font-semibold uppercase tracking-[0.14em] text-ink-muted">Median</dt>
-              <dd className="font-display text-[22px] tabular-nums">{formatMoney(agg.medianMinor)}</dd>
+              <dd className="font-money text-[22px]">{formatMoney(agg.medianMinor)}</dd>
             </div>
             <div>
               <dt className="text-caption font-semibold uppercase tracking-[0.14em] text-ink-muted">Voted</dt>
-              <dd className="font-display text-[22px] tabular-nums">
+              <dd className="font-money text-[22px]">
                 {agg.voteCount} of {agg.invitedCount}
               </dd>
             </div>
@@ -101,7 +101,7 @@ export function RevealPanel({ view, actions }: { view: OutingView; actions: Outi
 
         <Card tone="navy" className="space-y-1">
           <Eyebrow className="!text-cream/80">Proposed group budget</Eyebrow>
-          <p className="font-display text-[56px] leading-[56px] font-semibold tabular-nums">
+          <p className="font-money text-[56px] leading-[56px]">
             {formatMoney(budget.proposedBudgetMinor ?? target ?? 0)}
           </p>
           <p className="text-cream/90">A starting point, not a merchant quote.</p>

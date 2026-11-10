@@ -148,6 +148,18 @@ function findInvitee(invitees: readonly PlanRosterEntry[], name: string): PlanRo
   return first.length === 1 ? first[0] : null;
 }
 
+const RANKER_LABEL = "Fixture ranker: ";
+
+/**
+ * Honesty label for one ranked offering: the first reason says it comes from the fixture ranker, the rest
+ * are plain sentences. One label per card is enough; on every line it buried the reasons themselves.
+ */
+function labelFirstReason(reasons: readonly string[]): string[] {
+  const [first, ...rest] = reasons;
+  if (first === undefined) return [];
+  return [`${RANKER_LABEL}${first.charAt(0).toLowerCase()}${first.slice(1)}`, ...rest];
+}
+
 export class FixtureOutingsAi implements OutingsAi {
   readonly source = "FIXTURE" as const;
 
@@ -242,31 +254,31 @@ export class FixtureOutingsAi implements OutingsAi {
       const catMatch = input.extraction.categories.some((c) => c.toLowerCase() === item.category.toLowerCase());
       if (catMatch) {
         score += 4;
-        reasons.push(`Fixture ranker: category "${item.category}" matches the brief.`);
+        reasons.push(`Category "${item.category}" matches the brief.`);
       }
       if (n !== null) {
         if (n >= item.minAttendees && n <= item.capacity) {
           score += 2;
-          reasons.push(`Fixture ranker: fits a group of ${n}.`);
-        } else concerns.push(`Fixture ranker: group of ${n} is outside ${item.minAttendees}-${item.capacity}.`);
+          reasons.push(`Fits a group of ${n}.`);
+        } else concerns.push(`Group of ${n} is outside ${item.minAttendees}-${item.capacity}.`);
       }
       if (budget !== null && n !== null) {
         const total = item.pricingModel === "FIXED_TOTAL" ? item.priceMinor : item.priceMinor * n;
         if (total <= budget) {
           score += 2;
-          reasons.push("Fixture ranker: estimated total is within the agreed budget.");
-        } else concerns.push("Fixture ranker: estimated total exceeds the agreed budget.");
+          reasons.push("Estimated total is within the agreed budget.");
+        } else concerns.push("Estimated total exceeds the agreed budget.");
       }
       if (input.extraction.prefersFixedTotal && item.pricingModel === "FIXED_TOTAL") {
         score += 1;
-        reasons.push("Fixture ranker: fixed total, so more attendees lower each share.");
+        reasons.push("Fixed total, so more attendees lower each share.");
       }
       if (wantsPrivate && item.tags.some((t) => /private/i.test(t))) {
         score += 1;
-        reasons.push("Fixture ranker: tagged as private.");
+        reasons.push("Tagged as private.");
       }
-      if (reasons.length === 0) reasons.push("Fixture ranker: weak match; listed for completeness.");
-      return { item, score, reasons, concerns, catMatch };
+      if (reasons.length === 0) reasons.push("Weak match; listed for completeness.");
+      return { item, score, reasons: labelFirstReason(reasons), concerns, catMatch };
     });
     // Category first (as the note says), so an unrelated cheap offering never outranks the activity asked for.
     scored.sort(
@@ -296,12 +308,13 @@ export class FixtureOutingsAi implements OutingsAi {
   }
 
   async summarizeReveal(input: { aggregate: RevealAggregate; extraction: BriefExtraction | null }): Promise<AiResult<RevealSummary>> {
+    // The headline carries the "Fixture summary" label once; the sentence under it does not repeat it.
     const a = input.aggregate;
     // Same money formatting as every other screen ("$45", not "45.00 USD").
     const fmt = (m: number) => (isCurrency(a.currency) ? formatMoney(m, a.currency) : `${(m / 100).toFixed(2)} ${a.currency}`);
     const raw: RevealSummary = {
       headline: `Fixture summary: votes ranged ${fmt(a.minMinor)} to ${fmt(a.maxMinor)}`,
-      summary: `Fixture summary: ${a.voteCount} of ${a.invitedCount} invitees voted; the median proposed total is ${fmt(a.medianMinor)}. Votes are proposals, not payment authorizations. The organizer chooses the final quote.`,
+      summary: `${a.voteCount} of ${a.invitedCount} invitees voted; the median proposed total is ${fmt(a.medianMinor)}. Votes are proposals, not payment authorizations. The organizer chooses the final quote.`,
       suggestedTotalMinor: a.medianMinor,
     };
     const v = validateReveal(raw, a);
