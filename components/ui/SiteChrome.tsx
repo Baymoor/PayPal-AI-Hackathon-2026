@@ -7,11 +7,20 @@ import { cn } from "./cn";
  * A link from the guest side to the merchant side. It opens in a new tab so a visitor can keep the
  * outing in one tab and the merchant dashboard in the other; the arrow and the hidden text say so.
  */
-export function MerchantSideLink({ className, children }: { className?: string; children: React.ReactNode }) {
+export function MerchantSideLink({
+  className,
+  iconClassName,
+  children,
+}: {
+  className?: string;
+  /** e.g. "hidden sm:inline" where the arrow would not fit. */
+  iconClassName?: string;
+  children: React.ReactNode;
+}) {
   return (
     <Link href="/merchant" target="_blank" rel="noopener noreferrer" className={cn("gap-1", className)}>
       {children}
-      <ArrowUpRight className="size-4 shrink-0" aria-hidden />
+      <ArrowUpRight className={cn("size-4 shrink-0", iconClassName)} aria-hidden />
       <span className="sr-only"> (opens in a new tab)</span>
     </Link>
   );
@@ -66,8 +75,11 @@ export function SiteHeader({
             <Link href="/demo" className="inline-flex min-h-[44px] items-center whitespace-nowrap font-medium hover:text-coral-700">
               Try the demo
             </Link>
-            <MerchantSideLink className="inline-flex min-h-[44px] items-center whitespace-nowrap font-medium hover:text-coral-700">
-              {/* The full label would be cut off in the phone nav; the footer and buttons say "Merchant dashboard". */}
+            <MerchantSideLink
+              className="inline-flex min-h-[44px] items-center whitespace-nowrap font-medium hover:text-coral-700"
+              iconClassName="hidden sm:inline"
+            >
+              {/* The full label and the arrow would be cut off in the phone nav; the footer and buttons say "Merchant dashboard". */}
               <span className="sm:hidden">Merchants</span>
               <span className="hidden sm:inline">Merchant dashboard</span>
             </MerchantSideLink>
