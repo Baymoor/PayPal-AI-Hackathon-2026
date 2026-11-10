@@ -1,0 +1,7 @@
+/*
+ * The "Setup" link in the merchant header is for the site owner only.
+ * The layout sets data-owner-access from the signed session (true only after a dashboard-password
+ * sign-in); this rule just hides the link. The real gate is on the server: /setup and its API routes
+ * refuse demo sign-ins themselves.
+ */
+.m-root[data-owner-access="false"] .m-setup-link { display: none; }

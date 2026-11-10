@@ -33,7 +33,7 @@ Legend: **REAL_SANDBOX** = exercised against PayPal sandbox · **REAL_AI** = exe
 | One-click demo scenarios (settle-soon, holdout, capture-failure, big-group) | DONE (FIXTURE) | `/demo`; `POST /api/demo/scenario`, `POST /api/demo/tick`; compensation e2e |
 | Real-AI verification script | READY, NOT RUN | `npx tsx scripts/ai-smoke.ts` with OUTINGS_ANTHROPIC_API_KEY |
 | AG Studio depth: Money flow custom widget, Money page, Studio KPIs, saved views, grid → drill-down links | DONE | trial mode |
-| `/setup` diagnostics (merchant-only) | DONE | tests PayPal OAuth / Claude without exposing secrets |
+| `/setup` diagnostics (dashboard-password sign-in only; the demo sign-in is refused) | DONE | tests PayPal OAuth / Claude without exposing secrets |
 | AI plan draft (organizer) | IMPLEMENTED — REAL_AI not verified | `POST /api/outings/:id/plan-draft`; every field validated (`validatePlanDraft`), invalid fields dropped with notes; organizer confirms |
 | Third audit: code added after audit 2 (demo scenarios, /setup, AI plan draft, headers, hardening) (Fable) | DONE | 1 medium (scenario button rewrote the shared catalogue) + 1 low (HSTS at runtime) fixed with tests (tests/audit3); AI draft no longer overrides organizer choices |
 | Security headers (nonce CSP, HSTS in prod, frame/sniff/permissions) | DONE | `proxy.ts`, `lib/security/headers.ts`; 0 CSP violations across pages in a production build |
@@ -77,7 +77,7 @@ Last results (owner's Windows 11 machine, Postgres 16 in Docker, 8 Nov 2026): `t
 
 Earlier results (cloud session, 4 Nov 2026): `npx tsc --noEmit` clean · `npx eslint .` 0 problems · `npx vitest run` 28 files / **346 passed** · `npm run test:e2e` **6/6 passed** (karaoke settle, holdout cancel, organizer cancel, demo hub, capture-failure compensation, big-group $10-from-$20 under-capture) · `next build` passes.
 
-First local run with real keys: sign in at `/merchant/login`, open **`/setup`** — it shows which env vars are set (names only) and has buttons to test PayPal sandbox OAuth and a real Claude call.
+First local run with real keys: sign in at `/merchant/login` **with the dashboard password** (`MERCHANT_DASHBOARD_PASSWORD`; the one-click demo sign-in does not open it), open **`/setup`** — it shows which env vars are set (names only) and has buttons to test PayPal sandbox OAuth and a real Claude call.
 
 ## 4. Environment variable names
 

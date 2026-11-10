@@ -1,4 +1,7 @@
-/** POST /api/merchant/login {password}: timing-safe check, session scoped to the demo merchant. */
+/**
+ * POST /api/merchant/login {password}: timing-safe check, session scoped to the demo merchant.
+ * The session is marked as a password sign-in, the only kind that may open /setup.
+ */
 import { createHash, timingSafeEqual } from "node:crypto";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
@@ -28,5 +31,5 @@ export const POST = handle(async (req: Request) => {
   if (!passwordMatches(password, expected)) throw new ServiceError("INVALID_PASSWORD", 401, "That password is not correct");
   const merchant = await getDb().query.merchants.findFirst({ where: eq(merchants.slug, DEMO_MERCHANT_SLUG) });
   if (!merchant) throw new ServiceError("MERCHANT_NOT_SEEDED", 503, "The merchant has not been set up yet (run npm run db:seed)");
-  return json({ ok: true, merchant: { id: merchant.id, name: merchant.name } }, { headers: { "set-cookie": merchantCookie(merchant.id) } });
+  return json({ ok: true, merchant: { id: merchant.id, name: merchant.name } }, { headers: { "set-cookie": merchantCookie(merchant.id, "password") } });
 });

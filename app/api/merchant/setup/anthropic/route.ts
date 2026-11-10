@@ -1,5 +1,5 @@
 /**
- * POST /api/merchant/setup/anthropic  (merchant session, same-origin, rate-limited)
+ * POST /api/merchant/setup/anthropic  (dashboard-password session, same-origin, rate-limited)
  * Owner diagnostics: one minimal real extractBrief call, only when the AI mode is ANTHROPIC.
  * Returns ok / model / latency / validated summary rows. The API key is never returned.
  */
@@ -7,7 +7,7 @@ import { assertSameOrigin, handle, json } from "@/lib/http";
 import { config } from "@/lib/env";
 import { getOutingsAi } from "@/lib/ai";
 import { rateLimit } from "@/lib/rate-limit";
-import { requireMerchant } from "@/lib/services/access";
+import { requirePasswordMerchant } from "@/lib/services/access";
 
 export const dynamic = "force-dynamic";
 
@@ -15,7 +15,7 @@ const RULE = { capacity: 3, refillPerMinute: 3 };
 
 export const POST = handle(async (req: Request) => {
   assertSameOrigin(req);
-  requireMerchant(req);
+  requirePasswordMerchant(req);
   rateLimit(req, "merchant-setup-anthropic", RULE);
 
   const c = config();

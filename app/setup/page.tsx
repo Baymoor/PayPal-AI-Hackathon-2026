@@ -1,6 +1,7 @@
+import Link from "next/link";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { MERCHANT_COOKIE, merchantSessionFromCookieValue } from "@/lib/auth/session";
+import { MERCHANT_COOKIE, isPasswordSession, merchantSessionFromCookieValue } from "@/lib/auth/session";
 import { config, publicModeSummary } from "@/lib/env";
 import { SetupClient } from "@/components/merchant/SetupClient";
 
@@ -24,9 +25,32 @@ const ENV_VARS: { name: string; secret: boolean; note: string }[] = [
   { name: "TRUSTED_PROXY_HOPS", secret: false, note: "Reverse proxies in front of the app" },
 ];
 
+/** Shown to a demo sign-in: a plain explanation and two ways on, instead of an error page. */
+function OwnerOnlyNotice() {
+  return (
+    <div className="m-login">
+      <div className="m-card">
+        <h1 className="m-h1" style={{ fontSize: 32, lineHeight: "38px" }}>Setup is for the site owner</h1>
+        <p className="m-sub">
+          You opened the dashboard with the demo sign-in, which shows a venue&apos;s bookings. Setup shows how this site
+          itself is configured, so it asks for the dashboard password.
+        </p>
+        <p style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 16 }}>
+          {/* Inline colours: the merchant stylesheet's link colour would otherwise win over the button's. */}
+          <Link href="/merchant" className="m-btn m-btn-primary" style={{ color: "#fff" }}>Back to bookings</Link>
+          <Link href="/merchant/login" className="m-btn" style={{ color: "var(--m-ink)" }}>Sign in with the password</Link>
+        </p>
+      </div>
+    </div>
+  );
+}
+
 export default async function SetupPage() {
   const jar = await cookies();
-  if (!merchantSessionFromCookieValue(jar.get(MERCHANT_COOKIE)?.value)) redirect("/merchant/login");
+  const session = merchantSessionFromCookieValue(jar.get(MERCHANT_COOKIE)?.value);
+  if (!session) redirect("/merchant/login");
+  // The demo sign-in needs no credentials, so it never sees the deployment's settings or the live-API test buttons.
+  if (!isPasswordSession(session)) return <OwnerOnlyNotice />;
 
   const c = config();
   const summary = { ...publicModeSummary(c), trustedProxyHops: c.trustedProxyHops };

@@ -5,7 +5,7 @@
 import { and, eq } from "drizzle-orm";
 import { participants, outings, type Participant, type Outing } from "../db/schema";
 import type { DbOrTx } from "../db/client";
-import { readMerchantSession, readParticipantSession } from "../auth/session";
+import { isPasswordSession, readMerchantSession, readParticipantSession } from "../auth/session";
 import { forbidden, notFound, unauthorized } from "../http";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -45,6 +45,18 @@ export async function requireOrganizer(db: DbOrTx, req: Request, outingId: strin
 export function requireMerchant(req: Request): { merchantId: string } {
   const s = readMerchantSession(req);
   if (!s) throw unauthorized("Merchant sign-in required");
+  return { merchantId: s.merchantId };
+}
+
+/**
+ * Owner diagnostics (/setup and its API routes) call real PayPal and Anthropic endpoints and list the
+ * deployment's settings. The one-click demo sign-in needs no credentials, so it must not reach them:
+ * only a session opened with the dashboard password does.
+ */
+export function requirePasswordMerchant(req: Request): { merchantId: string } {
+  const s = readMerchantSession(req);
+  if (!s) throw unauthorized("Merchant sign-in required");
+  if (!isPasswordSession(s)) throw forbidden("Setup is for the site owner. Sign in with the dashboard password to use it.");
   return { merchantId: s.merchantId };
 }
 

@@ -1,12 +1,12 @@
 /**
- * /api/merchant/setup/* diagnostics routes: merchant-only, same-origin, rate-limited, secret-free.
- * No database needed.
+ * /api/merchant/setup/* diagnostics routes: dashboard-password sessions only (never the one-click demo
+ * sign-in), same-origin, rate-limited, secret-free. No database needed.
  */
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { loadConfig, resetConfigForTests } from "@/lib/env";
 import { resetRateLimits } from "@/lib/rate-limit";
 import { cookiePair } from "./helpers";
-import { merchantCookie } from "@/lib/auth/session";
+import { MERCHANT_COOKIE, encodeSigned, merchantCookie } from "@/lib/auth/session";
 
 const aiMock = vi.hoisted(() => ({ extractBrief: vi.fn() }));
 vi.mock("@/lib/ai", () => ({ getOutingsAi: () => ({ source: "ANTHROPIC", extractBrief: aiMock.extractBrief }) }));
@@ -26,7 +26,13 @@ const SECRETS = {
 const ACCESS_TOKEN = "tok-FAKE-access-token";
 
 const cfg = (env: Record<string, string | undefined>) => loadConfig({ NODE_ENV: "test", ...env } as unknown as NodeJS.ProcessEnv);
-const cookie = () => cookiePair(merchantCookie("00000000-0000-4000-8000-000000000001"));
+const MERCHANT_ID = "00000000-0000-4000-8000-000000000001";
+/** The owner: signed in with the dashboard password. */
+const cookie = () => cookiePair(merchantCookie(MERCHANT_ID, "password"));
+/** A visitor who used the one-click demo sign-in. */
+const demoCookie = () => cookiePair(merchantCookie(MERCHANT_ID, "demo"));
+/** A valid session issued before sessions recorded how they were opened. */
+const legacyCookie = () => `${MERCHANT_COOKIE}=${encodeURIComponent(encodeSigned({ v: 1, merchantId: MERCHANT_ID, iat: Math.floor(Date.now() / 1000) }))}`;
 const post = (path: string, headers: Record<string, string> = {}) =>
   new Request(`http://localhost:3000${path}`, { method: "POST", body: "{}", headers: { host: "localhost:3000", "content-type": "application/json", ...headers } });
 
@@ -57,6 +63,22 @@ describe.each(routes)("%s route access control", (name, POST) => {
   it("rejects a garbage / forged session cookie", async () => {
     const res = await POST(post(path, { cookie: "outings_m=forged.value" }));
     expect(res.status).toBe(401);
+  });
+
+  it("refuses the one-click demo sign-in (403) and calls nothing", async () => {
+    resetConfigForTests(cfg({ ...SECRETS, DEMO_FIXTURES_ENABLED: "true" }));
+    const f = vi.fn();
+    vi.stubGlobal("fetch", f);
+    for (const visitor of [demoCookie(), legacyCookie(), cookiePair(merchantCookie(MERCHANT_ID))]) {
+      const res = await POST(post(path, { cookie: visitor }));
+      expect(res.status).toBe(403);
+      const text = await res.text();
+      expect(JSON.parse(text).error).toMatchObject({ code: "FORBIDDEN" });
+      expect(JSON.parse(text).error.message).toMatch(/dashboard password/);
+      for (const s of Object.values(SECRETS)) expect(text).not.toContain(s);
+    }
+    expect(f).not.toHaveBeenCalled();
+    expect(aiMock.extractBrief).not.toHaveBeenCalled();
   });
 
   it("rejects cross-origin requests even with a valid session", async () => {

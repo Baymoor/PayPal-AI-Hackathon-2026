@@ -23,7 +23,7 @@ import { aiState, FakeAi } from "../services/fake-ai";
 import * as svc from "@/lib/services/outings";
 import { budgetVotes, jobs, merchants, outings, paymentAttempts, paymentOperations, quoteVersions } from "@/lib/db/schema";
 import { resetConfigForTests } from "@/lib/env";
-import { encodeSigned, PARTICIPANT_COOKIE } from "@/lib/auth/session";
+import { encodeSigned, isPasswordSession, PARTICIPANT_COOKIE, readMerchantSession } from "@/lib/auth/session";
 import { seedDemo } from "@/lib/demo/seed";
 
 import * as createRoute from "@/app/api/outings/route";
@@ -48,6 +48,7 @@ import * as bookingsRoute from "@/app/api/merchant/bookings/route";
 import * as merchantOutingRoute from "@/app/api/merchant/outings/[id]/route";
 import * as retryRoute from "@/app/api/merchant/operations/[opId]/retry/route";
 import * as aiQueryRoute from "@/app/api/merchant/ai/query/route";
+import * as setupPaypalRoute from "@/app/api/merchant/setup/paypal/route";
 import * as healthRoute from "@/app/api/health/route";
 import * as demoResetRoute from "@/app/api/demo/reset/route";
 import * as demoPersonasRoute from "@/app/api/demo/personas/route";
@@ -397,7 +398,28 @@ describe("merchant endpoints", () => {
     expect(right.status).toBe(200);
     const cookie = cookiePair(right.headers.get("set-cookie")!);
     expect((await bookingsRoute.GET(request("/api/merchant/bookings", { cookie }))).status).toBe(200);
-    expect((await demoLoginRoute.POST(request("/api/merchant/demo-login", { body: {} }))).status).toBe(200);
+    const demo = await demoLoginRoute.POST(request("/api/merchant/demo-login", { body: {} }));
+    expect(demo.status).toBe(200);
+    const demoCookie = cookiePair(demo.headers.get("set-cookie")!);
+    expect((await bookingsRoute.GET(request("/api/merchant/bookings", { cookie: demoCookie }))).status).toBe(200);
+
+    // The cookie records how the session was opened; only the password kind is the owner's.
+    const sessionOf = (pair: string) => readMerchantSession(request("/api/merchant/bookings", { cookie: pair }));
+    expect(sessionOf(cookie)).toMatchObject({ via: "password" });
+    expect(sessionOf(demoCookie)).toMatchObject({ via: "demo" });
+    expect(isPasswordSession(sessionOf(cookie))).toBe(true);
+    expect(isPasswordSession(sessionOf(demoCookie))).toBe(false);
+    // Owner diagnostics: the demo visitor is refused, the password session gets through (FIXTURE mode calls nothing).
+    const setup = (pair: string) => setupPaypalRoute.POST(request("/api/merchant/setup/paypal", { cookie: pair, body: {} }));
+    expect((await setup(demoCookie)).status).toBe(403);
+    expect((await setup(cookie)).status).toBe(200);
+    // Editing the cookie's payload to claim a password sign-in breaks its signature.
+    const [name, value] = [demoCookie.slice(0, demoCookie.indexOf("=")), decodeURIComponent(demoCookie.slice(demoCookie.indexOf("=") + 1))];
+    const [payload, signature] = value.split(".");
+    const forgedPayload = Buffer.from(JSON.stringify({ ...JSON.parse(Buffer.from(payload, "base64url").toString("utf8")), via: "password" }), "utf8").toString("base64url");
+    const forged = `${name}=${encodeURIComponent(`${forgedPayload}.${signature}`)}`;
+    expect(sessionOf(forged)).toBeNull();
+    expect((await setup(forged)).status).toBe(401);
     const out = await logoutRoute.POST(request("/api/merchant/logout", { body: {} }));
     expect(out.headers.get("set-cookie")).toMatch(/Max-Age=0/);
 

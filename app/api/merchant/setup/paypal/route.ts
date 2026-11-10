@@ -1,5 +1,5 @@
 /**
- * POST /api/merchant/setup/paypal  (merchant session, same-origin, rate-limited)
+ * POST /api/merchant/setup/paypal  (dashboard-password session, same-origin, rate-limited)
  * Owner diagnostics: does a fresh PayPal sandbox OAuth exchange succeed with the configured credentials?
  * Returns status / latency only. The access token, client id and secret are never returned.
  */
@@ -7,7 +7,7 @@ import { assertSameOrigin, handle, json } from "@/lib/http";
 import { config } from "@/lib/env";
 import { PaypalProvider } from "@/lib/payments/paypal";
 import { rateLimit } from "@/lib/rate-limit";
-import { requireMerchant } from "@/lib/services/access";
+import { requirePasswordMerchant } from "@/lib/services/access";
 
 export const dynamic = "force-dynamic";
 
@@ -15,7 +15,7 @@ const RULE = { capacity: 5, refillPerMinute: 5 };
 
 export const POST = handle(async (req: Request) => {
   assertSameOrigin(req);
-  requireMerchant(req);
+  requirePasswordMerchant(req);
   rateLimit(req, "merchant-setup-paypal", RULE);
 
   const c = config();
