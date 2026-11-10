@@ -6,8 +6,8 @@
  * Page "Money": KPI value widgets, custom Money flow widget, captured-vs-refunded and holds charts.
  * Everything on a page cross-filters; the KPIs are Studio widgets so they follow the filters.
  */
-import { useEffect, useMemo, useRef, useState } from "react";
-import { enableStudioDevValidations, type AgDataSourcesDefinition, type AgStudioApi } from "ag-studio";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { enableStudioDevValidations, type AgDataSourcesDefinition, type AgPanelConfig, type AgStudioApi } from "ag-studio";
 import { AgStudioAiModule } from "ag-studio";
 import { AgStudio, AgStudioProvider } from "ag-studio-react";
 import type { AgReportState } from "ag-studio";
@@ -244,16 +244,38 @@ export interface StudioDashboardProps {
   onError?: (message: string) => void;
 }
 
+/** Only the assistant panel, and only in edit mode. Module-level so the object identity never changes. */
+const PANELS_WITH_ASSISTANT: AgPanelConfig = { view: { left: [], right: [] }, edit: { left: [], right: ["ai"] } };
+const PANELS_WITHOUT_ASSISTANT: AgPanelConfig = { view: { left: [], right: [] }, edit: { left: [], right: [] } };
+const AI_MODULES = [AgStudioAiModule];
+
 export default function StudioDashboard({ rows, currency, sort, focus, page, licenseKey, aiEnabled, mode, onOpenOuting, onApi, onError }: StudioDashboardProps) {
   const apiRef = useRef<AgStudioApi | null>(null);
   // Source definitions do not depend on the widget registry; the cast only reconciles generics.
   useMemo(() => setOutingIdLookup(rows.map((r) => ({ id: r.outingId, title: r.title }))), [rows]);
+  // A new `data` object is how fresh rows reach the running Studio: it updates its widgets in place,
+  // so a refresh never rebuilds the dashboard or the assistant's chat.
   const data = useMemo(() => buildStudioData(rows, currency) as unknown as AgDataSourcesDefinition<OutingsRegistry>, [rows, currency]);
   // initialState is read once at creation (remount via key); later page switches go through api.setState.
   const [initialPage] = useState(page);
   const initial = useMemo(() => buildReport(sort, currency, initialPage), [sort, currency, initialPage]);
   const context = useMemo(() => ({ openOuting: onOpenOuting, currency }), [onOpenOuting, currency]);
   const ai = useMemo(() => (aiEnabled ? createAiSetup() : undefined), [aiEnabled]);
+
+  // Studio re-applies every prop whose identity changed since the last render, and re-applying `panels`
+  // takes the assistant panel out of the page and puts it back (losing focus and scroll position).
+  // This component re-renders on every bookings refresh, so everything handed to Studio is kept stable.
+  const onApiReady = useCallback(
+    (e: { api: AgStudioApi }) => {
+      apiRef.current = e.api;
+      onApi?.(e.api);
+    },
+    [onApi],
+  );
+  const onErrorRaised = useCallback(
+    (e: unknown) => onError?.(String((e as { message?: unknown }).message ?? "AG Studio reported an error")),
+    [onError],
+  );
 
   const wrapRef = useRef<HTMLDivElement>(null);
 
@@ -283,7 +305,7 @@ export default function StudioDashboard({ rows, currency, sort, focus, page, lic
 
   return (
     <div ref={wrapRef} style={{ height: "100%", width: "100%" }}>
-    <AgStudioProvider licenseKey={licenseKey} modules={aiEnabled ? [AgStudioAiModule] : undefined}>
+    <AgStudioProvider licenseKey={licenseKey} modules={aiEnabled ? AI_MODULES : undefined}>
       <AgStudio<OutingsRegistry>
         style={{ height: "100%", width: "100%" }}
         data={data}
@@ -292,13 +314,10 @@ export default function StudioDashboard({ rows, currency, sort, focus, page, lic
         widgets={outingsWidgets}
         context={context}
         mode={mode}
-        panels={{ view: { left: [], right: [] }, edit: { left: [], right: aiEnabled ? ["ai"] : [] } }}
+        panels={aiEnabled ? PANELS_WITH_ASSISTANT : PANELS_WITHOUT_ASSISTANT}
         ai={ai}
-        onApiReady={(e) => {
-          apiRef.current = e.api;
-          onApi?.(e.api);
-        }}
-        onErrorRaised={(e) => onError?.(String((e as { message?: unknown }).message ?? "AG Studio reported an error"))}
+        onApiReady={onApiReady}
+        onErrorRaised={onErrorRaised}
       />
     </AgStudioProvider>
     </div>

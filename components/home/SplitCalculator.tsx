@@ -68,7 +68,7 @@ function Stepper({
   );
 }
 
-/** Interactive, honest split calculator. Uses the same pure money functions the server settles with. */
+/** Interactive, honest split calculator. Uses the same pure money functions the server settles with (the page says so in plain words). */
 export function SplitCalculator() {
   const uid = useId();
   const [mode, setMode] = useState<Mode>("FIXED_TOTAL");
@@ -133,7 +133,7 @@ export function SplitCalculator() {
             </label>
             <label className={seg("PER_ATTENDEE")}>
               <input type="radio" name={`${uid}-mode`} className="sr-only" checked={mode === "PER_ATTENDEE"} onChange={() => setMode("PER_ATTENDEE")} />
-              Per attendee
+              Per person
             </label>
           </div>
           <p className="mt-2 text-small text-ink-muted" aria-live="polite">
@@ -145,7 +145,7 @@ export function SplitCalculator() {
 
         <div>
           <label htmlFor={`${uid}-amt`} className="block font-semibold">
-            {mode === "FIXED_TOTAL" ? "Fixed room total ($)" : "Price per attendee ($)"}
+            {mode === "FIXED_TOTAL" ? "Fixed room total ($)" : "Price per person ($)"}
           </label>
           <input
             id={`${uid}-amt`}
@@ -168,11 +168,11 @@ export function SplitCalculator() {
         </div>
 
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
-          <Stepper id={`${uid}-att`} label="Attendees" value={attendees} min={1} max={MAX_ATTENDEES} onChange={(n) => { setAttendees(n); if (sponsored >= n) setSponsored(0); }} />
+          <Stepper id={`${uid}-att`} label="People coming" value={attendees} min={1} max={MAX_ATTENDEES} onChange={(n) => { setAttendees(n); if (sponsored >= n) setSponsored(0); }} />
           <Stepper
             id={`${uid}-min`}
             label="Minimum payers"
-            hint="Sets the maximum each person authorizes."
+            hint="The fewest people who must pay for the booking to go ahead. It sets each person's maximum."
             value={minPayers}
             min={1}
             max={payerCount}
@@ -181,7 +181,7 @@ export function SplitCalculator() {
         </div>
 
         <fieldset>
-          <legend className="font-semibold">Sponsored guests</legend>
+          <legend className="font-semibold">Treating someone?</legend>
           <div className="mt-2 flex gap-1 rounded-pill border border-line-strong bg-surface p-1">
             {[0, 1].map((n) => (
               <label
@@ -200,11 +200,11 @@ export function SplitCalculator() {
                   disabled={n === 1 && attendees < 2}
                   onChange={() => setSponsored(n)}
                 />
-                {n === 0 ? "None" : "1 guest covered"}
+                {n === 0 ? "No" : "Yes, cover 1 guest"}
               </label>
             ))}
           </div>
-          <p className="mt-2 text-small text-ink-muted">A covered guest still accepts attendance but pays $0. The others share the total.</p>
+          <p className="mt-2 text-small text-ink-muted">A covered guest still says yes, but pays $0. Everyone else shares the total.</p>
         </fieldset>
       </Card>
 
@@ -226,12 +226,14 @@ export function SplitCalculator() {
             <div>
               <dt className="text-small text-[#C9D1E3]">Each person&apos;s maximum</dt>
               <dd className="font-money text-[28px] leading-8">{now ? formatMoney(now.cap) : "—"}</dd>
-              <dd className="mt-1 text-small text-[#C9D1E3]">ceil(total ÷ {minPayers} min payers). The hold.</dd>
+              <dd className="mt-1 text-small text-[#C9D1E3]">
+                The hold each person approves: the total divided by the minimum number of payers ({minPayers}), rounded up to the cent.
+              </dd>
             </div>
             <div>
-              <dt className="text-small text-[#C9D1E3]">Estimated share now</dt>
+              <dt className="text-small text-[#C9D1E3]">Share with this group</dt>
               <dd className="font-money text-[28px] leading-8">{now ? formatMoney(now.estimate) : "—"}</dd>
-              <dd className="mt-1 text-small text-[#C9D1E3]">Display only. Never above the maximum.</dd>
+              <dd className="mt-1 text-small text-[#C9D1E3]">What each person would pay today. Never above the maximum.</dd>
             </div>
           </dl>
         </Card>
@@ -239,7 +241,7 @@ export function SplitCalculator() {
         <Card className="space-y-4">
           <h3 className="flex items-center gap-2 text-h3">
             <Scale className="size-5 text-coral-700" aria-hidden />
-            Penny-exact shares
+            Each share, to the cent
           </h3>
           {now ? (
             <>
@@ -265,8 +267,8 @@ export function SplitCalculator() {
               </p>
               <p className="text-small text-ink-muted">
                 {unequal
-                  ? `Equal shares can differ by one cent. The first ${now.total % now.payers} payer${now.total % now.payers === 1 ? "" : "s"} in a fixed order pay the extra cent, and the order never changes between preview, consent and settlement.`
-                  : "This total divides evenly, so every share is the same. When it does not, shares differ by one cent, in a fixed order."}
+                  ? `Equal shares can differ by one cent. The first ${now.total % now.payers} ${now.total % now.payers === 1 ? "person" : "people"} on the list pay the extra cent, and that order never changes.`
+                  : "This total divides evenly, so every share is the same. When it does not, some shares are one cent higher."}
               </p>
             </>
           ) : (
@@ -283,14 +285,14 @@ export function SplitCalculator() {
             </p>
             <p className="text-ink">
               {mode === "FIXED_TOTAL"
-                ? `The total stays ${sameTotalLine}, so a bigger group only lowers each share (never raises it). The maximum you authorized does not change.`
+                ? `The total stays ${sameTotalLine}, so a bigger group only lowers each share (never raises it). The maximum you approved does not change.`
                 : `Each extra guest brings their own ${formatMoney(amountMinor ?? 0)}, so the share per person stays the same. More guests do not make it cheaper.`}
             </p>
           </Card>
         )}
 
         <StatusBanner tone="info" live={false}>
-          Illustration only: the real app freezes the roster at the deadline and stores this exact split in an immutable snapshot. A hold is not a charge, and PayPal fees are never added to shares.
+          This is only an example. In a real outing the guest list is locked at the deadline and the split is saved exactly as shown. A hold is not a charge, and PayPal fees are never added to your share.
         </StatusBanner>
       </div>
     </div>

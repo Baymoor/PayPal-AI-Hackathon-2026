@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import {
   ArrowDown,
+  ArrowUpRight,
   Ban,
   Bot,
   CalendarClock,
@@ -20,29 +21,29 @@ import { StatusBadge } from "@/components/ui/Badge";
 export const metadata: Metadata = {
   title: "How it works",
   description:
-    "How Outings splits a group booking: the five steps, an interactive penny-exact split calculator, and exactly what happens at the deadline.",
+    "How Outings splits a group booking: the five steps, a calculator to try, and exactly what happens at the deadline.",
 };
 
 const STEPS = [
   {
     name: "Brief",
-    copy: "Describe the plan in your own words. Suggestions are not bookings or payment approvals.",
+    copy: "Say what you want to do, in your own words. We suggest places that fit. Nothing is booked yet.",
   },
   {
     name: "Budget",
-    copy: "Suggest a total budget. This does not authorize a payment. Your vote stays private until reveal.",
+    copy: "Everyone privately suggests a total budget. The group sees how the votes spread, never who said what. A vote is not a payment.",
   },
   {
     name: "Invite",
-    copy: "We create a private link for each person. You send it to them yourself.",
+    copy: "You get a private link for each friend. Send it to them however you like.",
   },
   {
     name: "Commit",
-    copy: "Authorize up to $20. Your final share may be lower. We collect it only if the agreed group booking is confirmed.",
+    copy: "You approve a hold for your maximum share. A hold is not a charge. You pay your exact share only if the booking happens, and never more than your maximum.",
   },
   {
     name: "Deadline",
-    copy: "At the deadline we book it, or release every hold.",
+    copy: "Nobody is charged before the deadline. Then we either book it and collect each exact share, or release every hold.",
   },
 ] as const;
 
@@ -107,15 +108,15 @@ export default function HowItWorksPage() {
             Nobody fronts the money. Nobody pays alone.
           </h1>
           <p className="text-lead">
-            Everyone authorizes only their own maximum. At the deadline we either collect each person&apos;s exact share, penny for penny, or release every hold.
+            Everyone approves a hold for their own maximum, and nothing more. At the deadline we either collect each person&apos;s exact share, to the cent, or release every hold.
           </p>
           <nav aria-label="On this page" className="flex flex-wrap gap-x-5 gap-y-1 text-small font-semibold">
             {[
               ["#steps", "Five steps"],
-              ["#calculator", "Split calculator"],
+              ["#calculator", "Try the calculator"],
               ["#deadline", "At the deadline"],
               ["#ai", "What AI does"],
-              ["#honesty", "What is simulated"],
+              ["#honesty", "Is this real money?"],
             ].map(([href, label]) => (
               <a key={href} href={href} className="inline-flex min-h-[44px] items-center text-coral-700 underline underline-offset-4 hover:text-coral-800">
                 {label}
@@ -126,7 +127,7 @@ export default function HowItWorksPage() {
 
         {/* (a) Steps */}
         <section id="steps" aria-labelledby="steps-h" className="mt-12 scroll-mt-6 border-t border-line pt-10">
-          <SectionHead id="steps-h" title="Brief, budget, invite, commit, deadline" />
+          <SectionHead id="steps-h" title="Five steps from idea to booking" />
           <ol className="grid gap-6 md:grid-cols-5 md:gap-5">
             {STEPS.map(({ name, copy }, i) => (
               <li key={name} className="flex gap-4 md:flex-col md:gap-2">
@@ -144,16 +145,14 @@ export default function HowItWorksPage() {
             ))}
           </ol>
           <p className="mt-4 text-ink-muted">
-            A vote, a proposal or an AI summary is never permission to charge anyone. Only your own authorization, for terms you have seen, is.
+            Nothing you vote on or read here lets anyone charge you. Only your own approval does, for terms you have seen.
           </p>
         </section>
 
         {/* (b) Calculator */}
         <section id="calculator" aria-labelledby="calculator-h" className="mt-14 scroll-mt-6 border-t border-line pt-10">
-          <SectionHead id="calculator-h" title="The split calculator">
-            This runs the same pure functions the server settles with: <code className="rounded bg-blush-50 px-1.5 py-0.5 text-[0.9em]">equalSplit</code>,{" "}
-            <code className="rounded bg-blush-50 px-1.5 py-0.5 text-[0.9em]">perPayerCap</code> and{" "}
-            <code className="rounded bg-blush-50 px-1.5 py-0.5 text-[0.9em]">estimatedShare</code>. Try $100 for 3 people.
+          <SectionHead id="calculator-h" title="Try it: split a booking">
+            Change the numbers and watch the shares move. It is the same arithmetic a real outing uses. Try $100 for 3 people.
           </SectionHead>
           <SplitCalculator />
         </section>
@@ -161,7 +160,7 @@ export default function HowItWorksPage() {
         {/* (c) Deadline */}
         <section id="deadline" aria-labelledby="deadline-h" className="mt-14 scroll-mt-6 border-t border-line pt-10">
           <SectionHead id="deadline-h" title="What happens at the deadline">
-            A server-side job freezes the roster and picks exactly one of three paths. Late approvals are voided, never admitted. If anything cannot be verified, we fail closed and cancel.
+            When the deadline passes, the guest list is locked and exactly one of three things happens. Anyone who approves late is not added, and their hold is released. If we can&apos;t confirm something, we cancel rather than guess.
           </SectionHead>
 
           <div className="flex flex-col items-center gap-2">
@@ -170,7 +169,7 @@ export default function HowItWorksPage() {
                 <CalendarClock className="size-6" aria-hidden />
                 Deadline passes
               </p>
-              <p className="mt-1 text-small text-[#C9D1E3]">Roster frozen · every required person must have accepted and authorized</p>
+              <p className="mt-1 text-small text-[#C9D1E3]">Guest list locked · everyone who is required must have said yes and approved their hold</p>
             </Card>
             <ArrowDown className="size-6 text-ink-muted" aria-hidden />
           </div>
@@ -178,11 +177,11 @@ export default function HowItWorksPage() {
             <Outcome
               tone="ok"
               Icon={CircleCheck}
-              title="Settle"
+              title="It's booked"
               when="Everyone required is in."
               steps={[
-                "Each payer's exact share is captured, one after another.",
-                "Never more than the maximum they authorized.",
+                "Each person's exact share is collected, one after another.",
+                "Never more than the maximum they approved.",
                 "The unused part of each hold is released.",
               ]}
               end={
@@ -194,12 +193,12 @@ export default function HowItWorksPage() {
             <Outcome
               tone="cancel"
               Icon={X}
-              title="Cancel"
+              title="It's called off"
               when="Someone required is missing."
               steps={[
-                "Even if the minimum number of payers was reached, a required holdout cancels.",
-                "No booking payment is collected.",
-                "We ask PayPal to release every existing hold.",
+                "If one required person has not committed, the booking is cancelled, even if enough others have.",
+                "Nobody is charged.",
+                "We ask PayPal to release every hold.",
               ]}
               end={
                 <p className="flex flex-wrap items-center gap-2">
@@ -211,12 +210,12 @@ export default function HowItWorksPage() {
             <Outcome
               tone="fail"
               Icon={Undo2}
-              title="Partial failure"
-              when="A capture fails part-way through."
+              title="A payment fails"
+              when="One person's payment fails part-way through."
               steps={[
-                "PayPal has no atomic group capture, so we stop right there.",
-                "The remaining holds are voided.",
-                "Payments already captured are refunded.",
+                "PayPal collects payments one at a time, so we stop at the first one that fails.",
+                "The remaining holds are released.",
+                "Payments already collected are refunded.",
               ]}
               end={
                 <p className="flex flex-wrap items-center gap-2">
@@ -242,10 +241,10 @@ export default function HowItWorksPage() {
               </h3>
               <ul className="space-y-2.5">
                 {[
-                  "Reads your brief and pulls out the activity, dates, group size and budget unit.",
-                  "Matches it to a small, merchant-owned catalogue of real quotes.",
-                  "Summarizes the anonymous vote spread after the reveal.",
-                  "Explains the deterministic result in plain words.",
+                  "Reads your plan and picks out the activity, the date, the group size and the budget.",
+                  "Matches it to real options and prices from the venues' own lists.",
+                  "Sums up how the group voted, without names.",
+                  "Explains the result in plain words.",
                 ].map((t) => (
                   <li key={t} className="flex gap-3">
                     <CircleCheck className="mt-0.5 size-5 shrink-0 text-captured" aria-hidden />
@@ -261,11 +260,11 @@ export default function HowItWorksPage() {
               </h3>
               <ul className="space-y-2.5">
                 {[
-                  "Authorize, capture, void or refund a payment. Ever.",
-                  "Set or change a price, or invent inventory. Output is validated against the catalogue.",
+                  "Approve, collect, release or refund a payment. Ever.",
+                  "Set or change a price, or make up a venue. Everything it suggests is checked against the venues' lists.",
                   "See anyone's private vote before the reveal.",
-                  "Treat pasted chats as instructions. They are data.",
-                  "Decide who pays what. The split is plain integer arithmetic.",
+                  "Follow instructions hidden in a pasted chat. It only reads the chat.",
+                  "Decide who pays what. The split is simple arithmetic, to the cent.",
                 ].map((t) => (
                   <li key={t} className="flex gap-3">
                     <X className="mt-0.5 size-5 shrink-0 text-danger" aria-hidden />
@@ -279,30 +278,30 @@ export default function HowItWorksPage() {
 
         {/* (e) Honesty */}
         <section id="honesty" aria-labelledby="honesty-h" className="mt-14 scroll-mt-6 border-t border-line pt-10">
-          <SectionHead id="honesty-h" title="What is simulated">
+          <SectionHead id="honesty-h" title="Is this real money? No.">
             This is an independent hackathon project. No real money moves. Every simulated piece is labelled on screen.
           </SectionHead>
           <div className="grid gap-4 md:grid-cols-3">
             <Card className="space-y-2">
               <p className="flex items-center gap-2 font-display text-h3">
                 <ListChecks className="size-6 text-captured" aria-hidden />
-                Real code, both modes
+                Always real
               </p>
-              <p className="text-ink-muted">The deadline job, penny-exact splitting, consent bound to exact terms, caps and access control run identically with or without PayPal keys.</p>
+              <p className="text-ink-muted">The rules work for real everywhere on this site: the deadline, the split to the cent, your maximum, and who can see what.</p>
             </Card>
             <Card className="space-y-2">
               <p className="flex items-center gap-2 font-display text-h3">
                 <ShieldCheck className="size-6 text-authorized" aria-hidden />
-                PayPal sandbox
+                PayPal&apos;s test system
               </p>
-              <p className="text-ink-muted">With sandbox keys, approvals happen on PayPal&apos;s sandbox with test accounts. Payments go to one sandbox merchant, never to the organizer.</p>
+              <p className="text-ink-muted">When this site is connected to PayPal&apos;s sandbox (its official test system), approvals happen there, with test accounts and test money. Payments go to the venue, never to the organizer.</p>
             </Card>
             <Card className="space-y-3 border-dashed !border-fixture bg-fixture-bg/40">
               <p className="flex items-center gap-2 font-display text-h3">
                 <FlaskConical className="size-6 text-fixture" aria-hidden />
-                Fixtures, labelled
+                Simulated, and labelled
               </p>
-              <p>Without keys a simulator stands in for PayPal and a deterministic parser stands in for the model. Seeded outings are marked synthetic.</p>
+              <p>The ready-made demo outings use a stand-in for PayPal. Where no AI model is connected, you get sample AI text. You will always see a label like these:</p>
               <div className="flex flex-wrap gap-2">
                 <StatusBadge kind="fixture" />
                 <StatusBadge kind="fixture" label="Fixture AI (no model call)" />
@@ -310,21 +309,23 @@ export default function HowItWorksPage() {
             </Card>
           </div>
           <p className="mt-4 max-w-2xl text-ink-muted">
-            Not claimed: we do not say a hold disappears instantly or that a refund is complete when it has only been requested. What has and has not yet been verified against the live PayPal sandbox is listed in the repository&apos;s judge guide.
+            We never say a hold is gone or a refund is done before PayPal confirms it. What has been tested against PayPal&apos;s sandbox so far is listed in the project&apos;s judge guide.
           </p>
         </section>
 
         <section aria-labelledby="cta" className="mt-14 rounded-card-lg bg-blush-50 p-6 text-center sm:p-10">
           <h2 id="cta" className="text-[28px] leading-9 sm:text-h2">
-            See it with real screens
+            Now try it yourself
           </h2>
-          <p className="mx-auto mt-2 max-w-md text-ink-muted">Step into anyone&apos;s shoes in the demo, or open the merchant view.</p>
+          <p className="mx-auto mt-2 max-w-md text-ink-muted">Step into any guest&apos;s shoes in the demo, or open the venue&apos;s view in a second tab.</p>
           <div className="mt-5 flex flex-col justify-center gap-3 sm:flex-row">
             <LinkButton href="/demo" arrow>
               Try the demo
             </LinkButton>
-            <LinkButton href="/merchant" variant="secondary">
+            <LinkButton href="/merchant" variant="secondary" target="_blank" rel="noopener noreferrer">
               Merchant dashboard
+              <ArrowUpRight className="size-5" aria-hidden />
+              <span className="sr-only"> (opens in a new tab)</span>
             </LinkButton>
           </div>
         </section>

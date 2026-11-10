@@ -1,5 +1,5 @@
 import { Suspense } from "react";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, ArrowUpRight } from "lucide-react";
 import Link from "next/link";
 import { InvitationPreview } from "@/components/home/InvitationPreview";
 import { LinkButton } from "@/components/ui/Button";
@@ -9,8 +9,8 @@ import { PaymentSigninNotice } from "@/components/ui/PaymentSigninNotice";
 
 const STEPS = [
   { n: 1, title: "Plan together", text: "Everyone suggests a total budget in private. Only the spread is revealed." },
-  { n: 2, title: "Commit your share", text: "Authorize up to your maximum. It's a hold, not a charge." },
-  { n: 3, title: "Get confirmed", text: "At the deadline we book it, or release every hold." },
+  { n: 2, title: "Commit your share", text: "Approve a hold for your maximum share. A hold is not a charge." },
+  { n: 3, title: "Get confirmed", text: "At the deadline we book it and collect each exact share, or release every hold." },
 ];
 
 const textLink = "inline-flex min-h-[44px] items-center gap-1 font-semibold text-coral-700 underline underline-offset-4 hover:text-coral-800";
@@ -32,7 +32,7 @@ export default function Home() {
               Pay only if it happens.
             </h1>
             <p className="max-w-xl text-lead text-ink">
-              Everyone authorizes their own maximum. At the deadline each person pays their exact share, or every hold is released.
+              Everyone approves a hold for their own maximum. At the deadline each person pays their exact share, or every hold is released.
             </p>
             <div className="flex flex-col gap-3 sm:flex-row">
               <LinkButton href="/new" arrow className="sm:w-auto">
@@ -56,7 +56,7 @@ export default function Home() {
                 <div className="space-y-1">
                   <p className="text-small font-bold text-coral-700">With Outings</p>
                   <p>
-                    Five people each authorize up to <strong>$20</strong>, straight to the merchant. At the deadline each pays their exact share, or every hold is released.
+                    Five people each approve a hold of up to <strong>$20</strong>, straight to the venue. Nobody is charged before the deadline. Then each pays their exact share, or every hold is released.
                   </p>
                 </div>
               </div>
@@ -90,9 +90,10 @@ export default function Home() {
             ))}
           </ol>
           <p className="mt-6">
-            <Link href="/merchant" className={textLink}>
-              Merchants see every booking on the merchant dashboard
-              <ArrowRight className="size-4" aria-hidden />
+            <Link href="/merchant" target="_blank" rel="noopener noreferrer" className={textLink}>
+              Venues see every booking on the merchant dashboard
+              <ArrowUpRight className="size-4" aria-hidden />
+              <span className="sr-only"> (opens in a new tab)</span>
             </Link>
           </p>
         </section>
