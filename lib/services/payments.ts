@@ -32,7 +32,7 @@ import {
   type QuoteVersion,
 } from "../db/schema";
 import type { Db, DbOrTx, Tx } from "../db/client";
-import { config } from "../env";
+import { config, type PaymentMode } from "../env";
 import { assertCurrency, formatMoney } from "../domain/money";
 import { assertPaymentTransition } from "../domain/state-machine";
 import type { PaymentProviderName, PaymentStatus } from "../domain/types";
@@ -104,6 +104,18 @@ export function providerNameForOuting(outing: Pick<Outing, "isFixture">): Paymen
     );
   }
   return resolveDefaultProvider();
+}
+
+/**
+ * The payment mode a participant's screen must describe for THIS outing.
+ * Mirrors `providerNameForOuting`: demo (isFixture) outings pay through the
+ * simulator even when PayPal sandbox keys are set, so the deployment-wide
+ * mode would label their simulated holds "PayPal sandbox".
+ */
+export function paymentModeForOuting(outing: Pick<Outing, "isFixture">): PaymentMode {
+  const c = config();
+  if (outing.isFixture) return c.demoFixturesEnabled ? "FIXTURE" : "DISABLED";
+  return c.paymentMode;
 }
 
 function providerFor(name: PaymentProviderName): PaymentProvider {

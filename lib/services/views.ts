@@ -52,6 +52,7 @@ import {
   storedProposal,
   storedReveal,
 } from "./outings";
+import { paymentModeForOuting } from "./payments";
 
 /* ------------------------------- shared helpers ----------------------------- */
 
@@ -381,7 +382,8 @@ export async function buildOutingView(
       serverNow: now.toISOString(),
       cancelReasons: outing.cancelReasons ?? [],
       cleanup: outing.cleanup,
-      paymentMode: cfg.paymentMode,
+      // Per outing, not per deployment: a demo outing's simulated holds are never labelled PayPal sandbox.
+      paymentMode: paymentModeForOuting(outing),
       aiMode: cfg.aiMode,
       demoMode: cfg.demoFixturesEnabled,
     },
