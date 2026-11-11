@@ -93,9 +93,9 @@ interface ScenarioPlan {
   brief?: string;
 }
 
-const HOLD = "Committed · $20 hold (fixture)";
+const HOLD = "Committed · $20 hold (simulated)";
 const MAYA = "Sponsored guest · accepted · pays $0";
-const BIG = (name: string) => `${name} · committed · $20 hold (fixture); estimate drops to $10 once ten commit`;
+const BIG = (name: string) => `${name} · committed · $20 hold (simulated); estimate drops to $10 once ten commit`;
 
 const PLANS: Record<DemoScenarioKind, ScenarioPlan> = {
   "settle-soon": {
@@ -118,7 +118,7 @@ const PLANS: Record<DemoScenarioKind, ScenarioPlan> = {
       ben: HOLD,
       freya: HOLD,
       jules: HOLD,
-      noor: "Required payer who never commits: leave Noor alone and the deadline cancels the outing",
+      noor: "Required guest who never commits: leave Noor alone and the deadline cancels the outing",
       maya: MAYA,
     },
   },
@@ -129,11 +129,11 @@ const PLANS: Record<DemoScenarioKind, ScenarioPlan> = {
       { key: "ben", operation: "REFUND", mode: "TIMEOUT_AFTER" },
     ],
     notes: {
-      alex: `Organizer · ${HOLD} · captured first, then refunded`,
-      ben: `${HOLD} · captured, then refunded; the first refund response is lost (simulated timeout) and reconciled on the next pass`,
-      freya: `${HOLD} · captured, then refunded`,
-      jules: `${HOLD} · capture is declined by the simulator (injected failure), then the hold is released`,
-      noor: `${HOLD} · capture skipped after the failure, hold released`,
+      alex: `Organizer · ${HOLD} · share collected first, then refunded`,
+      ben: `${HOLD} · share collected, then refunded; the refund needs a second try`,
+      freya: `${HOLD} · share collected, then refunded`,
+      jules: `${HOLD} · payment declined at the deadline, then the hold is released`,
+      noor: `${HOLD} · not collected after the failure, hold released`,
       maya: MAYA,
     },
   },
@@ -152,7 +152,7 @@ const PLANS: Record<DemoScenarioKind, ScenarioPlan> = {
       leo: BIG("Leo"),
       ida: BIG("Ida"),
       omar: BIG("Omar"),
-      kai: "Not committed yet: open as Kai and authorize $20. As the tenth payer your estimate drops to $10; at the deadline you are charged exactly $10 from the $20 hold",
+      kai: "Not committed yet: open as Kai and authorize $20. As the tenth payer your estimate drops to $10; at the deadline you pay exactly $10 out of the $20 hold",
     },
   },
 };

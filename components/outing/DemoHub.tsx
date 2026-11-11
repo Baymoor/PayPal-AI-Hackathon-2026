@@ -116,7 +116,7 @@ function stageLabel(o: DemoOuting): string {
     case "BUDGETING":
       return "Budget poker";
     case "PROPOSED":
-      return "Choosing a quote";
+      return "Choosing a venue";
     case "COLLECTING":
       return "Collecting commitments";
     case "SETTLING":
@@ -126,7 +126,7 @@ function stageLabel(o: DemoOuting): string {
     case "CANCELLING":
       return "Cancelling";
     case "COMPENSATING":
-      return "Not confirmed · recovering";
+      return "Not confirmed · refunding";
     case "CANCELLED":
       if (o.cancelReasons?.includes("CAPTURE_FAILED")) {
         return o.cleanup === "COMPLETE" ? "Not confirmed · refunded" : o.cleanup === "NEEDS_ATTENTION" ? "Not confirmed · needs attention" : "Not confirmed · refund pending";
@@ -145,27 +145,27 @@ function stageLabel(o: DemoOuting): string {
 
 /* ------------------------------- Scenarios --------------------------------- */
 
-// The section header says once that every scenario uses the simulator; each card only says what happens.
+// The section header says once that every story uses simulated payments; each card only says what happens.
 const SCENARIOS: Record<DemoScenarioKind, { title: string; what: string; next: string }> = {
   "settle-soon": {
     title: "The last payer commits in time",
-    what: "Four of five payers already hold $20. Open as Noor and authorize before the deadline. At the deadline the server captures 5 × $20 and the booking is confirmed; Maya pays $0.",
-    next: "Open as Noor and authorize $20 before the deadline. When it has passed, process due work.",
+    what: "Four of five friends have a $20 hold in place. You are Noor, the last one: approve your hold before the deadline. Then each of the five pays $20 and the booking is confirmed. Maya, the birthday guest, pays $0.",
+    next: "Open as Noor and authorize $20 before the deadline. Once it has passed, press Run the deadline now.",
   },
   holdout: {
     title: "A required guest holds out",
-    what: "Four of five payers hold $20, but Noor never commits. At the deadline the server cancels the booking and releases every hold. Nobody is charged.",
-    next: "Leave Noor alone. When the deadline has passed, process due work.",
+    what: "Four of five friends have a $20 hold in place, but Noor never commits. At the deadline the booking is cancelled and every hold is released. Nobody is charged.",
+    next: "Leave Noor alone. Once the deadline has passed, press Run the deadline now.",
   },
   "capture-failure": {
-    title: "A capture fails mid-settlement",
-    what: "All five payers hold $20. The simulator declines Jules's capture, so the server stops, releases the remaining holds and refunds the shares it already captured. One refund reply is lost and read back on the next pass. The booking is never confirmed.",
-    next: "When the deadline has passed, process due work. Process again a few seconds later: the lost refund response is reconciled and the clean-up completes.",
+    title: "A payment fails at the deadline",
+    what: "All five friends have a $20 hold in place. At the deadline Jules's payment is declined, so we stop, release the remaining holds and refund the shares already collected. One refund takes a second try. The booking is never confirmed.",
+    next: "Once the deadline has passed, press Run the deadline now. Press it again a few seconds later: the last refund goes through and everything is settled.",
   },
   "big-group": {
     title: "Ten friends share the room",
-    what: "Nine payers hold $20 and you commit as Kai. The estimate drops to $10, and at the deadline each of the ten is charged exactly $10 from a $20 hold.",
-    next: "Open as Kai and authorize $20 (your estimate shows $10). When the deadline has passed, process due work: each of the ten is charged $10 and the rest of each hold is released.",
+    what: "Nine friends have a $20 hold in place and you commit as Kai, the tenth. Your estimated share drops to $10, and at the deadline each of the ten pays exactly $10 out of a $20 hold.",
+    next: "Open as Kai and authorize $20 (your estimate shows $10). Once the deadline has passed, press Run the deadline now: each of the ten pays $10 and the rest of each hold is released.",
   },
 };
 
@@ -203,15 +203,15 @@ function liveNote(p: ScenarioPersona, kind: DemoScenarioKind, st: ScenarioStatus
   const live = st?.personas?.find((x) => x.participantId === p.participantId);
   if (!st || !live || p.payerType !== "PAYER") return p.note;
   const prefix = p.role === "ORGANIZER" ? "Organizer · " : "";
-  const hold = "Committed · $20 hold (fixture)";
+  const hold = "Committed · $20 hold (simulated)";
   const failed = st.cancelReasons.includes("CAPTURE_FAILED");
   switch (st.status) {
     case "COLLECTING":
       return live.committed ? (p.note.startsWith(prefix + "Committed") || p.note.includes(hold) ? p.note : prefix + hold) : p.note;
     case "SETTLING":
-      return live.committed ? `${prefix}Committed · share being captured` : p.note;
+      return live.committed ? `${prefix}Committed · share being collected` : p.note;
     case "CONFIRMED":
-      return live.committed ? `${prefix}Committed · share captured (fixture)` : `${prefix}Did not commit in time`;
+      return live.committed ? `${prefix}Committed · share collected (simulated)` : `${prefix}Did not commit in time`;
     case "COMPENSATING":
     case "CANCELLING":
     case "CANCELLED":
@@ -238,7 +238,7 @@ function scenarioBadge(s: ScenarioStatus): { kind: StatusKind | null; label: str
     case "CONFIRMED":
       return { kind: "captured", label: "Confirmed" };
     case "COMPENSATING":
-      return { kind: "void-pending", label: "Not confirmed · recovering" };
+      return { kind: "void-pending", label: "Not confirmed · refunding" };
     case "CANCELLING":
     case "CANCELLED": {
       const failed = s.cancelReasons.includes("CAPTURE_FAILED");
@@ -254,9 +254,9 @@ function scenarioBadge(s: ScenarioStatus): { kind: StatusKind | null; label: str
 }
 
 const OP_WORDS: Record<OperationKind, { label: string; words: Partial<Record<OperationStatus, string>> }> = {
-  CAPTURE: { label: "Captures", words: { SUCCEEDED: "captured", FAILED: "failed", SKIPPED: "skipped", PENDING: "queued", IN_FLIGHT: "in flight", UNKNOWN: "being reconciled" } },
-  REFUND: { label: "Refunds", words: { SUCCEEDED: "refunded", UNKNOWN: "awaiting reconciliation", PENDING: "queued", IN_FLIGHT: "in flight", FAILED: "failed" } },
-  VOID: { label: "Holds released", words: { SUCCEEDED: "released", PENDING: "queued", IN_FLIGHT: "in flight", UNKNOWN: "being reconciled", FAILED: "failed", SKIPPED: "not needed" } },
+  CAPTURE: { label: "Shares collected", words: { SUCCEEDED: "collected", FAILED: "failed", SKIPPED: "skipped", PENDING: "waiting", IN_FLIGHT: "in progress", UNKNOWN: "being checked" } },
+  REFUND: { label: "Refunds", words: { SUCCEEDED: "refunded", UNKNOWN: "being checked", PENDING: "waiting", IN_FLIGHT: "in progress", FAILED: "failed" } },
+  VOID: { label: "Holds released", words: { SUCCEEDED: "released", PENDING: "waiting", IN_FLIGHT: "in progress", UNKNOWN: "being checked", FAILED: "failed", SKIPPED: "not needed" } },
 };
 const OP_ORDER: OperationStatus[] = ["SUCCEEDED", "FAILED", "SKIPPED", "UNKNOWN", "IN_FLIGHT", "PENDING"];
 
@@ -272,9 +272,9 @@ function tickSummary(r: TickResponse): string {
   const did = r.jobsRun + r.operationsRun + r.sweptOutings;
   const work =
     did === 0
-      ? "Worker pass done: nothing was due yet."
-      : `Worker pass done: ${r.jobsRun} job${r.jobsRun === 1 ? "" : "s"} and ${r.operationsRun} payment operation${r.operationsRun === 1 ? "" : "s"} processed.`;
-  return r.errors.length ? `${work} ${r.errors.length} item${r.errors.length === 1 ? "" : "s"} will be retried.` : work;
+      ? "Done: nothing was due yet."
+      : `Done: ${r.jobsRun} step${r.jobsRun === 1 ? "" : "s"} and ${r.operationsRun} payment${r.operationsRun === 1 ? "" : "s"} processed.`;
+  return r.errors.length ? `${work} ${r.errors.length} will be tried again.` : work;
 }
 
 /** "Closes in 1m 05s" against the SERVER clock (offset = serverNow - clientNow when we last heard from it). */
@@ -319,7 +319,7 @@ export function DemoHub({ initialDeadlineSeconds }: { initialDeadlineSeconds?: n
     request("/api/demo/personas")
       .then((r) => alive && setState(readState(r)))
       .catch((e: unknown) => {
-        if (alive && e instanceof ApiError && e.status === 404) setDisabled("Demo fixtures are turned off on this deployment.");
+        if (alive && e instanceof ApiError && e.status === 404) setDisabled("The demo is switched off on this site.");
       })
       .finally(() => alive && setLoaded(true));
     request<Modes>("/api/health")
@@ -334,7 +334,7 @@ export function DemoHub({ initialDeadlineSeconds }: { initialDeadlineSeconds?: n
           setScenario(saved);
           setScenarioStatus(s);
           adoptServerClock(s.serverNow);
-          if (s.tickAvailable === false) setTickBlocked("On this deployment the background worker processes due work on its own.");
+          if (s.tickAvailable === false) setTickBlocked("On this site that happens on its own.");
         })
         .catch((e: unknown) => {
           if (e instanceof ApiError && e.status === 404) saveScenario(null);
@@ -382,7 +382,7 @@ export function DemoHub({ initialDeadlineSeconds }: { initialDeadlineSeconds?: n
         setState(readState(await request("/api/demo/reset", { method: "POST" })));
       } catch (e) {
         if (e instanceof ApiError && (e.status === 404 || e.status === 403)) {
-          setDisabled("Demo fixtures are turned off on this deployment, so there is nothing to reset.");
+          setDisabled("The demo is switched off on this site, so there is nothing to reset.");
           return;
         }
         throw e;
@@ -398,12 +398,23 @@ export function DemoHub({ initialDeadlineSeconds }: { initialDeadlineSeconds?: n
     if (ok) router.push(`/o/${outingId}`);
   }
 
+  /**
+   * Opens the venue's side in a second tab, so the guest side stays open here. The tab is opened inside
+   * the click (before the sign-in request) or the browser would block it as a pop-up; it is pointed at
+   * the dashboard once the demo sign-in has succeeded. If the browser refuses the tab, this one is used.
+   */
   async function merchant(path = "/merchant", key = "merchant") {
+    const tab = window.open("", "_blank");
     const ok = await run(key, async () => {
       await request("/api/merchant/demo-login", { method: "POST" });
       return true;
     });
-    if (ok) router.push(path);
+    if (!ok) {
+      tab?.close();
+      return;
+    }
+    if (tab) tab.location.href = path;
+    else router.push(path);
   }
 
   async function startScenario(kind: DemoScenarioKind) {
@@ -426,7 +437,7 @@ export function DemoHub({ initialDeadlineSeconds }: { initialDeadlineSeconds?: n
         headline: "Collecting: nothing is settled before the deadline.",
       });
       setTickResult(null);
-      setTickBlocked(r.tickAvailable ? null : "On this deployment the background worker processes due work on its own.");
+      setTickBlocked(r.tickAvailable ? null : "On this site that happens on its own.");
       void request<ScenarioStatus>(`/api/demo/scenario?outingId=${encodeURIComponent(r.outingId)}`)
         .then(setScenarioStatus)
         .catch(() => {});
@@ -495,13 +506,13 @@ export function DemoHub({ initialDeadlineSeconds }: { initialDeadlineSeconds?: n
       {/* One honesty line instead of a "What is real here?" card: the demo outings always use the simulator. */}
       <div className="space-y-3">
         <h1 className="text-[36px] leading-10 sm:text-h1 sm:leading-[3rem]">Try the demo</h1>
-        <p className="text-lead">Start a scenario and watch the server settle it in two minutes, or open any outing as any guest.</p>
+        <p className="text-lead">Watch a group booking play out in two minutes, or step into any guest&apos;s shoes.</p>
         <p className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-small text-ink-muted">
           <FlaskConical className="size-4 shrink-0" aria-hidden />
           Demo outings run on the payment simulator. No real money.
           {modes?.paymentMode === "PAYPAL_SANDBOX" && " Outings you create use PayPal sandbox."}{" "}
           <Link href="/how-it-works#honesty" className="font-semibold text-coral-700 underline underline-offset-4 hover:text-coral-800">
-            How the modes work
+            What is real and what is simulated
           </Link>
         </p>
       </div>
@@ -514,11 +525,11 @@ export function DemoHub({ initialDeadlineSeconds }: { initialDeadlineSeconds?: n
           Watch a deadline settle
         </h2>
         <p className="text-ink-muted">
-          Each scenario creates a fresh outing at The Sound Room ($100 private karaoke room) with a deadline minutes away.
+          Each story starts a fresh outing at The Sound Room (a $100 private karaoke room) with a deadline a few minutes away. You play one of the guests.
         </p>
         <div className="flex flex-wrap items-center gap-2">
           <StatusBadge kind="fixture" />
-          <span className="text-small text-ink-muted">Even when PayPal sandbox keys are set.</span>
+          <span className="text-small text-ink-muted">Always simulated here, even when this site is connected to PayPal&apos;s sandbox.</span>
         </div>
         <div>
           <label htmlFor={deadlineSelectId} className="mb-1.5 block text-small font-semibold">
@@ -569,12 +580,12 @@ export function DemoHub({ initialDeadlineSeconds }: { initialDeadlineSeconds?: n
           <section aria-labelledby="scenario-active-h" className="space-y-4 rounded-card border-2 border-coral-600 bg-blush-50 p-4 sm:p-5">
             <div className="flex flex-wrap items-start justify-between gap-2">
               <div className="min-w-0 space-y-1">
-                <p className="text-caption font-semibold uppercase tracking-[0.14em] text-ink-muted">Active scenario</p>
+                <p className="text-caption font-semibold uppercase tracking-[0.14em] text-ink-muted">Running now</p>
                 <h3 id="scenario-active-h" ref={scenarioHeading} tabIndex={-1} className="font-display text-[20px] font-semibold leading-7">
                   {scenario.title}
                 </h3>
               </div>
-              <Button variant="link" className="!min-h-[44px] text-small" onClick={clearScenario} aria-label="Dismiss this scenario panel">
+              <Button variant="link" className="!min-h-[44px] text-small" onClick={clearScenario} aria-label="Dismiss this panel">
                 <X className="size-4" aria-hidden />
                 Dismiss
               </Button>
@@ -604,7 +615,7 @@ export function DemoHub({ initialDeadlineSeconds }: { initialDeadlineSeconds?: n
               {SCENARIOS[scenario.kind].next}
             </p>
 
-            <ul className="space-y-2" aria-label="People in this scenario">
+            <ul className="space-y-2" aria-label="People in this outing">
               {scenario.personas.map((p, i) => (
                 <li key={p.participantId} className="flex flex-col gap-3 rounded-chip border border-line bg-surface p-3">
                   <div className="flex items-start gap-3">
@@ -630,25 +641,25 @@ export function DemoHub({ initialDeadlineSeconds }: { initialDeadlineSeconds?: n
             <div className="space-y-2 rounded-chip border border-line bg-surface p-4">
               <div className="flex items-center gap-2">
                 <Cog className="size-4 text-coral-700" aria-hidden />
-                <h4 className="font-semibold">Run the worker now</h4>
+                <h4 className="font-semibold">Don&apos;t want to wait?</h4>
               </div>
               <p className="text-small text-ink-muted">
-                Runs one pass of the settlement worker, exactly like the scheduler does. It only processes work that is already due: the server never settles before
-                the deadline, whoever presses this.
+                This does right away what otherwise happens on its own within a minute of the deadline. It only acts once the deadline has passed: nothing is
+                settled early, whoever presses it.
               </p>
               {tickBlocked ? (
-                <StatusBanner tone="info">{tickBlocked} Settlement happens within seconds of the deadline; this page updates on its own.</StatusBanner>
+                <StatusBanner tone="info">{tickBlocked} The booking is settled within seconds of the deadline, and this page updates by itself.</StatusBanner>
               ) : (
                 <Button
                   variant="primary"
                   className="!min-h-[48px] !text-[16px]"
                   loading={pending === "tick"}
-                  loadingLabel="Processing…"
+                  loadingLabel="Running…"
                   disabled={pending !== null && pending !== "tick"}
                   aria-describedby={countdownId}
                   onClick={processDueWork}
                 >
-                  Process due work now
+                  Run the deadline now
                 </Button>
               )}
               <div aria-live="polite">{tickResult && <p className="text-small font-semibold">{tickSummary(tickResult)}</p>}</div>
@@ -663,11 +674,12 @@ export function DemoHub({ initialDeadlineSeconds }: { initialDeadlineSeconds?: n
                 onClick={() => merchant(`/merchant/outings/${scenario.outingId}`, "merchant:scenario")}
               >
                 <Store className="size-4" aria-hidden />
-                Open merchant drill-down
+                See this booking as the venue
+                <span className="sr-only"> (opens in a new tab)</span>
               </Button>
             </div>
             {settled && (
-              <p className="text-small text-ink-muted">This outing is settled. Start another scenario above to run it again; earlier runs stay listed below.</p>
+              <p className="text-small text-ink-muted">This one is finished. Start another above to run it again; earlier runs stay listed below.</p>
             )}
           </section>
         )}
@@ -708,10 +720,10 @@ export function DemoHub({ initialDeadlineSeconds }: { initialDeadlineSeconds?: n
       {others.length > 0 && (
         <Card as="section" aria-labelledby="stages-h" className="space-y-4">
           <h2 id="stages-h" className="text-h3">
-            Finished outings
+            More sample outings
           </h2>
           <p className="text-ink-muted">
-            Synthetic history: confirmed bookings, cancellations with released holds, and a failed capture being refunded. Scenario runs you started appear here too.
+            Sample history: confirmed bookings, cancelled ones with every hold released, and one where a payment failed and was refunded. Stories you started appear here too.
           </p>
           <ul className="space-y-4">
             {others.map((o) => (
@@ -744,9 +756,10 @@ export function DemoHub({ initialDeadlineSeconds }: { initialDeadlineSeconds?: n
 
       <Card className="space-y-3">
         <h2 className="text-h3">The merchant&apos;s view</h2>
-        <p className="text-ink-muted">See bookings, holds and captures the way the venue does.</p>
+        <p className="text-ink-muted">See bookings, holds and payments the way the venue does. It opens in a second tab, so you can keep this one for the guests.</p>
         <Button variant="secondary" loading={pending === "merchant"} loadingLabel="Opening…" onClick={() => merchant()}>
           Open merchant dashboard
+          <span className="sr-only"> (opens in a new tab)</span>
         </Button>
       </Card>
       {/* Last on the page: resetting is housekeeping, not the first thing a judge should do. */}

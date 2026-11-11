@@ -29,7 +29,7 @@ import {
 import { formatMoney, isCurrency } from "../domain/money";
 import { zonedParts, zonedTimeToUtc } from "../services/catalogue";
 
-const BANNER = "FIXTURE output: deterministic keyword heuristics, not a model.";
+const BANNER = "Sample output: keyword rules, not an AI model.";
 
 const NUM_WORDS: Record<string, number> = {
   two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10,
@@ -148,7 +148,7 @@ function findInvitee(invitees: readonly PlanRosterEntry[], name: string): PlanRo
   return first.length === 1 ? first[0] : null;
 }
 
-const RANKER_LABEL = "Fixture ranker: ";
+const RANKER_LABEL = "Sample ranking: ";
 
 /**
  * Honesty label for one ranked offering: the first reason says it comes from the fixture ranker, the rest
@@ -235,7 +235,7 @@ export class FixtureOutingsAi implements OutingsAi {
       suggestedVoteTotalsMinor: null,
     };
     const v = validateBrief(raw, { categories: input.categories, sourceText: text });
-    return this.wrap(v.output, ["Fixture parser: extracted with regex/keyword rules.", ...v.warnings]);
+    return this.wrap(v.output, ["Sample reading: picked out with keyword rules.", ...v.warnings]);
   }
 
   async proposeOfferings(input: {
@@ -301,7 +301,7 @@ export class FixtureOutingsAi implements OutingsAi {
           reasons: s.reasons.slice(0, 3).map((r) => r.slice(0, 140)),
           concerns: s.concerns.slice(0, 3).map((r) => r.slice(0, 140)),
         })),
-      note: "Fixture ranker: ordered by category, capacity and budget fit. Prices and totals are computed by the app, not by this ranking.",
+      note: "Sample ranking: ordered by category, capacity and budget fit. Prices and totals are computed by the app, not by this ranking.",
     };
     const v = validateProposal(raw, input.catalogue);
     return this.wrap(v.output, v.warnings);
@@ -313,7 +313,7 @@ export class FixtureOutingsAi implements OutingsAi {
     // Same money formatting as every other screen ("$45", not "45.00 USD").
     const fmt = (m: number) => (isCurrency(a.currency) ? formatMoney(m, a.currency) : `${(m / 100).toFixed(2)} ${a.currency}`);
     const raw: RevealSummary = {
-      headline: `Fixture summary: votes ranged ${fmt(a.minMinor)} to ${fmt(a.maxMinor)}`,
+      headline: `Sample summary: votes ranged ${fmt(a.minMinor)} to ${fmt(a.maxMinor)}`,
       summary: `${a.voteCount} of ${a.invitedCount} invitees voted; the median proposed total is ${fmt(a.medianMinor)}. Votes are proposals, not payment authorizations. The organizer chooses the final quote.`,
       suggestedTotalMinor: a.medianMinor,
     };
@@ -350,10 +350,10 @@ export class FixtureOutingsAi implements OutingsAi {
       filters.push({ field: "cleanup", op: "eq", value: "NEEDS_ATTENTION" });
       parts.push("needing attention");
     }
-    if (/fixture|sandbox|test mode|demo/.test(q)) {
-      const sandbox = /sandbox/.test(q) && !/fixture/.test(q);
+    if (/fixture|simulated|sandbox|test mode|demo/.test(q)) {
+      const sandbox = /sandbox/.test(q) && !/fixture|simulated/.test(q);
       filters.push({ field: "isFixture", op: "eq", value: !sandbox });
-      parts.push(sandbox ? "using the PayPal sandbox" : "in fixture mode");
+      parts.push(sandbox ? "using the PayPal sandbox" : "with simulated payments");
     }
     for (const status of ["confirmed", "cancelled", "collecting", "settling", "compensating", "proposed", "budgeting", "draft"]) {
       if (new RegExp(`\\b${status}\\b`).test(q)) {
@@ -382,7 +382,7 @@ export class FixtureOutingsAi implements OutingsAi {
       filters,
       sort,
       focus,
-      explanation: `Fixture parser: outings ${parts.join(", ") || "(all)"}${unknown.length ? ` (${unknown[0]})` : ""}. Read-only filter, keyword-matched.`.slice(0, 240),
+      explanation: `Sample filter: outings ${parts.join(", ") || "(all)"}${unknown.length ? ` (${unknown[0]})` : ""}. Read-only filter, keyword-matched.`.slice(0, 240),
     };
     const v = validateDashboardQuery(raw);
     return this.wrap(v.output, v.warnings);
@@ -402,43 +402,43 @@ export class FixtureOutingsAi implements OutingsAi {
     const fits = (c: PlanCatalogueItem) => c.active && c.pricingModel === "FIXED_TOTAL" && c.capacity >= roster.length;
     const selected = input.catalogue.find((c) => c.offeringId === input.selectedOfferingId) ?? null;
     const offering = selected && fits(selected) ? selected : input.catalogue.find(fits) ?? selected ?? input.catalogue[0] ?? null;
-    if (!offering) throw new AiOutputError("Fixture planner: no catalogue offering to plan with");
+    if (!offering) throw new AiOutputError("Sample plan: no catalogue offering to plan with");
     rationale.push(
       offering === selected
-        ? `Fixture planner: keeps your choice, ${offering.name}.`
-        : `Fixture planner: ${offering.name} is the top-ranked fixed-total option that fits everyone invited.`,
+        ? `Sample plan: keeps your choice, ${offering.name}.`
+        : `Sample plan: ${offering.name} is the top-ranked fixed-total option that fits everyone invited.`,
     );
     if (offering.pricingModel === "FIXED_TOTAL" && input.agreedBudgetMinor !== null && offering.currency === "USD") {
       if (offering.priceMinor > input.agreedBudgetMinor) {
-        cautions.push(`Fixture planner: the ${formatMoney(offering.priceMinor)} fixed total is above the agreed ${formatMoney(input.agreedBudgetMinor)} budget.`);
+        cautions.push(`Sample plan: the ${formatMoney(offering.priceMinor)} fixed total is above the agreed ${formatMoney(input.agreedBudgetMinor)} budget.`);
       }
     }
 
     // Activity slot.
     const part = PART_OF_DAY[ex.dateWindow.partOfDay ?? "EVENING"];
-    if (!ex.dateWindow.partOfDay) cautions.push("Fixture planner: the brief doesn't say a time of day, so an evening slot is suggested.");
+    if (!ex.dateWindow.partOfDay) cautions.push("Sample plan: the brief doesn't say a time of day, so an evening slot is suggested.");
     const picked = pickHour(offering.availability.startHours, part);
     if (picked && !picked.inWindow) {
-      cautions.push(`Fixture planner: ${offering.name} has no ${part.label} start times, so ${String(picked.hour).padStart(2, "0")}:00 is suggested.`);
+      cautions.push(`Sample plan: ${offering.name} has no ${part.label} start times, so ${String(picked.hour).padStart(2, "0")}:00 is suggested.`);
     }
     const wantDay = ex.dateWindow.dayOfWeek ? WEEKDAY_CODE[ex.dateWindow.dayOfWeek] ?? null : null;
     let activity = picked ? nextSlot(now, tz, offering.availability.weekdays, picked.hour, wantDay) : null;
     if (!activity && picked && wantDay !== null) {
       activity = nextSlot(now, tz, offering.availability.weekdays, picked.hour, null);
-      if (activity) cautions.push(`Fixture planner: no ${WEEKDAY_LONG[wantDay]} slot is available soon enough, so the next open day is suggested.`);
+      if (activity) cautions.push(`Sample plan: no ${WEEKDAY_LONG[wantDay]} slot is available soon enough, so the next open day is suggested.`);
     }
     let deadline: Date | null = null;
     if (activity) {
       const local = formatLocalWallTime(activity, tz);
       const day = WEEKDAY_LONG[zonedParts(activity, tz).weekday];
-      rationale.push(`Fixture planner: ${day} ${local.slice(11)} is the next ${offering.name} start time matching the brief.`);
+      rationale.push(`Sample plan: ${day} ${local.slice(11)} is the next ${offering.name} start time matching the brief.`);
       deadline = floorToLocalHour(
         new Date(Math.min(activity.getTime() - PLAN_DEADLINE_BEFORE_ACTIVITY_MS, now.getTime() + PLAN_MAX_DEADLINE_MS)),
         tz,
       );
-      rationale.push("Fixture planner: commitments close 2 hours before the activity or within 24 hours, whichever is sooner.");
+      rationale.push("Sample plan: commitments close 2 hours before the activity or within 24 hours, whichever is sooner.");
     } else {
-      cautions.push(`Fixture planner: no ${offering.name} start time was found in the next two weeks; pick a time yourself.`);
+      cautions.push(`Sample plan: no ${offering.name} start time was found in the next two weeks; pick a time yourself.`);
     }
 
     // Sponsored guest.
@@ -448,16 +448,16 @@ export class FixtureOutingsAi implements OutingsAi {
     let sponsor: PlanRosterEntry | null = null;
     if (honour.name && honour.coverTheirShare) {
       sponsor = findInvitee(invitees, honour.name);
-      if (sponsor) rationale.push(`Fixture planner: the brief says the group covers ${sponsor.name}'s share.`);
+      if (sponsor) rationale.push(`Sample plan: the brief says the group covers ${sponsor.name}'s share.`);
       else {
-        cautions.push(`Fixture planner: the brief covers ${honour.name}'s share, but nobody by that name is invited yet.`);
+        cautions.push(`Sample plan: the brief covers ${honour.name}'s share, but nobody by that name is invited yet.`);
         sponsor = current;
       }
     } else if (current) {
       sponsor = current;
-      rationale.push(`Fixture planner: keeps ${current.name}'s share covered, as you set it.`);
+      rationale.push(`Sample plan: keeps ${current.name}'s share covered, as you set it.`);
     } else if (honour.name) {
-      cautions.push(`Fixture planner: ${honour.name} is the guest of honour, but the brief doesn't say the group covers their share.`);
+      cautions.push(`Sample plan: ${honour.name} is the guest of honour, but the brief doesn't say the group covers their share.`);
     }
 
     const raw: PlanDraft = {
@@ -469,6 +469,6 @@ export class FixtureOutingsAi implements OutingsAi {
       rationale: rationale.slice(0, 4).map((r) => r.slice(0, 140)),
       cautions: cautions.slice(0, 3).map((r) => r.slice(0, 140)),
     };
-    return this.wrap(raw, ["Fixture planner: deterministic slot, deadline and sponsor rules."]);
+    return this.wrap(raw, ["Sample plan: deterministic slot, deadline and sponsor rules."]);
   }
 }

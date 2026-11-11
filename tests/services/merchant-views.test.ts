@@ -75,7 +75,7 @@ describe("OutingView", () => {
 
     const ben = await buildOutingView(db, { outingId: f.outingId, participantId: f.ids.Ben, now: t });
     expect(ben.me.payment?.authorizationRef).toMatch(/^…[0-9A-F]{4}$/);
-    expect(ben.me.payment?.providerLabel).toBe("Fixture · not real PayPal");
+    expect(ben.me.payment?.providerLabel).toBe("Simulated · not real PayPal");
     expect(ben.me.consent?.current).toBe(true);
     expect(ben.me.can).toMatchObject({ consent: false, authorize: false, withdraw: true, decline: false });
     expect(JSON.stringify(ben)).not.toMatch(/FXAUTH-[0-9A-F]{8}/);

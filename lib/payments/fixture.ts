@@ -133,7 +133,7 @@ interface Outcome<T> {
 }
 
 function fail(kind: ProviderFailureKind, code: string, message: string, httpStatus = kind === "UNKNOWN" ? 504 : 422): ProviderFailure {
-  return { ok: false, kind, code, message: `${message} (fixture)`, httpStatus, debugId: "fixture" };
+  return { ok: false, kind, code, message: `${message} (simulated)`, httpStatus, debugId: "fixture" };
 }
 
 function newId(prefix: string): string {

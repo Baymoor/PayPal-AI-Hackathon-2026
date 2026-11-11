@@ -10,6 +10,7 @@
 import { useEffect, useMemo, useState } from "react";
 import type { AgWidgetData, AgWidgetDataFormat, AgWidgetFieldReference, AgWidgetParams } from "ag-studio";
 import type { AgWidgetDefinition } from "ag-studio-react";
+import { FIXTURE_ROW_LABEL } from "@/lib/domain/labels";
 import { formatMoney } from "./format";
 import { MONEY_FLOW_FORMULA, flowSegments, type FlowSegments } from "./moneyFlow";
 import type { DashboardContext } from "./ReadinessWidget";
@@ -173,7 +174,7 @@ function MoneyFlow(p: AgWidgetParams<MoneyFlowState>) {
                   >
                     {it.title}
                   </button>
-                  {it.mode === "Fixture" && <span className="m-badge" data-tone="fixture">Fixture</span>}
+                  {it.mode === FIXTURE_ROW_LABEL && <span className="m-badge" data-tone="fixture">{FIXTURE_ROW_LABEL}</span>}
                   <span className="m-badge">{it.status}</span>
                   <span className="mf-sum">{formatMoney(it.seg.totalMinor, currency)}</span>
                 </div>

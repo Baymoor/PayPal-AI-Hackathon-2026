@@ -25,7 +25,7 @@ describe("fixture extraction", () => {
     const r = await new FixtureOutingsAi().extractBrief({ brief: CANONICAL, now: NOW, timezone: "America/New_York" });
     expect(r.source).toBe("FIXTURE");
     expect(r.model).toBeNull();
-    expect(r.warnings[0]).toMatch(/^FIXTURE/);
+    expect(r.warnings[0]).toMatch(/^Sample output/);
     const o = r.output;
     expect(() => BriefExtractionSchema.parse(o)).not.toThrow();
     expect(o.categories).toContain("karaoke");
@@ -132,7 +132,7 @@ describe("fixture dashboard + ranker + reveal", () => {
     const r = await ai.dashboardQuery({ question: "Show outings closing today with missing required participants", now: NOW });
     expect(r.output.filters).toContainEqual({ field: "closesToday", op: "eq", value: true });
     expect(r.output.filters).toContainEqual({ field: "missingRequired", op: "gt", value: 0 });
-    expect(r.output.explanation).toMatch(/^Fixture parser:/);
+    expect(r.output.explanation).toMatch(/^Sample filter:/);
     expect(r.source).toBe("FIXTURE");
   });
   it("other keywords", async () => {
@@ -146,7 +146,7 @@ describe("fixture dashboard + ranker + reveal", () => {
     const ex = (await ai.extractBrief({ brief: CANONICAL, now: NOW, timezone: "UTC" })).output;
     const r = await ai.proposeOfferings({ extraction: ex, catalogue, agreedBudgetMinor: 15000, groupSize: 6 });
     expect(r.output.ranked[0].offeringId).toBe("off_k");
-    expect(r.output.ranked[0].reasons[0]).toMatch(/^Fixture ranker/);
+    expect(r.output.ranked[0].reasons[0]).toMatch(/^Sample ranking/);
     const p = r.output.ranked.find((x) => x.offeringId === "off_p");
     expect(p?.concerns.join(" ")).toMatch(/total grows/);
   });
@@ -154,7 +154,7 @@ describe("fixture dashboard + ranker + reveal", () => {
     const agg: RevealAggregate = { unit: "TOTAL", currency: "USD", voteCount: 3, invitedCount: 4, buckets: [], minMinor: 5000, maxMinor: 15000, medianMinor: 10000 };
     const r = await ai.summarizeReveal({ aggregate: agg, extraction: null });
     expect(r.output.suggestedTotalMinor).toBe(10000);
-    expect(r.output.headline).toMatch(/^Fixture/);
+    expect(r.output.headline).toMatch(/^Sample summary/);
     // Amounts read like the rest of the app ("$100"), not "100.00 USD".
     expect(r.output.summary).toContain("$100");
     expect(r.output.summary).not.toContain("USD");

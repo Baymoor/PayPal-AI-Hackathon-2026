@@ -105,7 +105,7 @@ export const FIELD_LABEL: Record<Field, string> = {
   capturedTotalMinor: "Captured",
   refundedTotalMinor: "Refunded",
   cleanup: "Recovery status",
-  isFixture: "Simulated (Fixture)",
+  isFixture: "Simulated",
 };
 
 const OP_LABEL = { eq: "is", neq: "is not", gt: "more than", gte: "at least", lt: "less than", lte: "at most", in: "is one of" } as const;

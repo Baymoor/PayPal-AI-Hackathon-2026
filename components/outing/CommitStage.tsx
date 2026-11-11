@@ -208,7 +208,7 @@ function TermsReview({ view, actions, onClose }: { view: OutingView; actions: Ou
             })
           }
         >
-          {fixture ? `Authorize up to ${formatMoney(cap)} (fixture)` : `Authorize up to ${formatMoney(cap)} with PayPal`}
+          {fixture ? `Authorize up to ${formatMoney(cap)} (simulated)` : `Authorize up to ${formatMoney(cap)} with PayPal`}
         </Button>
         <Button variant="link" onClick={onClose} disabled={busy} className="w-full justify-center">
           Back
@@ -337,7 +337,7 @@ export function CommitStage({
     return (
       <div className="space-y-6">
         <ScreenHeader view={view} title="Commitments are opening" />
-        <StatusBanner tone="info">The organizer is finishing the quote. Refresh in a moment.</StatusBanner>
+        <StatusBanner tone="info">The organizer is finishing the plan. This page updates on its own.</StatusBanner>
       </div>
     );
   }
@@ -523,7 +523,7 @@ function OrganizerTools({ view, actions }: { view: OutingView; actions: OutingAc
         // The cancellation is queued for the server's settlement job (it also releases holds); until it runs the
         // outing still shows as open, so say what is happening instead of looking like nothing happened.
         <StatusBanner tone="pending" title="Cancellation requested">
-          The server is cancelling this outing and releasing every hold. This page updates on its own.
+          We&apos;re cancelling this outing and releasing every hold. This page updates on its own.
         </StatusBanner>
       ) : !confirm ? (
         <Button variant="link" className="!text-danger" onClick={() => setConfirm(true)}>

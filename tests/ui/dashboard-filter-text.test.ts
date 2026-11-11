@@ -8,7 +8,7 @@ import { describeFilter } from "@/components/merchant/query";
 describe("describeFilter", () => {
   it("says yes or no instead of true or false", () => {
     expect(describeFilter({ field: "closesToday", op: "eq", value: true })).toBe("Closes today: yes");
-    expect(describeFilter({ field: "isFixture", op: "eq", value: "false" })).toBe("Simulated (Fixture): no");
+    expect(describeFilter({ field: "isFixture", op: "eq", value: "false" })).toBe("Simulated: no");
   });
 
   it("shows money as money, not as a count of cents", () => {

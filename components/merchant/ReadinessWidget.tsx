@@ -10,6 +10,7 @@ import type { AgWidgetData, AgWidgetDataFormat, AgWidgetFieldReference, AgWidget
 import type { AgWidgetDefinition } from "ag-studio-react";
 import { AlertTriangle, CheckCircle2, XCircle } from "lucide-react";
 import { VERDICT_LABEL, READINESS_RULE_TEXT, assessReadiness, type Verdict } from "./readiness";
+import { FIXTURE_ROW_LABEL } from "@/lib/domain/labels";
 import { formatCountdown } from "./format";
 
 interface ReadinessWidgetState
@@ -124,8 +125,8 @@ function BookingReadiness(p: AgWidgetParams<ReadinessWidgetState>) {
                   </span>
                 </div>
                 <p className="mw-facts">
-                  {/* Fixture rows stay labelled, as plain text rather than a second badge. */}
-                  {it.mode === "Fixture" && <span className="mw-fixture">Fixture</span>}
+                  {/* Simulated rows stay labelled, as plain text rather than a second badge. */}
+                  {it.mode === FIXTURE_ROW_LABEL && <span className="mw-fixture">{FIXTURE_ROW_LABEL}</span>}
                   <span>{it.accepted}/{it.invited} accepted</span>
                   <span>{it.payers}/{it.min} holds</span>
                   <span>{deadlineText(it.minutesLeft)}</span>

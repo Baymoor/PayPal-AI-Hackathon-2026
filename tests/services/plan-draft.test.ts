@@ -88,7 +88,7 @@ describe("draftPlan", () => {
       },
     });
     expect(res.draft.rationale.length).toBeGreaterThan(0);
-    expect(res.draft.rationale.every((r) => r.startsWith("Fixture planner:"))).toBe(true);
+    expect(res.draft.rationale.every((r) => r.startsWith("Sample plan:"))).toBe(true);
 
     const runs = await db.query.aiRuns.findMany({ where: and(eq(aiRuns.outingId, f.outingId), eq(aiRuns.purpose, "PLAN_DRAFT")) });
     expect(runs).toHaveLength(1);

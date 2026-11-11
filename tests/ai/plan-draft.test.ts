@@ -99,7 +99,7 @@ describe("fixture plan draft", () => {
     const r = await new FixtureOutingsAi().draftPlan(input);
     expect(r.source).toBe("FIXTURE");
     expect(r.model).toBeNull();
-    expect(r.warnings[0]).toMatch(/^FIXTURE/);
+    expect(r.warnings[0]).toMatch(/^Sample output/);
     expect(r.output).toEqual({
       offeringId: "off_room",
       activityStartLocal: "2026-11-06T19:00", // next Friday, 19:00 in Copenhagen
@@ -109,7 +109,7 @@ describe("fixture plan draft", () => {
       rationale: expect.any(Array),
       cautions: [],
     });
-    expect(r.output.rationale.every((x) => x.startsWith("Fixture planner:"))).toBe(true);
+    expect(r.output.rationale.every((x) => x.startsWith("Sample plan:"))).toBe(true);
 
     const v = validatePlanDraft(r.output, ctx({ catalogue: input.catalogue }));
     expect(v.dropped).toEqual([]);

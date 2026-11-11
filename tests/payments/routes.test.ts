@@ -60,7 +60,7 @@ describe("POST /api/outings/:id/payments", () => {
     expect(res.status).toBe(201);
     const body = (await res.json()) as { approveUrl: string; paymentAttemptId: string; providerLabel: string };
     expect(body.approveUrl).toBe(`/o/${s.outing.id}/pay/fixture?attempt=${body.paymentAttemptId}`);
-    expect(body.providerLabel).toBe("Fixture · not real PayPal");
+    expect(body.providerLabel).toBe("Simulated · not real PayPal");
     const a = await getDb().query.paymentAttempts.findFirst({ where: eq(paymentAttempts.id, body.paymentAttemptId) });
     expect(a!.requestedMinor).toBe(2000);
   });

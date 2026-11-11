@@ -53,8 +53,8 @@ Claude reads the brief, suggests budget vote amounts, ranks venues, summarizes t
 |---|---|
 | PayPal Orders v2 (authorize, under-capture, void, refund) | **Verified in the PayPal sandbox**, including one full outing settled through the app ([evidence](docs/evidence/README.md)) |
 | Deadline engine, splitting, consent, access control | Real code in every mode; 440 automated tests, most against a real Postgres, plus 6 browser tests ([testing](docs/TESTING.md)) |
-| Claude | Real API when `OUTINGS_ANTHROPIC_API_KEY` is set; otherwise a deterministic parser labelled **Fixture AI**. Real calls not yet verified. |
-| Payments without PayPal keys | A simulator labelled **Fixture · not real PayPal** on every screen |
+| Claude | Real API when `OUTINGS_ANTHROPIC_API_KEY` is set; otherwise a deterministic parser labelled **Sample AI text (no model call)**. Real calls not yet verified. |
+| Payments without PayPal keys | A simulator labelled **Simulated · not real PayPal** on every screen |
 | Venues | Five fictional Copenhagen venues with a demo catalogue. A confirmed outing means the group's money was collected for the venue, not that a real venue reserved anything. |
 
 Limits and the threat model: [security and limitations](docs/SECURITY_AND_LIMITATIONS.md).

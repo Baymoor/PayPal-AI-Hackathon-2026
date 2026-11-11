@@ -1,14 +1,22 @@
 import type { AgDataSourcesDefinition } from "ag-studio";
 import type { MerchantBookingRow } from "@/lib/contracts/views";
+import { FIXTURE_ROW_LABEL } from "@/lib/domain/labels";
 import { CLEANUP_LABEL, OUTING_STATUS_LABEL } from "./labels";
 import { formatInstant, merchantTz } from "./format";
 import { refundDueMinor } from "./moneyFlow";
+
+/** How a row's money moved, as the dashboard shows it: PayPal's sandbox, or simulated (FIXTURE in the code). */
+export type StudioRowMode = "Sandbox" | typeof FIXTURE_ROW_LABEL;
+
+function rowMode(r: Pick<MerchantBookingRow, "isFixture">): StudioRowMode {
+  return r.isFixture ? FIXTURE_ROW_LABEL : "Sandbox";
+}
 
 /** One flat row per outing, in major currency units for Studio's currency format. */
 export interface StudioRow {
   id: string;
   title: string;
-  mode: "Sandbox" | "Fixture";
+  mode: StudioRowMode;
   /** Same as mode with trailing em spaces: works around Studio's grid auto-size truncating the column. */
   modeLabel: string;
   status: string;
@@ -95,8 +103,8 @@ export function toStudioRow(r: MerchantBookingRow, now = Date.now()): StudioRow 
   return {
     id: r.outingId,
     title: r.title,
-    mode: r.isFixture ? "Fixture" : "Sandbox",
-    modeLabel: `${r.isFixture ? "Fixture" : "Sandbox"}\u2003\u2003\u2003`,
+    mode: rowMode(r),
+    modeLabel: `${rowMode(r)}\u2003\u2003\u2003`,
     status: OUTING_STATUS_LABEL[r.status],
     closingAt: r.deadlineAt,
     closingLabel: formatInstant(r.deadlineAt),
@@ -143,7 +151,7 @@ export function buildStudioData(rows: MerchantBookingRow[], currency: string): A
     description:
       "One row per outing booked with The Sound Room. Money fields are in major currency units of a single currency. " +
       "'Authorized holds' are uncaptured PayPal authorizations and are NOT revenue. 'Captured' is money actually collected. " +
-      "Mode 'Sandbox' = real PayPal sandbox transactions; 'Fixture' = simulated payments (fixture simulator or synthetic demo rows), not real PayPal; never add them together without saying so.",
+      "Mode 'Sandbox' = real PayPal sandbox transactions; 'Simulated' = simulated payments (the built-in simulator or sample demo rows), not real PayPal; never add them together without saying so.",
     sources: [
       {
         id: TABLE,
@@ -153,8 +161,8 @@ export function buildStudioData(rows: MerchantBookingRow[], currency: string): A
         fields: [
           { id: "id", name: "Outing ID", format: "textFormat", hide: true },
           { id: "title", name: "Outing", format: "textFormat" },
-          { id: "mode", name: "Mode", format: "textFormat", description: "Sandbox = real PayPal sandbox; Fixture = simulated, not real PayPal" },
-          { id: "modeLabel", name: "Row type", format: "textFormat", description: "Sandbox = real PayPal sandbox; Fixture = simulated, not real PayPal" },
+          { id: "mode", name: "Mode", format: "textFormat", description: "Sandbox = real PayPal sandbox; Simulated = not real PayPal" },
+          { id: "modeLabel", name: "Row type", format: "textFormat", description: "Sandbox = real PayPal sandbox; Simulated = not real PayPal" },
           { id: "status", name: "Status", format: "textFormat" },
           { id: "closingAt", name: "Closing time", format: "dateTimeFormat", formatOptions: { format: dtf } },
           { id: "closingLabel", name: "Closes (merchant time)", format: "textFormat" },

@@ -25,7 +25,7 @@ export function usePaymentMode(): AppPaymentMode | null {
 /**
  * Honesty rule: a row counts as real PayPal sandbox money only when its payments provably went through the
  * PayPal provider. Seeded synthetic outings, outings paid with the FIXTURE simulator, mixed rows, and rows
- * without payments on a non-PayPal deployment (or while the mode is unknown) are all "Fixture".
+ * without payments on a non-PayPal deployment (or while the mode is unknown) are all "Simulated" (isFixture).
  */
 export function isFixtureMoney(row: Pick<MerchantBookingRow, "isFixture" | "provider">, mode: AppPaymentMode | null): boolean {
   if (row.isFixture) return true;

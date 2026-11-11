@@ -100,7 +100,7 @@ export function providerNameForOuting(outing: Pick<Outing, "isFixture">): Paymen
     throw new ServiceError(
       "PAYMENTS_DISABLED",
       503,
-      "This demo outing uses the fixture payment simulator, which is disabled (DEMO_FIXTURES_ENABLED is not set). It cannot be paid through real PayPal.",
+      "This demo outing uses simulated payments, which are switched off on this site. It cannot be paid through real PayPal.",
     );
   }
   return resolveDefaultProvider();
