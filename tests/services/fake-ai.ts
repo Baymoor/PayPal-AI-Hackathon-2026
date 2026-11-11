@@ -1,11 +1,13 @@
 /**
  * Controllable stand-in for lib/ai `getOutingsAi()` in service/access tests.
- * Results are labelled source "FIXTURE" (deterministic, not a model).
+ * Results are labelled source "FIXTURE" (deterministic, not a model) unless a
+ * test builds `new FakeAi("ANTHROPIC", model)` to stand in for Claude.
  * Tests swap `aiState.current` to inject hostile or broken AI behaviour, or
  * to use the real FixtureOutingsAi.
  */
 import type {
   AiResult,
+  AiSource,
   BriefExtraction,
   DashboardQuery,
   OutingsAi,
@@ -15,8 +17,6 @@ import type {
   RevealSummary,
 } from "@/lib/ai/types";
 import { FixtureOutingsAi } from "@/lib/ai/fixture";
-
-const wrap = <T>(output: T): AiResult<T> => ({ source: "FIXTURE", model: null, output, warnings: ["test fake AI"] });
 
 export function defaultExtraction(title = "Test outing"): BriefExtraction {
   return {
@@ -35,26 +35,32 @@ export function defaultExtraction(title = "Test outing"): BriefExtraction {
 }
 
 export class FakeAi implements OutingsAi {
-  readonly source = "FIXTURE" as const;
   calls: { method: string; input: unknown }[] = [];
+  constructor(
+    readonly source: AiSource = "FIXTURE",
+    private readonly model: string | null = null,
+  ) {}
+  private wrap<T>(output: T): AiResult<T> {
+    return { source: this.source, model: this.model, output, warnings: ["test fake AI"] };
+  }
   async extractBrief(input: { brief: string; now: Date; timezone: string }): Promise<AiResult<BriefExtraction>> {
     this.calls.push({ method: "extractBrief", input });
-    return wrap(defaultExtraction());
+    return this.wrap(defaultExtraction());
   }
   async proposeOfferings(input: Parameters<OutingsAi["proposeOfferings"]>[0]): Promise<AiResult<Proposal>> {
     this.calls.push({ method: "proposeOfferings", input });
-    return wrap({
+    return this.wrap({
       ranked: input.catalogue.slice(0, 5).map((c) => ({ offeringId: c.offeringId, fit: "GOOD" as const, reasons: ["Fits the group"], concerns: [] })),
       note: "Fake ranking",
     });
   }
   async summarizeReveal(input: Parameters<OutingsAi["summarizeReveal"]>[0]): Promise<AiResult<RevealSummary>> {
     this.calls.push({ method: "summarizeReveal", input });
-    return wrap({ headline: "Here's where the group landed", summary: "Most votes cluster around the middle.", suggestedAmountMinor: input.aggregate.medianMinor });
+    return this.wrap({ headline: "Here's where the group landed", summary: "Most votes cluster around the middle.", suggestedAmountMinor: input.aggregate.medianMinor });
   }
   async dashboardQuery(input: { question: string; now: Date }): Promise<AiResult<DashboardQuery>> {
     this.calls.push({ method: "dashboardQuery", input });
-    return wrap({
+    return this.wrap({
       filters: [
         { field: "closesToday", op: "eq", value: true },
         { field: "missingRequired", op: "gt", value: 0 },
@@ -67,7 +73,7 @@ export class FakeAi implements OutingsAi {
   /** Delegates to the deterministic fixture planner (tests override it to inject hostile drafts). */
   async draftPlan(input: PlanDraftInput): Promise<AiResult<PlanDraft>> {
     this.calls.push({ method: "draftPlan", input });
-    return wrap((await new FixtureOutingsAi().draftPlan(input)).output);
+    return this.wrap((await new FixtureOutingsAi().draftPlan(input)).output);
   }
 }
 
