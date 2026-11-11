@@ -56,6 +56,7 @@ import {
   storedReveal,
 } from "./outings";
 import { paymentModeForOuting } from "./payments";
+import { aiModeForOuting } from "../ai";
 
 /* ------------------------------- shared helpers ----------------------------- */
 
@@ -412,7 +413,8 @@ export async function buildOutingView(
       cleanup: outing.cleanup,
       // Per outing, not per deployment: a demo outing's simulated holds are never labelled PayPal sandbox.
       paymentMode: paymentModeForOuting(outing),
-      aiMode: cfg.aiMode,
+      // Likewise for AI: a demo outing's sample text is never labelled Claude.
+      aiMode: aiModeForOuting(outing),
       demoMode: cfg.demoFixturesEnabled,
     },
     viewer: {
@@ -496,7 +498,7 @@ export async function buildOutingView(
             cancel: pre || windowOpen,
             draftPlan:
               outing.status === "PROPOSED" &&
-              cfg.aiMode !== "DISABLED" &&
+              aiModeForOuting(outing) !== "DISABLED" &&
               (!!outing.selectedOfferingId || (proposalStored?.ranked.length ?? 0) > 0),
           },
         }

@@ -30,7 +30,7 @@ Booking something for a group (a karaoke room, a game night, a birthday dinner) 
 5. **Deadline.** A durable server job freezes the roster. If every required person committed, it captures each exact share (penny-exact, never above the cap). Otherwise it cancels and voids every hold. If a capture fails mid-way it stops, voids the rest, refunds completed captures, and shows the recovery.
 6. **Merchant view.** The experience merchant sees bookings, readiness and money in a two-page AG Studio report (Bookings and Money), with saved views, and can ask natural-language, read-only questions.
 
-Three extras help evaluators. **Judge mode** (demo mode only) lets one browser play every person: tap-to-add demo friends, an "Acting as" bar that switches person in one click and shows who still needs to act, and a "Next:" hint. **`/how-it-works`** explains the flow and has an interactive split calculator that runs the real `lib/domain/money.ts` functions. **`/demo`** has one-click scenarios (settle-soon, holdout, capture-failure, big group) that open a fresh fixture outing with a deadline 1 to 5 minutes away, so a settlement, a cancellation and a mid-settlement capture failure (COMPENSATING, refunds and voids, then CANCELLED with REFUND_PENDING moving to COMPLETE) can be watched live. Scenario money is always FIXTURE (the simulator), never PayPal.
+Three extras help evaluators. **Judge mode** (demo mode only) lets one browser play every person: tap-to-add demo friends, an "Acting as" bar that switches person in one click and shows who still needs to act, and a "Next:" hint. **`/how-it-works`** explains the flow and has an interactive split calculator that runs the real `lib/domain/money.ts` functions. **`/demo`** has one-click scenarios (settle-soon, holdout, capture-failure, big group) that open a fresh fixture outing with a deadline 1 to 5 minutes away, so a settlement, a cancellation and a mid-settlement capture failure (COMPENSATING, refunds and voids, then CANCELLED with REFUND_PENDING moving to COMPLETE) can be watched live. Scenario money is always FIXTURE (the simulator), never PayPal, and scenario AI text is always the labelled sample, never Claude. On the live demo, creating your own outing (real Claude and PayPal sandbox) needs a judge sign-in at `/judge/login`.
 
 Payments go directly to the experience merchant; the organizer never receives the group's money.
 
@@ -41,10 +41,10 @@ Payments go directly to the experience merchant; the organizer never receives th
 | App | Next.js 16 (App Router), React 19, TypeScript, Tailwind |
 | Data | Postgres 16 with Drizzle ORM; durable job queue and payment-operation outbox |
 | Payments | PayPal REST sandbox: Orders v2 (intent AUTHORIZE) and Payments v2 (authorize, capture, void, refund), server-only OAuth, `PayPal-Request-Id` on every mutation, webhook verification |
-| AI | Anthropic Claude with structured outputs, validated by zod; a deterministic stand-in labelled "Sample AI text (no model call)" when no key is set |
+| AI | Anthropic Claude with structured outputs, validated by zod; a deterministic stand-in labelled "Sample AI text (no model call)" when no key is set and, always, on demo outings |
 | Merchant UI | AG Studio with AG Grid (Community for the drill-down grid) |
 | Worker | `npm run worker` loop, or an authenticated `POST /api/cron/tick` from any scheduler |
-| Tests | 543 Vitest tests in 45 files, most against a real Postgres database, plus Playwright end-to-end specs (see [TESTING.md](TESTING.md)) |
+| Tests | 552 Vitest tests in 46 files, most against a real Postgres database, plus Playwright end-to-end specs (see [TESTING.md](TESTING.md)) |
 
 The money logic lives in a small pure domain layer (integer minor units, equal split, cap, terms hash, settle-or-cancel decision) so it can be tested exhaustively. Provider calls never run inside a database transaction, and every provider mutation has a durable outbox row with a stable request id.
 
@@ -97,7 +97,7 @@ AG Studio licensing: AG Grid's [6 Nov 2026 post](https://www.ag-grid.com/blog/bu
 - Three independent audits whose confirmed defects were fixed with regression tests in `tests/audit`, `tests/audit2` and `tests/audit3`.
 - Hardening beyond the happy path: rate limiting keyed on `TRUSTED_PROXY_HOPS`, the PayPal payee read from the merchant row, merchant timezone carried in rows, merchant sessions that expire after 12 h, and no organizer cancel after the deadline.
 - A compensation path that can be watched in one click and is covered by a browser test (`tests/e2e/compensation.spec.ts`).
-- Current verified results: 543 Vitest tests (45 files) pass; 8 Playwright end-to-end tests (karaoke settle, holdout cancel, organizer cancel, demo hub, capture-failure compensation, big-group under-capture, dashboard refresh, `/setup` access) pass; eslint and `tsc` clean; `next build` passes. These run in FIXTURE modes. Separately, against the real PayPal sandbox: the adapter passes `scripts/paypal-smoke.ts`, and one full outing settled through the app with three under-captures that PayPal's records confirm.
+- Current verified results: 552 Vitest tests (46 files) pass; 8 Playwright end-to-end tests (karaoke settle, holdout cancel, organizer cancel, demo hub, capture-failure compensation, big-group under-capture, dashboard refresh, `/setup` access) pass; eslint and `tsc` clean; `next build` passes. These run in FIXTURE modes. Separately, against the real PayPal sandbox: the adapter passes `scripts/paypal-smoke.ts`, and one full outing settled through the app with three under-captures that PayPal's records confirm.
 
 ## What we learned
 

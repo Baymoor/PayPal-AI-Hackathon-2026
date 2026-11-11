@@ -95,7 +95,7 @@ The script takes about 3 minutes and is safe to run again. It:
 nano /etc/outings/app.env
 ```
 
-Fill in these lines. Values go without quotes. Save with Ctrl+O, Enter, Ctrl+X.
+Fill in these lines. Values go without quotes, with one exception: wrap a password containing `$`, `%` or `@` in single quotes (`JUDGE_PASSWORD='[JUDGE PASSWORD]'`) so Docker Compose doesn't try to interpolate it. Save with Ctrl+O, Enter, Ctrl+X.
 
 | Line | Where to find it |
 |---|---|
@@ -103,8 +103,10 @@ Fill in these lines. Values go without quotes. Save with Ctrl+O, Enter, Ctrl+X.
 | `PAYPAL_MERCHANT_ID` | developer.paypal.com → **Testing Tools → Sandbox Accounts** → your Business account → Account ID |
 | `OUTINGS_ANTHROPIC_API_KEY` | A key from a Claude Console workspace with a spend limit (below) |
 | `AG_STUDIO_LICENSE_KEY` | Leave empty (AG Studio trial mode) unless AG Grid supplies a key for judging |
+| `JUDGE_PASSWORD` | Make one up (at least 16 characters) and give it to the judges privately, never in the repo. Setting it switches the judge sign-in on: only signed-in judges can create outings, use the AG Studio assistant or reach Claude through the venue's filter. Empty = no sign-in, everyone can. |
+| `JUDGE_USERNAME` | Optional. Defaults to `judge`. |
 
-**Claude spend limit.** Anyone can use the public demo, so the key must have a hard cap:
+**Claude spend limit.** With `JUDGE_PASSWORD` set only signed-in judges reach Claude, and demo outings always use the sample AI, but the key must still have a hard cap:
 
 1. [platform.claude.com/settings/workspaces](https://platform.claude.com/settings/workspaces) → **Create workspace** (for example "Outings demo").
 2. Select it → **Spend limits** → set a monthly limit (for example $20) and an alert.
@@ -136,7 +138,13 @@ Check the modes. Expect `"db":"ok"`, `"paymentMode":"PAYPAL_SANDBOX"`, `"aiMode"
 curl -fsS https://<site>/api/health
 ```
 
-After any change to `/etc/outings/app.env`, run `deploy.sh` again to apply it.
+Check the judge sign-in is on. Expect `"gateEnabled":true`:
+
+```bash
+curl -fsS https://<site>/api/judge/session
+```
+
+After any change to `/etc/outings/app.env`, run `deploy.sh` again to apply it. Changing `JUDGE_USERNAME` or `JUDGE_PASSWORD` signs every judge out.
 
 ## 7. PayPal webhook
 
@@ -244,5 +252,6 @@ The image includes devDependencies because `db:migrate` and `worker` run through
 ## Safety
 
 - Sandbox only: the PayPal base URL is hard-coded to `api-m.sandbox.paypal.com`.
-- The hosted demo runs in judge mode (`DEMO_FIXTURES_ENABLED=true`). Anyone in an outing can act as anyone else in it, the merchant dashboard has a one-click demo sign-in (it does not open `/setup`, which needs `MERCHANT_DASHBOARD_PASSWORD`), and anyone can reset the demo outings. Never put real personal data or live credentials on it.
+- The hosted demo runs in judge mode (`DEMO_FIXTURES_ENABLED=true`). Anyone in an outing can act as anyone else in it, the merchant dashboard has a one-click demo sign-in (it does not open `/setup`, which needs `MERCHANT_DASHBOARD_PASSWORD`), and anyone can reset the demo outings (a reset keeps any `/demo` story started in the last 15 minutes). Never put real personal data or live credentials on it.
+- Demo outings always use the payment simulator and the sample AI, so anonymous visitors cost nothing. Creating an outing with real Claude and PayPal sandbox needs the judge sign-in once `JUDGE_PASSWORD` is set.
 - Never enable live credentials or paid add-ons without the owner's explicit decision.

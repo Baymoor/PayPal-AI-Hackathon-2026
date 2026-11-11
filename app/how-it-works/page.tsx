@@ -301,7 +301,7 @@ export default function HowItWorksPage() {
                 <FlaskConical className="size-6 text-fixture" aria-hidden />
                 Simulated, and labelled
               </p>
-              <p>The ready-made demo outings use a stand-in for PayPal. Where no AI model is connected, you get sample AI text. You will always see a label like these:</p>
+              <p>The ready-made demo outings use a stand-in for PayPal and sample AI text, even where Claude is connected. Where no AI model is connected, every outing gets sample AI text. You will always see a label like these:</p>
               <div className="flex flex-wrap gap-2">
                 <StatusBadge kind="fixture" />
                 <StatusBadge kind="fixture" label={FIXTURE_AI_LABEL} />

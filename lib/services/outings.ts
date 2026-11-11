@@ -9,7 +9,9 @@
  * - uses SERVER time (`now`, defaulting to `new Date()`), never client time,
  * - writes an audit event without private data (display names only; never
  *   budget vote amounts, tokens or provider payloads),
- * - records every AI call in `ai_runs` with its honest source.
+ * - records every AI call in `ai_runs` with its honest source. Demo (isFixture)
+ *   outings always use the sample AI, even when an Anthropic key is set
+ *   (`aiModeForOuting` in lib/ai).
  *
  * AI output is advisory: it can title a brief, summarise an aggregate, or
  * rank OUR catalogue. It never sets a price, cap, deadline, payer or policy.
@@ -56,7 +58,7 @@ import {
   type OutingStatus,
   type PayerType,
 } from "../domain/types";
-import { getOutingsAi } from "../ai";
+import { AiUnavailableError, aiModeForOuting, getFixtureOutingsAi, getOutingsAi } from "../ai";
 import {
   PlanDraftSchema,
   ProposalSchema,
@@ -299,10 +301,17 @@ async function touch(tx: Tx, outing: Outing, now: Date, extra: Partial<typeof ou
 
 type AiCall<T> = { ok: true; result: AiResult<T> } | { ok: false; source: string; error: string };
 
-async function callAi<T>(fn: (ai: OutingsAi) => Promise<AiResult<T>>): Promise<AiCall<T>> {
-  let source: string = config().aiMode;
+/** The AI for THIS outing (`aiModeForOuting`): demo outings always get the sample AI, never a model call. */
+function aiFor(outing: Pick<Outing, "isFixture">): OutingsAi {
+  if (!outing.isFixture) return getOutingsAi();
+  if (aiModeForOuting(outing) !== "FIXTURE") throw new AiUnavailableError();
+  return getFixtureOutingsAi();
+}
+
+async function callAi<T>(outing: Pick<Outing, "isFixture">, fn: (ai: OutingsAi) => Promise<AiResult<T>>): Promise<AiCall<T>> {
+  let source: string = aiModeForOuting(outing);
   try {
-    const ai = getOutingsAi();
+    const ai = aiFor(outing);
     source = ai.source;
     return { ok: true, result: await fn(ai) };
   } catch (e) {
@@ -425,7 +434,8 @@ export async function createOuting(
     timezone: DEFAULT_TIMEZONE,
     categories,
   };
-  const call = await callAi((ai) => ai.extractBrief(extractInput));
+  // Never a demo outing: those are seeded with the sample parser (lib/demo/seed.ts), not created here.
+  const call = await callAi({ isFixture: false }, (ai) => ai.extractBrief(extractInput));
   const extraction = call.ok ? call.result.output : null;
   const stored: StoredBriefExtraction = {
     extraction,
@@ -658,11 +668,11 @@ export async function reveal(db: Db, actor: ParticipantActor, now: Date = new Da
     if (outing.budgetRevealedAt) throw conflict("ALREADY_REVEALED", "This round has already been revealed");
     const readiness = await computeAggregate(tx, outing);
     if (!readiness.aggregate) throw notEnoughVotes(readiness);
-    return { aggregate: readiness.aggregate, extraction: storedExtraction(outing)?.extraction ?? null };
+    return { outing, aggregate: readiness.aggregate, extraction: storedExtraction(outing)?.extraction ?? null };
   });
 
   // The AI sees the aggregate only (no names, no per-person votes).
-  const call = await callAi((ai) => ai.summarizeReveal({ aggregate: pre.aggregate, extraction: pre.extraction }));
+  const call = await callAi(pre.outing, (ai) => ai.summarizeReveal({ aggregate: pre.aggregate, extraction: pre.extraction }));
 
   return db.transaction(async (tx) => {
     const { outing, me } = await begin(tx, actor, { organizer: true });
@@ -805,7 +815,7 @@ export async function agreeBudget(
   const extraction = storedExtraction(pre.outing)?.extraction ?? fallbackExtraction(pre.outing);
   const budget: AgreedBudget = { amountMinor: budgetMinor, unit: pre.outing.budgetUnit };
   const headcount = rankingHeadcount(pre.roster, extraction);
-  const call = await callAi((ai) =>
+  const call = await callAi(pre.outing, (ai) =>
     ai.proposeOfferings({
       extraction,
       catalogue: withPerPersonShares(catalogue, headcount, budget.unit),
@@ -1159,7 +1169,7 @@ export async function draftPlan(db: Db, input: { outingId: string; organizerId: 
     timezone,
   };
 
-  const call = await callAi((ai) => ai.draftPlan(aiInput));
+  const call = await callAi(outing, (ai) => ai.draftPlan(aiInput));
   if (!call.ok) {
     await recordAiRun(db, { outingId: outing.id, purpose: "PLAN_DRAFT", call });
     throw new ServiceError("AI_UNAVAILABLE", 503, "The AI couldn't draft a plan just now. Nothing changed; you can fill in the form yourself.");

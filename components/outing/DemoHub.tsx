@@ -6,6 +6,7 @@ import { useCallback, useEffect, useId, useRef, useState } from "react";
 import type { CleanupState, OperationKind, OperationStatus, OutingStatus } from "@/lib/domain/types";
 import {
   DEMO_SCENARIO_DEADLINE_SECONDS,
+  DEMO_SCENARIO_KEEP_MS,
   DEMO_SCENARIO_KINDS,
   clampScenarioSeconds,
   isDemoScenarioKind,
@@ -325,7 +326,7 @@ export function DemoHub({ initialDeadlineSeconds }: { initialDeadlineSeconds?: n
     request<Modes>("/api/health")
       .then((h) => alive && setModes({ paymentMode: h.paymentMode, aiMode: h.aiMode }))
       .catch(() => {});
-    // Bring back the scenario this browser started, if its outing still exists (a reset deletes it).
+    // Bring back the scenario this browser started, if its outing still exists (a reset deletes it once it is 15 minutes old).
     const saved = readSavedScenario();
     if (saved) {
       request<ScenarioStatus>(`/api/demo/scenario?outingId=${encodeURIComponent(saved.outingId)}`)
@@ -503,13 +504,13 @@ export function DemoHub({ initialDeadlineSeconds }: { initialDeadlineSeconds?: n
 
   return (
     <div className="space-y-6">
-      {/* One honesty line instead of a "What is real here?" card: the demo outings always use the simulator. */}
+      {/* One honesty line instead of a "What is real here?" card: the demo outings always use the simulator and sample AI. */}
       <div className="space-y-3">
         <h1 className="text-[36px] leading-10 sm:text-h1 sm:leading-[3rem]">Try the demo</h1>
         <p className="text-lead">Watch a group booking play out in two minutes, or step into any guest&apos;s shoes.</p>
         <p className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-small text-ink-muted">
           <FlaskConical className="size-4 shrink-0" aria-hidden />
-          Demo outings run on the payment simulator. No real money.
+          Demo outings run on the payment simulator. Their AI text is a sample (no model call). No real money.
           {modes?.paymentMode === "PAYPAL_SANDBOX" && " Outings you create use PayPal sandbox."}{" "}
           <Link href="/how-it-works#honesty" className="font-semibold text-coral-700 underline underline-offset-4 hover:text-coral-800">
             What is real and what is simulated
@@ -768,7 +769,10 @@ export function DemoHub({ initialDeadlineSeconds }: { initialDeadlineSeconds?: n
           <h2 id="reset-h" className="text-h3">
             Reset
           </h2>
-          <p className="text-ink-muted">Replaces the demo outings with a fresh set. Outings you created yourself are not touched.</p>
+          <p className="text-ink-muted">
+            Replaces the demo outings with a fresh set. Outings you created yourself are not touched, and neither is a story started in the last{" "}
+            {DEMO_SCENARIO_KEEP_MS / 60_000} minutes, so nobody&apos;s run is cut short.
+          </p>
         </div>
         <Button loading={pending === "reset"} loadingLabel="Resetting…" onClick={reset} variant="secondary">
           Reset demo data

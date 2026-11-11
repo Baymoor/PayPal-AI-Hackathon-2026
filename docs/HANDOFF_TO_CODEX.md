@@ -43,6 +43,9 @@ Legend: **REAL_SANDBOX** = exercised against PayPal sandbox · **REAL_AI** = exe
 | Full outing through the app in `PAYPAL_SANDBOX` mode | **DONE (REAL_SANDBOX)** | 7 Nov 2026: 3 payers × $50 holds via the app's redirect flow, min payers 2; one `POST /api/cron/tick` after the deadline → SETTLE, captures $33.34/$33.33/$33.33, CONFIRMED; every authorization read back from PayPal as `CAPTURED` with matching amounts (`scripts/paypal-verify-outing.ts`, `docs/evidence/paypal-outing-2026-11-07T20-40-51-139Z.json`) |
 | Database resilience (dropped idle connections, connect timeout, 503 on outages) | DONE | `lib/db/client.ts`, `lib/transient-errors.ts`, `lib/http.ts`; `tests/db/connection-resilience.test.ts` (real Postgres connection kill) |
 | Deployment + scheduler | DOCUMENTED, NOT DEPLOYED | `docs/DEPLOYMENT.md`, `render.yaml` |
+| Judge sign-in (`/judge/login`, `JUDGE_USERNAME` / `JUDGE_PASSWORD`) | IMPLEMENTED (11 Nov) | gates `/new`, `POST /api/outings` (401 `JUDGE_LOGIN_REQUIRED`), the AG Studio assistant and Claude behind the merchant filter; off unless `JUDGE_PASSWORD` is set; `lib/auth/judge.ts`, `tests/access/judge-login.test.ts`, `tests/e2e/judge-login.spec.ts` |
+| AI mode per outing | DONE (11 Nov) | demo (`isFixture`) outings always use the FIXTURE AI, even with an Anthropic key; `aiModeForOuting` in `lib/ai/index.ts`; `ai_runs` and `OutingView.outing.aiMode` follow the outing; `tests/services/ai-mode-per-outing.test.ts` |
+| Demo reset keeps live `/demo` stories | DONE (11 Nov) | `POST /api/demo/reset` re-seeds the standard set but keeps scenario outings created in the last 15 min (`DEMO_SCENARIO_KEEP_MS`); `tests/services/demo-scenarios.test.ts` |
 
 ## 3. Commands
 
@@ -82,7 +85,7 @@ First local run with real keys: sign in at `/merchant/login` **with the dashboar
 
 ## 4. Environment variable names
 
-`DATABASE_URL`, `APP_BASE_URL`, `SESSION_SECRET`, `CRON_SECRET`, `DEMO_FIXTURES_ENABLED`, `MERCHANT_DASHBOARD_PASSWORD`, `PAYPAL_ENV`, `PAYPAL_CLIENT_ID`, `PAYPAL_CLIENT_SECRET`, `PAYPAL_WEBHOOK_ID`, `PAYPAL_MERCHANT_ID`, `AG_STUDIO_LICENSE_KEY`, `OUTINGS_ANTHROPIC_API_KEY`, `OUTINGS_AI_MODEL`. Values are never committed.
+`DATABASE_URL`, `APP_BASE_URL`, `SESSION_SECRET`, `CRON_SECRET`, `DEMO_FIXTURES_ENABLED`, `MERCHANT_DASHBOARD_PASSWORD`, `JUDGE_USERNAME`, `JUDGE_PASSWORD`, `PAYPAL_ENV`, `PAYPAL_CLIENT_ID`, `PAYPAL_CLIENT_SECRET`, `PAYPAL_WEBHOOK_ID`, `PAYPAL_MERCHANT_ID`, `AG_STUDIO_LICENSE_KEY`, `OUTINGS_ANTHROPIC_API_KEY`, `OUTINGS_AI_MODEL`. Values are never committed.
 
 ## 5. PayPal capabilities
 

@@ -1,6 +1,6 @@
 # Testing
 
-543 Vitest tests in 45 files (most against a real Postgres) and 8 Playwright browser tests pin the money, consent and access rules; the real PayPal sandbox is checked by two scripts, and real Claude by a smoke script run on the hosted demo.
+552 Vitest tests in 46 files (most against a real Postgres) and 8 Playwright browser tests pin the money, consent and access rules; the real PayPal sandbox is checked by two scripts, and real Claude by a smoke script run on the hosted demo.
 
 Related: [README](../README.md) · [judge guide](JUDGE_GUIDE.md) · [architecture invariants](ARCHITECTURE.md) · [security and limitations](SECURITY_AND_LIMITATIONS.md) · [PayPal sandbox evidence](evidence/README.md)
 
@@ -15,7 +15,7 @@ docker run -d --name outings-test-db -p 5432:5432 -e POSTGRES_USER=outings \
 
 npm ci
 npm run typecheck && npm run lint
-npm test                                  # all 42 Vitest files
+npm test                                  # all 46 Vitest files
 npx vitest run tests/settlement           # one folder; add -t "fragment" for one test
 
 npx playwright install chromium           # once
@@ -46,6 +46,9 @@ Each row is a risk, the files that pin it, and one test name to find with your e
 | Demo sign-in reaching the owner's `/setup` | [setup-routes.test.ts](../tests/services/setup-routes.test.ts), [access.test.ts](../tests/access/access.test.ts), [setup-access.spec.ts](../tests/e2e/setup-access.spec.ts) | "refuses the one-click demo sign-in (403) and calls nothing" |
 | Merchant assistant losing its chat on a data refresh | [studio-instance.test.ts](../tests/ui/studio-instance.test.ts), [merchant-refresh.spec.ts](../tests/e2e/merchant-refresh.spec.ts) | "stays the same when a refresh only moves the countdowns" |
 | Judge mode misuse | [judge-persona.test.ts](../tests/services/judge-persona.test.ts), [judge.test.ts](../tests/demo/judge.test.ts) | "refuses with one identical 404"; "a PayPal-style return after switching personas" |
+| Anonymous visitors creating outings or reaching Claude | [judge-login.test.ts](../tests/access/judge-login.test.ts), [judge-login.spec.ts](../tests/e2e/judge-login.spec.ts) | "returns 401 JUDGE_LOGIN_REQUIRED with the gate on and no judge cookie, and creates nothing" |
+| Demo outings spending model budget or claiming Claude | [ai-mode-per-outing.test.ts](../tests/services/ai-mode-per-outing.test.ts) | "reveal summary, venue ranking and plan draft of a seeded demo outing call the sample AI, never Claude"; "says FIXTURE for a demo outing and ANTHROPIC for a real one on the same deployment" |
+| One visitor's Reset wiping another's `/demo` run | [demo-scenarios.test.ts](../tests/services/demo-scenarios.test.ts) | "keeps a story started a minute ago, removes a 20-minute-old one and restores the seeded set" |
 | AI deciding money or obeying injected text | [ai.test.ts](../tests/ai/ai.test.ts), [plan-draft.test.ts](../tests/ai/plan-draft.test.ts), [plan-draft.test.ts](../tests/services/plan-draft.test.ts), [budget-options.test.ts](../tests/domain/budget-options.test.ts), [starters-and-venues.test.ts](../tests/services/starters-and-venues.test.ts) | "drops an AI suggestion that moves the vote away from the budget the brief states" |
 | Lifecycle, budget poker, time zones | [outings.test.ts](../tests/services/outings.test.ts), [terms-time-audit2.test.ts](../tests/audit2/terms-time-audit2.test.ts), [merchant-views.test.ts](../tests/services/merchant-views.test.ts), [merchant-format.test.ts](../tests/services/merchant-format.test.ts) | "requires >= 3 votes (and 75% of the group) to reveal and stores an aggregate without names", "waits for 75% of the group before the reveal" |
 | Demo data leaking into real data | [demo-scenarios.test.ts](../tests/services/demo-scenarios.test.ts), [demo-catalogue-audit3.test.ts](../tests/audit3/demo-catalogue-audit3.test.ts) | "refuses to book a deactivated offering instead of reactivating it" |
@@ -55,12 +58,12 @@ Each row is a risk, the files that pin it, and one test name to find with your e
 
 ## Latest results
 
-Vitest and Playwright last ran on 11 Nov 2026 on the owner's Windows 11 machine with Postgres 16 in Docker, in FIXTURE modes; the PayPal scripts ran on 7 Nov 2026 against the real sandbox.
+Vitest and Playwright last ran on 11 and 12 Nov 2026 on the owner's Windows 11 machine with Postgres 16 in Docker, in FIXTURE modes; the PayPal scripts ran on 7 Nov 2026 against the real sandbox.
 
 | Check | Result |
 |---|---|
 | `tsc --noEmit`, `eslint` | Clean |
-| Vitest | 543 tests in 45 files pass |
+| Vitest | 552 tests in 46 files pass |
 | Playwright (production build, Chromium) | 8/8 pass: karaoke settle, holdout cancel, organizer cancel, demo hub, capture-failure compensation, big-group under-capture, dashboard refresh keeps AG Studio, `/setup` access |
 | PayPal adapter, real sandbox ([paypal-smoke.ts](../scripts/paypal-smoke.ts)) | All expectations met: authorize, $10-of-$20 final capture, capture replay idempotent, void then capture refused with `AUTHORIZATION_VOIDED`, capture, refund ([evidence](evidence/README.md)) |
 | One full outing through the app, real sandbox ([paypal-verify-outing.ts](../scripts/paypal-verify-outing.ts)) | Three participants, three $50 holds (all approved with one sandbox buyer account), $33.34 / $33.33 / $33.33 captured at the deadline; PayPal's records match the app's (`allMatch: true`) |

@@ -10,6 +10,8 @@ Built for the **PayPal AI Hackathon 2026**. PayPal **sandbox** only: no real mon
 
 **Live demo:** https://outings.baymoor.dev
 
+Anyone can play the ready-made stories on `/demo` without signing in; they always run on the payment simulator and sample AI text. To create your own outing with real Claude and the PayPal sandbox, sign in at `/judge/login` as `judge`, with the password given to judges with the submission.
+
 ![Outings: book it together, pay only if it happens. A phone shows an invitation to a $120 escape room at $30 each.](docs/gallery/thumbnail.png)
 
 **Judges:** the [judge guide](docs/JUDGE_GUIDE.md) walks you through the whole product in about 10 minutes.
@@ -87,9 +89,10 @@ Claude reads the brief, suggests vote amounts, ranks venues, summarizes the vote
 | Piece | Status |
 |---|---|
 | PayPal Orders v2 (authorize, under-capture, void, refund) | **Verified in the PayPal sandbox**, including one full outing settled through the app ([evidence](docs/evidence/README.md)) |
-| Deadline engine, splitting, consent, access control | Real code in every mode. 543 automated tests, most against a real Postgres, plus 8 browser tests ([testing](docs/TESTING.md)) |
-| Claude | Real API when `OUTINGS_ANTHROPIC_API_KEY` is set, as on the live demo. Otherwise a deterministic parser labelled **Sample AI text (no model call)**. **Verified against the real API** on the hosted demo on 11 Nov 2026: a full `scripts/ai-smoke.ts` run passed 12 of 13 checks, and the one that failed (venue ranking) was fixed and then passed 3 of 3 reruns. |
-| Payments without PayPal keys | A simulator labelled **Simulated · not real PayPal** on every screen |
+| Deadline engine, splitting, consent, access control | Real code in every mode. 552 automated tests, most against a real Postgres, plus 8 browser tests ([testing](docs/TESTING.md)) |
+| Claude | Real API when `OUTINGS_ANTHROPIC_API_KEY` is set, as on the live demo, for outings that signed-in judges create. Demo outings (the seeded ones and every `/demo` story) always use a deterministic parser labelled **Sample AI text (no model call)**, and so does every outing when no key is set. **Verified against the real API** on the hosted demo on 11 Nov 2026: a full `scripts/ai-smoke.ts` run passed 12 of 13 checks, and the one that failed (venue ranking) was fixed and then passed 3 of 3 reruns. |
+| Payments on demo outings, or without PayPal keys | A simulator labelled **Simulated · not real PayPal** on every screen. Demo outings use it even when PayPal keys are set. |
+| Who gets what on the live demo | **Anyone:** the `/demo` stories, invitation links, the venue dashboard's demo sign-in and its plain-language filter (sample parser). **Signed-in judges** (`/judge/login`): their own outings on `/new` with real Claude and PayPal sandbox, the AG Studio assistant, and Claude behind the filter. |
 | Venues | Five fictional Copenhagen venues with a demo catalogue. A confirmed outing means the group's money was collected for the venue, not that a real venue reserved anything. |
 
 Limits and the threat model: [security and limitations](docs/SECURITY_AND_LIMITATIONS.md).
@@ -110,6 +113,8 @@ npm run worker     # second terminal: the deadline worker
 ```
 
 Open `/new`, pick a starter, and use the **Acting as** bar to play every person from one browser. The [judge guide](docs/JUDGE_GUIDE.md) has the full path, PayPal sandbox setup and the test commands.
+
+The judge sign-in is off locally unless you set `JUDGE_PASSWORD`. With it set, `/new`, creating an outing, the AG Studio assistant and Claude behind the venue's filter need a sign-in at `/judge/login` (username `judge`, or `JUDGE_USERNAME`).
 
 ## Built with
 
