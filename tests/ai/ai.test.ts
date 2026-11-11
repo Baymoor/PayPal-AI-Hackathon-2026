@@ -309,6 +309,25 @@ describe("AnthropicOutingsAi (mocked client)", () => {
     expect(d.output.filters).toHaveLength(1);
   });
 
+  it("keeps a shortlist whose reasons, concerns or note run long, trimmed instead of discarded", async () => {
+    // Real Claude (11 Nov 2026) occasionally wrote ranking text past the limits, which used to sink the whole shortlist.
+    const long = "y".repeat(200);
+    const ranked = [
+      { offeringId: "off_k", fit: "GREAT", reasons: ["a", long, "c", "d"], concerns: ["1", "2", "3", long] },
+      ...["e1", "e2", "e3", "e4", "e5"].map((offeringId) => ({ offeringId, fit: "GOOD", reasons: [], concerns: [] })),
+    ];
+    const p = await make(reply({ ranked, note: "n".repeat(400) })).ai.proposeOfferings({
+      extraction: BriefExtractionSchema.parse(briefJson), catalogue, agreedBudgetMinor: null, budgetUnit: "PER_PERSON", groupSize: 6, payerCount: 6,
+    });
+    expect(p.output.ranked.map((r) => r.offeringId)).toEqual(["off_k"]); // invented ids still dropped
+    expect(p.output.ranked[0].reasons).toEqual(["a", "y".repeat(140), "c"]);
+    expect(p.output.ranked[0].concerns).toEqual(["1", "2", "3"]);
+    expect(p.output.note).toHaveLength(280);
+    await expect(make(reply({ ranked, note: null })).ai.proposeOfferings({
+      extraction: BriefExtractionSchema.parse(briefJson), catalogue, agreedBudgetMinor: null, budgetUnit: "PER_PERSON", groupSize: 6, payerCount: 6,
+    })).rejects.toBeInstanceOf(AiOutputError); // a wrong type still fails
+  });
+
   it("derives JSON schema from zod", () => {
     const s = toJsonSchema(BriefExtractionSchema) as { type: string; required: string[]; additionalProperties: boolean };
     expect(s.type).toBe("object");

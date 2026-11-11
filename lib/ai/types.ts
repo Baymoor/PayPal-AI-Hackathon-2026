@@ -123,18 +123,20 @@ export interface ProposalInput {
   payerCount: number | null;
 }
 
+// No length or count limits on the lists and free text: structured output cannot carry them (toJsonSchema
+// strips them), so the model never sees them, and one wordy reason would throw away the whole shortlist.
+// validateProposal drops unknown or empty ids and keeps at most 5 offerings with 3 reasons and 3 concerns
+// each (140 characters) and a 280-character note.
 export const ProposalSchema = z.object({
-  ranked: z
-    .array(
-      z.object({
-        offeringId: z.string().min(1),
-        fit: z.enum(["GREAT", "GOOD", "STRETCH"]),
-        reasons: z.array(z.string().min(1).max(140)).min(1).max(3),
-        concerns: z.array(z.string().min(1).max(140)).max(3),
-      }),
-    )
-    .max(5),
-  note: z.string().max(280),
+  ranked: z.array(
+    z.object({
+      offeringId: z.string(),
+      fit: z.enum(["GREAT", "GOOD", "STRETCH"]),
+      reasons: z.array(z.string()),
+      concerns: z.array(z.string()),
+    }),
+  ),
+  note: z.string(),
 });
 export type Proposal = z.infer<typeof ProposalSchema>;
 
