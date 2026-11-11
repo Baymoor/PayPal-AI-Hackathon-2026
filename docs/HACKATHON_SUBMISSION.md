@@ -41,7 +41,7 @@ Payments go directly to the experience merchant; the organizer never receives th
 | App | Next.js 16 (App Router), React 19, TypeScript, Tailwind |
 | Data | Postgres 16 with Drizzle ORM; durable job queue and payment-operation outbox |
 | Payments | PayPal REST sandbox: Orders v2 (intent AUTHORIZE) and Payments v2 (authorize, capture, void, refund), server-only OAuth, `PayPal-Request-Id` on every mutation, webhook verification |
-| AI | Anthropic Claude with structured outputs, validated by zod; labelled deterministic fixture when no key is set |
+| AI | Anthropic Claude with structured outputs, validated by zod; a deterministic stand-in labelled "Sample AI text (no model call)" when no key is set |
 | Merchant UI | AG Studio with AG Grid (Community for the drill-down grid) |
 | Worker | `npm run worker` loop, or an authenticated `POST /api/cron/tick` from any scheduler |
 | Tests | 440 Vitest tests in 35 files against a real Postgres database, plus Playwright end-to-end specs (see [TESTING.md](TESTING.md)) |

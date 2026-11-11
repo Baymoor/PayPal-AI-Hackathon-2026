@@ -116,7 +116,7 @@ function personFor(view: OutingView, person: PersonView): JudgePerson {
   };
 }
 
-const PROCESS_DUE_WORK = "use Process due work on /demo";
+const PROCESS_DUE_WORK = "use Run the deadline now on the demo page";
 
 function idleNextStep(view: OutingView): string {
   switch (view.outing.status) {

@@ -3,7 +3,7 @@
  * a fresh FIXTURE outing where all five payers hold $20, the simulator declines Jules's capture, and the
  * first response to Ben's refund is lost (simulated timeout).
  *
- * After the server deadline, "Process due work now" runs one worker pass (POST /api/demo/tick, the same
+ * After the server deadline, "Run the deadline now" runs one worker pass (POST /api/demo/tick, the same
  * runWorkerTick as the scheduler): Alex, Ben and Freya are captured, Jules is declined, the outing goes
  * COMPENSATING -> CANCELLED (never CONFIRMED), the remaining holds are voided and the completed captures
  * refunded. Ben's refund stays pending (REFUND_PENDING) until the next pass reconciles it from the provider
@@ -33,20 +33,20 @@ interface TickJson {
   outing: StatusJson | null;
 }
 
-/** The "Active scenario" panel on /demo (restored from localStorage after navigating away). */
+/** The "Running now" panel on /demo (restored from localStorage after navigating away). */
 function panelOf(page: Page, title: string): Locator {
   return page.getByRole("region", { name: title });
 }
 
-/** Presses "Process due work now" and returns the tick response. */
+/** Presses "Run the deadline now" and returns the tick response. */
 async function processDueWork(panel: Locator): Promise<TickJson> {
   const page = panel.page();
   const response = page.waitForResponse((r) => r.url().endsWith("/api/demo/tick") && r.request().method() === "POST");
-  await panel.getByRole("button", { name: "Process due work now" }).click();
+  await panel.getByRole("button", { name: "Run the deadline now" }).click();
   const r = await response;
   expect(r.status(), await r.text()).toBe(200);
-  await expect(panel.getByText(/^Worker pass done/)).toBeVisible();
-  await expect(panel.getByRole("button", { name: "Process due work now" })).toBeEnabled();
+  await expect(panel.getByText(/^Done: /)).toBeVisible();
+  await expect(panel.getByRole("button", { name: "Run the deadline now" })).toBeEnabled();
   return (await r.json()) as TickJson;
 }
 
@@ -66,7 +66,7 @@ test("a capture fails mid-settlement: never confirmed, holds released, captured 
   await expect(page.getByRole("heading", { name: "Watch a deadline settle" })).toBeVisible();
 
   const created = page.waitForResponse((r) => r.url().endsWith("/api/demo/scenario") && r.request().method() === "POST");
-  await page.getByRole("button", { name: /^Start \(closes in 70 s\) A capture fails mid-settlement$/ }).click();
+  await page.getByRole("button", { name: /^Start \(closes in 70 s\) A payment fails at the deadline$/ }).click();
   const res = await created;
   expect(res.status(), await res.text()).toBe(201);
   const s = (await res.json()) as ScenarioJson;
@@ -77,7 +77,7 @@ test("a capture fails mid-settlement: never confirmed, holds released, captured 
   await expect(panel.getByRole("heading", { name: s.title })).toBeFocused();
   await expect(panel.getByRole("timer")).toContainText(/^Closes in /);
   await expect(panel.getByText("Collecting commitments", { exact: true })).toBeVisible();
-  await expect(panel.getByText(/capture is declined by the simulator \(injected failure\)/)).toBeVisible();
+  await expect(panel.getByText(/payment declined at the deadline/)).toBeVisible();
 
   await test.step("before the deadline, processing due work settles nothing", async () => {
     const tick = await processDueWork(panel);
@@ -109,8 +109,8 @@ test("a capture fails mid-settlement: never confirmed, holds released, captured 
     expect(tick!.outing).toMatchObject({ status: "CANCELLED", cleanup: "REFUND_PENDING" });
     expect(tick!.outing!.cancelReasons).toContain("CAPTURE_FAILED");
     await expect(panel.getByText("Not confirmed · refund pending")).toBeVisible();
-    await expect(panel.getByText("3 captured · 1 failed · 1 skipped")).toBeVisible();
-    await expect(panel.getByText("2 refunded · 1 awaiting reconciliation")).toBeVisible();
+    await expect(panel.getByText("3 collected · 1 failed · 1 skipped")).toBeVisible();
+    await expect(panel.getByText("2 refunded · 1 being checked")).toBeVisible();
   });
 
   await test.step("Ben sees the recovery copy while his refund is pending", async () => {
@@ -160,7 +160,10 @@ test("a capture fails mid-settlement: never confirmed, holds released, captured 
   await test.step("the merchant drill-down shows the refunded operations", async () => {
     await page.goto("/demo");
     panel = panelOf(page, s.title);
-    await panel.getByRole("button", { name: "Open merchant drill-down" }).click();
+    // The venue's side opens in a second tab; the rest of this step looks at that tab.
+    const venueTab = page.waitForEvent("popup");
+    await panel.getByRole("button", { name: "See this booking as the venue" }).click();
+    page = await venueTab;
     await expect(page).toHaveURL(new RegExp(`/merchant/outings/${s.outingId}$`));
     await expect(page.getByRole("heading", { name: s.title, level: 1 })).toBeVisible();
     await expect(page.getByText("Recovery: Complete")).toBeVisible();

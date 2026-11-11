@@ -2,7 +2,7 @@
 
 Outings lets a group book an outing without anyone fronting the money: private budget vote, PayPal holds of each person's maximum, and a server deadline that books it or releases everything. This guide walks you through it in about 10 minutes, from one browser.
 
-Two things to know first. Payments are **PayPal sandbox** only. Without API keys the app runs in **fixture** modes that are labelled on every screen ("Fixture · not real PayPal", "Fixture AI"); [section 6](#6-real-simulated-and-verified) lists exactly what is real.
+Two things to know first. Payments are **PayPal sandbox** only. Without API keys the app runs in **simulated** modes ("fixture" in the code) that are labelled on every screen ("Simulated · not real PayPal", "Sample AI text (no model call)"); [section 6](#6-real-simulated-and-verified) lists exactly what is real.
 
 ## 1. The 10-minute path
 
@@ -41,27 +41,27 @@ Judge mode (demo mode only) lets you play every person without invitation links 
    ![Budget poker](screenshots/budget-poker.png)
 4. **Reveal.** Back as the organizer, reveal once 3 people have voted. You see only how many votes each amount got, the range and the median; no names. Agree the suggested budget, pick another, or run another round.
    ![Reveal](screenshots/reveal.png)
-5. **Pick and open.** The AI ranks the venues against the brief and the budget (with fixture AI, the starter's own venue comes first). Optionally cover a guest of honour, then open commitments with a deadline 1 minute to 48 hours away.
+5. **Pick and open.** The AI ranks the venues against the brief and the budget (with sample AI text, the starter's own venue comes first). Optionally cover a guest of honour, then open commitments with a deadline 1 minute to 48 hours away.
    ![Sponsor and open](screenshots/sponsor.png)
-6. **Commit.** Switch to each payer, review the exact terms ("Authorize up to $20. Your final share may be lower.") and approve. Without PayPal keys this is the labelled fixture approval page; with keys it is PayPal's sandbox checkout. Consent is bound to a hash of the terms, so any change to price, date or deadline requires consent again.
+6. **Commit.** Switch to each payer, review the exact terms ("Authorize up to $20. Your final share may be lower.") and approve. Without PayPal keys this is the labelled simulated approval page; with keys it is PayPal's sandbox checkout. Consent is bound to a hash of the terms, so any change to price, date or deadline requires consent again.
    ![Invitation](screenshots/invitation.png) ![Waiting](screenshots/waiting.png)
-7. **Deadline.** After it passes, `npm run worker` (or **Process due work now** on `/demo`) settles the outing: confirmed with each exact share captured, or cancelled with every hold released.
+7. **Deadline.** After it passes, `npm run worker` (or **Run the deadline now** on `/demo`) settles the outing: confirmed with each exact share captured, or cancelled with every hold released.
    ![Confirmed](screenshots/confirmed.png) ![Cancelled](screenshots/cancelled.png)
 
 With real PayPal, don't switch people while PayPal's page is open: the return only completes for the person who started the payment.
 
 ## 4. Watch a deadline settle
 
-On `/demo`, **Watch a deadline settle** creates a fresh karaoke outing ($100 room, Maya covered, 5 payers at $20) whose deadline is 1 to 5 minutes away. Pick a scenario, press **Start**, and use the **Open as …** and **Process due work now** buttons.
+On `/demo`, **Watch a deadline settle** creates a fresh karaoke outing ($100 room, Maya covered, 5 payers at $20) whose deadline is 1 to 5 minutes away. Pick a story, press **Start**, and use the **Open as …** and **Run the deadline now** buttons.
 
-| Scenario | Do | Result |
+| Story | Do | Result |
 |---|---|---|
-| Last payer commits in time | Open as Noor, authorize $20 before the countdown ends, then process due work | Confirmed: five payers charged $20, Maya $0 |
-| A required guest holds out | Do nothing, then process due work | Cancelled: no payment collected, all holds released |
-| A capture fails midway | Process due work, then again a few seconds later | Never confirmed: Jules's capture is declined, the other holds released and the three captures refunded; a lost refund response is read back, not sent twice |
-| Ten friends share the room | Open as Kai, authorize $20 (estimate $10), then process due work | Confirmed: each of ten payers charged exactly $10 from a $20 hold |
+| Last payer commits in time | Open as Noor, authorize $20 before the countdown ends, then run the deadline | Confirmed: five payers charged $20, Maya $0 |
+| A required guest holds out | Do nothing, then run the deadline | Cancelled: no payment collected, all holds released |
+| A payment fails at the deadline | Run the deadline, then again a few seconds later | Never confirmed: Jules's payment is declined, the other holds released and the three collected shares refunded; one refund needs a second try, and it is read back, not sent twice |
+| Ten friends share the room | Open as Kai, authorize $20 (estimate $10), then run the deadline | Confirmed: each of ten payers charged exactly $10 from a $20 hold |
 
-The services and the settlement engine are the real ones; only the payment provider is the fixture simulator, with failures injected on purpose. **Process due work now** runs the same worker as the scheduler and can't settle early: the deadline is checked against the database clock.
+The services and the settlement engine are the real ones; only the payment provider is the simulator, with failures injected on purpose. **Run the deadline now** runs the same worker as the scheduler and can't settle early: the deadline is checked against the database clock.
 
 ## 5. The venue's dashboard
 
@@ -76,10 +76,10 @@ The services and the settlement engine are the real ones; only the payment provi
 
 | Piece | Without keys | With keys | Verified |
 |---|---|---|---|
-| Payments | Fixture simulator, labelled | PayPal sandbox, Orders v2 | **Yes, 7 Nov 2026:** authorize, $10-of-$20 final capture, idempotent replay, void, refund, and one full outing settled through the app ([evidence](evidence/README.md)) |
-| AI | Deterministic parser, labelled "Fixture AI" | Claude, structured outputs | Not yet against the real API; tests use a mocked SDK |
+| Payments | Simulator, labelled "Simulated · not real PayPal" | PayPal sandbox, Orders v2 | **Yes, 7 Nov 2026:** authorize, $10-of-$20 final capture, idempotent replay, void, refund, and one full outing settled through the app ([evidence](evidence/README.md)) |
+| AI | Deterministic parser, labelled "Sample AI text (no model call)" | Claude, structured outputs | Not yet against the real API; tests use a mocked SDK |
 | Deadline, splitting, consent, access | Real code | Real code | 440 automated tests and 6 browser tests ([testing](TESTING.md)) |
-| Demo scenarios on `/demo` | Fixture, always | Fixture, always | Real services, simulated provider |
+| Demo stories on `/demo` | Simulated, always | Simulated, always | Real services, simulated provider |
 
 Not verified: PayPal webhook signatures against real deliveries, PayPal negative testing, and any hosted deployment. `GET /api/health` shows the active modes without secrets. Limits and threat model: [security and limitations](SECURITY_AND_LIMITATIONS.md).
 

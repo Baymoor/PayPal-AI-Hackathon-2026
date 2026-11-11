@@ -1,9 +1,9 @@
 import { Check, Clock, FlaskConical, Lock, TriangleAlert, Undo2, X, Bot } from "lucide-react";
-import { FIXTURE_PAYMENT_LABEL } from "@/lib/domain/labels";
+import { FIXTURE_AI_LABEL, FIXTURE_PAYMENT_LABEL } from "@/lib/domain/labels";
 import { cn } from "./cn";
 
 /** The one spelling of the simulated-payment label, shared with the server views. */
-export { FIXTURE_PAYMENT_LABEL };
+export { FIXTURE_AI_LABEL, FIXTURE_PAYMENT_LABEL };
 
 export type StatusKind =
   | "authorized"
@@ -89,7 +89,7 @@ export function ModeBadge({
     return (
       <span className={cn(pill, STATUS.fixture.cls)}>
         <FlaskConical className="size-3.5" aria-hidden />
-        Fixture AI (no model call)
+        {FIXTURE_AI_LABEL}
       </span>
     );
   if (mode === "ANTHROPIC")

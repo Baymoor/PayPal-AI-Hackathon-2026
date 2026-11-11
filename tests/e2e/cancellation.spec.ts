@@ -63,7 +63,7 @@ test("a required guest never commits: deadline cancels, holds are voided, clean-
       await page.goto(`/o/${outingId}`);
       await page.getByRole("button", { name: "Review & authorize $30" }).click();
       await page.getByRole("checkbox", { name: /I agree to authorize up to \$30/ }).check();
-      await page.getByRole("button", { name: "Authorize up to $30 (fixture)" }).click();
+      await page.getByRole("button", { name: "Authorize up to $30 (simulated)" }).click();
       await expect(page.getByText("Simulated approval page")).toBeVisible();
       await page.getByRole("button", { name: "Approve simulated hold" }).click();
       await expect(page.getByRole("heading", { name: "Your $30 hold is in place." })).toBeVisible();
@@ -146,7 +146,7 @@ test("organizer cancels while collecting: the server cancels and releases the ho
   await sam.page.goto(`/o/${outingId}`);
   await sam.page.getByRole("button", { name: "Review & authorize $33.34" }).click();
   await sam.page.getByRole("checkbox", { name: /I agree to authorize up to \$33\.34/ }).check();
-  await sam.page.getByRole("button", { name: "Authorize up to $33.34 (fixture)" }).click();
+  await sam.page.getByRole("button", { name: "Authorize up to $33.34 (simulated)" }).click();
   await sam.page.getByRole("button", { name: "Approve simulated hold" }).click();
   await expect(sam.page.getByText("Authorization received")).toBeVisible();
 

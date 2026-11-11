@@ -25,7 +25,7 @@ describe("fixture extraction", () => {
     const r = await new FixtureOutingsAi().extractBrief({ brief: CANONICAL, now: NOW, timezone: "America/New_York" });
     expect(r.source).toBe("FIXTURE");
     expect(r.model).toBeNull();
-    expect(r.warnings[0]).toMatch(/^FIXTURE/);
+    expect(r.warnings[0]).toMatch(/^Sample output/);
     const o = r.output;
     expect(() => BriefExtractionSchema.parse(o)).not.toThrow();
     expect(o.categories).toContain("karaoke");
@@ -132,7 +132,7 @@ describe("fixture dashboard + ranker + reveal", () => {
     const r = await ai.dashboardQuery({ question: "Show outings closing today with missing required participants", now: NOW });
     expect(r.output.filters).toContainEqual({ field: "closesToday", op: "eq", value: true });
     expect(r.output.filters).toContainEqual({ field: "missingRequired", op: "gt", value: 0 });
-    expect(r.output.explanation).toMatch(/^Fixture parser:/);
+    expect(r.output.explanation).toMatch(/^Sample filter:/);
     expect(r.source).toBe("FIXTURE");
   });
   it("other keywords", async () => {
@@ -149,7 +149,7 @@ describe("fixture dashboard + ranker + reveal", () => {
     const withShares = catalogue.map((item) => ({ ...item, perPersonShareMinor: shares[item.offeringId] }));
     const r = await ai.proposeOfferings({ extraction: ex, catalogue: withShares, agreedBudgetMinor: 2500, budgetUnit: "PER_PERSON", groupSize: 6, payerCount: 5 });
     expect(r.output.ranked[0].offeringId).toBe("off_k");
-    expect(r.output.ranked[0].reasons[0]).toMatch(/^Fixture ranker/);
+    expect(r.output.ranked[0].reasons[0]).toMatch(/^Sample ranking/);
     const p = r.output.ranked.find((x) => x.offeringId === "off_p");
     expect(p?.concerns.join(" ")).toMatch(/total grows/);
     // No budget sentence: the venue card shows the share from the live roster, and frozen text would contradict it.
@@ -183,7 +183,7 @@ describe("fixture dashboard + ranker + reveal", () => {
     const agg: RevealAggregate = { unit: "TOTAL", currency: "USD", voteCount: 3, invitedCount: 4, buckets: [], minMinor: 5000, maxMinor: 15000, medianMinor: 10000 };
     const r = await ai.summarizeReveal({ aggregate: agg, extraction: null });
     expect(r.output.suggestedAmountMinor).toBe(10000);
-    expect(r.output.headline).toMatch(/^Fixture/);
+    expect(r.output.headline).toMatch(/^Sample summary/);
     // Amounts read like the rest of the app ("$100"), not "100.00 USD".
     expect(r.output.summary).toContain("the median proposed total is $100");
     expect(r.output.summary).not.toContain("USD");
@@ -192,7 +192,7 @@ describe("fixture dashboard + ranker + reveal", () => {
     const agg: RevealAggregate = { unit: "PER_PERSON", currency: "USD", voteCount: 5, invitedCount: 6, buckets: [], minMinor: 1500, maxMinor: 3000, medianMinor: 2000 };
     const r = await ai.summarizeReveal({ aggregate: agg, extraction: null });
     expect(r.output.suggestedAmountMinor).toBe(2000);
-    expect(r.output.headline).toBe("Fixture summary: votes ranged $15 to $30 per person");
+    expect(r.output.headline).toBe("Sample summary: votes ranged $15 to $30 per person");
     expect(r.output.summary).toContain("the median is $20 per person");
     expect(r.output.summary).not.toMatch(/total/);
   });

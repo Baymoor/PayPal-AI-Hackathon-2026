@@ -16,7 +16,7 @@ import { SplitCalculator } from "@/components/home/SplitCalculator";
 import { LinkButton } from "@/components/ui/Button";
 import { Card, Eyebrow } from "@/components/ui/Card";
 import { SiteFooter, SiteHeader } from "@/components/ui/SiteChrome";
-import { StatusBadge } from "@/components/ui/Badge";
+import { FIXTURE_AI_LABEL, StatusBadge } from "@/components/ui/Badge";
 
 export const metadata: Metadata = {
   title: "How it works",
@@ -304,7 +304,7 @@ export default function HowItWorksPage() {
               <p>The ready-made demo outings use a stand-in for PayPal. Where no AI model is connected, you get sample AI text. You will always see a label like these:</p>
               <div className="flex flex-wrap gap-2">
                 <StatusBadge kind="fixture" />
-                <StatusBadge kind="fixture" label="Fixture AI (no model call)" />
+                <StatusBadge kind="fixture" label={FIXTURE_AI_LABEL} />
               </div>
             </Card>
           </div>

@@ -151,11 +151,11 @@ describe("judgeBoard", () => {
 
   it("COLLECTING with everyone committed: wait for the deadline or process due work", () => {
     const b = judgeBoard(view({ status: "COLLECTING", people: [{ displayName: "Alex", committed: true }, { displayName: "Ben", committed: true }] }));
-    expect(b.nextStep).toBe("Next: wait for the deadline, or use Process due work on /demo");
+    expect(b.nextStep).toBe("Next: wait for the deadline, or use Run the deadline now on the demo page");
   });
 
   it("result states have no to-dos and point at the worker or say it is finished", () => {
-    expect(judgeBoard(view({ status: "SETTLING", people: CAST })).nextStep).toContain("Process due work");
+    expect(judgeBoard(view({ status: "SETTLING", people: CAST })).nextStep).toContain("Run the deadline now");
     for (const status of ["CONFIRMED", "CANCELLED"] as const) {
       const b = judgeBoard(view({ status, people: CAST }));
       expect([b.acting, ...b.others].every((p) => p.todo === null)).toBe(true);

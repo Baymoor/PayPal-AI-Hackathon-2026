@@ -8,6 +8,7 @@ import { askDashboard, ApiError, type AskResult } from "./api";
 import { describeMerchantCode, describeMerchantError, MerchantErrorText } from "./MerchantError";
 import { fixtureAsk } from "./__fixtures__/bookings";
 import { describeFilter, FIELD_LABEL } from "./query";
+import { FIXTURE_AI_LABEL } from "@/lib/domain/labels";
 import { Badge } from "./Badge";
 
 export interface AppliedQuery extends AskResult {
@@ -80,7 +81,7 @@ export function AskBox({ applied, onApply, onClear, fixtures }: {
           <>
             <div className="m-chips">
               <Badge tone={applied.source === "ANTHROPIC" ? "authorized" : "fixture"}>
-                {applied.source === "ANTHROPIC" ? `AI: Anthropic${applied.model ? ` (${applied.model})` : ""}` : "Fixture AI (no model call)"}
+                {applied.source === "ANTHROPIC" ? `AI: Anthropic${applied.model ? ` (${applied.model})` : ""}` : FIXTURE_AI_LABEL}
               </Badge>
               {applied.query.filters.length === 0 && <span className="m-chip">No filters</span>}
               {applied.query.filters.map((f, i) => (

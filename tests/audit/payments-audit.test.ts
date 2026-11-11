@@ -115,7 +115,7 @@ describe("provider selection follows the outing, never mixes simulator and sandb
 
     const r = await startPayment(getDb(), { outingId: s.outing.id, participantId: s.payers[0].id, now: T0 });
     expect(r.provider).toBe("FIXTURE");
-    expect(r.providerLabel).toContain("Fixture");
+    expect(r.providerLabel).toContain("Simulated");
     expect((await attemptRow(r.paymentAttemptId))!.provider).toBe("FIXTURE");
     expect(paypalFake.calls.createOrder).toBe(0);
   });

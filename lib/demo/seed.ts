@@ -402,11 +402,11 @@ export async function seedOuting(db: Db, spec: OutingSpec, secret: string): Prom
         {
           offeringId: agreed.offering.id,
           fit: "GREAT",
-          reasons: ["Fixture ranker: category matches the brief.", "Fixed total, so more attendees lower each share."],
+          reasons: ["Sample ranking: category matches the brief.", "Fixed total, so more attendees lower each share."],
           concerns: [],
         },
       ],
-      note: "Fixture ranker: deterministic demo ranking, not a model.",
+      note: "Sample ranking: a fixed demo order, not an AI model.",
       source: "FIXTURE",
       model: null,
       warnings: [],
@@ -939,7 +939,7 @@ export async function seedDemo(db: Db, opts: { now?: Date; secret?: string } = {
       db,
       {
         key: "h-confirmed-3",
-        title: "Sam's farewell karaoke (synthetic)",
+        title: "Sam's farewell karaoke (sample)",
         brief: "Farewell karaoke for Sam, three of us, private room, about $100 total.",
         status: "CONFIRMED",
         createdAt: new Date(deadlineAt.getTime() - 20 * HOUR),
@@ -970,7 +970,7 @@ export async function seedDemo(db: Db, opts: { now?: Date; secret?: string } = {
       db,
       {
         key: "h-confirmed-sponsored",
-        title: "Jonas's 30th (synthetic)",
+        title: "Jonas's 30th (sample)",
         brief: "Karaoke for Jonas's birthday, six of us, cover Jonas's share. $100 total.",
         status: "CONFIRMED",
         createdAt: new Date(deadlineAt.getTime() - 30 * HOUR),
@@ -1004,7 +1004,7 @@ export async function seedDemo(db: Db, opts: { now?: Date; secret?: string } = {
       db,
       {
         key: "h-cancelled-void",
-        title: "Office escape room (synthetic)",
+        title: "Office escape room (sample)",
         brief: "Escape room with the team, four of us, around $120 total.",
         status: "CANCELLED",
         createdAt: new Date(deadlineAt.getTime() - 26 * HOUR),
@@ -1046,7 +1046,7 @@ export async function seedDemo(db: Db, opts: { now?: Date; secret?: string } = {
       db,
       {
         key: "h-capture-failed",
-        title: "Launch party karaoke (synthetic)",
+        title: "Launch party karaoke (sample)",
         brief: "Team launch party, six of us, party suite, $180 total.",
         status: "CANCELLED",
         createdAt: new Date(deadlineAt.getTime() - 30 * HOUR),
@@ -1090,7 +1090,7 @@ export async function seedDemo(db: Db, opts: { now?: Date; secret?: string } = {
           at,
           sequence: i + 1,
           providerStatus: "DECLINED",
-          lastError: "INSTRUMENT_DECLINED: capture declined (fixture simulation)",
+          lastError: "INSTRUMENT_DECLINED: capture declined (simulated)",
         });
         await audit(db, s.outing.id, "WORKER:demo-seed", "CAPTURE_FAILED", at, { paymentAttemptId: attempt.id, sequence: i + 1 });
         await voidHoldAfterFailure(db, s, attempt, new Date((t += MIN)));
@@ -1115,7 +1115,7 @@ export async function seedDemo(db: Db, opts: { now?: Date; secret?: string } = {
       status: "UNKNOWN",
       at: unknownAt,
       attempts: 8,
-      lastError: "TIMEOUT: no response from the provider (fixture simulation); reconcile or retry with the same request id",
+      lastError: "TIMEOUT: no response from the provider (simulated); reconcile or retry with the same request id",
     });
     await setAttempt(db, second.id, "REFUND_PENDING", {}, unknownAt);
     await db
@@ -1134,7 +1134,7 @@ export async function seedDemo(db: Db, opts: { now?: Date; secret?: string } = {
       db,
       {
         key: "collecting-today",
-        title: "Escape room with the climbing crew (synthetic)",
+        title: "Escape room with the climbing crew (sample)",
         brief: "Escape room for four of us tomorrow evening, $120 total.",
         status: "COLLECTING",
         createdAt: ago(5 * HOUR),
@@ -1188,7 +1188,7 @@ async function settleAll(db: Db, s: SeededOuting, frozenAt: Date): Promise<void>
 async function voidHoldAfterFailure(db: Db, s: SeededOuting, attempt: PaymentAttempt, at: Date): Promise<void> {
   const res = must(await fixtureAt(db, at).voidAuthorization({ authorizationId: attempt.authorizationId!, requestId: operationRequestId("VOID", attempt.id) }));
   await insertOperation(db, { attempt, kind: "VOID", amountMinor: attempt.authorizedMinor, status: "SUCCEEDED", at, providerStatus: res.providerStatus });
-  await setAttempt(db, attempt.id, "VOIDED", { lastError: "Capture declined (fixture simulation); hold released", providerStatus: res.providerStatus }, at);
+  await setAttempt(db, attempt.id, "VOIDED", { lastError: "Capture declined (simulated); hold released", providerStatus: res.providerStatus }, at);
 }
 
 /** Is `participantId` part of a FIXTURE outing? Returns the outing id if so. */

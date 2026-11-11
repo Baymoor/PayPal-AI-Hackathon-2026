@@ -16,7 +16,7 @@ Light theme only. Never write "PayPal Outings"; use "PayPal sandbox" and "Sandbo
 
 ### Copy and decoration rules (design review, 8 Nov 2026)
 1. One honesty fact, one place: the header pill says "no real money"; one muted line under the step label says which mode ("Simulated payments and AI · no real money"); the dashed Fixture pill appears only beside money; the AI badge only on blocks the AI wrote.
-2. One spelling per label, from shared constants ("Fixture · not real PayPal" lives in `lib/domain/labels.ts`).
+2. One spelling per label, from shared constants ("Simulated · not real PayPal" lives in `lib/domain/labels.ts`).
 3. One reassurance per screen beyond that stage's spec sentence.
 4. No em-dashes in UI copy. Buttons carry no punctuation beyond "&" and "→".
 5. Icons for status only (plus the three invitation detail rows). No icon beside a heading or a list row.
@@ -54,7 +54,7 @@ Status (text on matching bg, each pair >= 4.5:1). Label text is mandatory.
 | void-pending (hold release pending, refund pending) | `#8A5300` | `#FFF1D6` | Hold release pending / Refund pending | clock |
 | refunded | `#5B3FA0` | `#EEE8FA` | Refunded | undo-2 |
 | cancelled (also "hold released") | `#4A5568` | `#ECEEF1` | Cancelled / Hold released | x / check |
-| fixture | `#A12D6B` | `#FBE6F1` (dashed 1px `#A12D6B` border) | Fixture · not real PayPal | flask-conical |
+| fixture | `#A12D6B` | `#FBE6F1` (dashed 1px `#A12D6B` border) | Simulated · not real PayPal | flask-conical |
 | danger | `#A3261B` | `#FDE8E5` | Needs attention | triangle-alert |
 
 Pending vs final: use amber for "pending", then the final colour (gray released, purple refunded) once done. Text changes too ("Hold release pending" -> "Hold released"; "Refund pending" -> "Refunded $10").
@@ -98,7 +98,7 @@ White, 1px line border, radius 20, padding 18-28. Variants: money card (rows), p
 ### Stepper (Brief → Budget → Invite → Commit)
 Four steps, numbered 30px circles. States: current (coral-600 fill, white number, "(current)" visually-hidden-or-muted text, `aria-current="step"`), done (ink fill, check icon), upcoming (outlined). Wraps on mobile; on mobile screens show "STEP 2 OF 4" eyebrow instead.
 ### Pill / Badge
-Pill 13px 700, padding 4/12. Variants: status (table above), **Sandbox demo** (blush bg, coral-800 text, top-right of every screen and in footer divider), **Fixture · not real PayPal** (fixture colours, dashed border), deadline pill ("Commit by Thursday, 18:00", blush, calendar/clock icon).
+Pill 13px 700, padding 4/12. Variants: status (table above), **Sandbox demo** (blush bg, coral-800 text, top-right of every screen and in footer divider), **Simulated · not real PayPal** (fixture colours, dashed border), deadline pill ("Commit by Thursday, 18:00", blush, calendar/clock icon).
 ### Money row
 Label left, value right, 14-16px vertical padding, 1px line top. Emphasis row (bold, display font value). Rows: Fixed room total, Your maximum, Estimated share, Authorized, Captured, Refunded. Money never "revenue" for authorized funds.
 ### Progress bar
@@ -142,7 +142,7 @@ Mobile pages: single column, 20px gutter, primary CTA full width and anchored at
 - Waiting: h1 "Your $20 hold is in place." · lead "$20 authorized · estimated final share $10 · not charged yet."
 - Expired: h1 "Outing cancelled." · banner "<reason> No booking payment was collected; we're releasing every hold."
 - Recovery: h1 "Booking not confirmed." · banner "A payment failed; completed payments are being refunded."
-- Status words: Authorized, Captured, Hold release pending, Hold released, Refund pending, Refunded, Cancelled, Fixture · not real PayPal.
+- Status words: Authorized, Captured, Hold release pending, Hold released, Refund pending, Refunded, Cancelled, Simulated · not real PayPal.
 - Merchant Ask example: "Show outings closing today with missing required participants"
 
 ## 6. Accessibility

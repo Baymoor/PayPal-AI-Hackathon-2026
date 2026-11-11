@@ -23,7 +23,7 @@ test("big group: ten payers, $10 each captured from $20 holds", async ({ page })
 
   await page.goto(`/demo?deadlineSeconds=${DEADLINE_SECONDS}`);
   await expect(page.getByRole("heading", { name: "Watch a deadline settle" })).toBeVisible();
-  await expect(page.getByText(/Nine payers hold \$20 and you commit as Kai/)).toBeVisible();
+  await expect(page.getByText(/Nine friends have a \$20 hold in place and you commit as Kai/)).toBeVisible();
 
   const created = page.waitForResponse((r) => r.url().endsWith("/api/demo/scenario") && r.request().method() === "POST");
   await page.getByRole("button", { name: /^Start \(closes in 70 s\) Ten friends share the room$/ }).click();
@@ -44,7 +44,7 @@ test("big group: ten payers, $10 each captured from $20 holds", async ({ page })
     await expect(page.getByText("9 of 10 payers committed").first()).toBeVisible();
     await page.getByRole("button", { name: "Review & authorize $20" }).click();
     await page.getByRole("checkbox", { name: /I agree to authorize up to \$20/ }).check();
-    await page.getByRole("button", { name: "Authorize up to $20 (fixture)" }).click();
+    await page.getByRole("button", { name: "Authorize up to $20 (simulated)" }).click();
     await expect(page).toHaveURL(/\/pay\/fixture\?attempt=/);
     await page.getByRole("button", { name: "Approve simulated hold" }).click();
     await expect(page).toHaveURL(new RegExp(`/o/${s.outingId}\\?payment=authorized$`));
@@ -62,7 +62,7 @@ test("big group: ten payers, $10 each captured from $20 holds", async ({ page })
       .poll(
         async () => {
           const tick = page.waitForResponse((r) => r.url().endsWith("/api/demo/tick") && r.request().method() === "POST");
-          await live.getByRole("button", { name: "Process due work now" }).click();
+          await live.getByRole("button", { name: "Run the deadline now" }).click();
           const r = await tick;
           expect(r.status(), await r.text()).toBe(200);
           return ((await r.json()) as { outing: { status: string } | null }).outing?.status;

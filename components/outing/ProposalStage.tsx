@@ -214,11 +214,11 @@ function SplitPreview({ view, candidate }: { view: OutingView; candidate: Catalo
                 <MoneyRow label="Price per attendee" value={formatMoney(candidate.priceMinor)} sub="Total grows with attendees" />
               )}
               <MoneyRow label="Attendees" value={roster.attendeeCount} />
-              <MoneyRow label="Paying participants" value={estimates.projectedPayers} />
+              <MoneyRow label="People paying" value={estimates.projectedPayers} />
               {estimates.estimatedShareMinor !== null && (
-                <MoneyRow label="Each paying participant" value={formatMoney(estimates.estimatedShareMinor)} emphasis />
+                <MoneyRow label="Each person paying" value={formatMoney(estimates.estimatedShareMinor)} emphasis />
               )}
-              {estimates.capMinor !== null && <MoneyRow label="Maximum anyone is asked to authorize" value={formatMoney(estimates.capMinor)} />}
+              {estimates.capMinor !== null && <MoneyRow label="The most anyone is asked to approve" value={formatMoney(estimates.capMinor)} />}
               {sponsored.map((s) => (
                 <MoneyRow
                   key={s.participantId}
@@ -234,7 +234,7 @@ function SplitPreview({ view, candidate }: { view: OutingView; candidate: Catalo
       </Card>
       <div className="flex items-start gap-3 rounded-[18px] border border-amber-line bg-amber-bg p-4 text-amber-ink">
         <Users className="mt-0.5 size-5 shrink-0" aria-hidden />
-        <p>Everyone sees and approves this split before committing. Changing who pays requires renewed consent.</p>
+        <p>Everyone sees and approves this split before committing. If who pays changes, everyone approves again.</p>
       </div>
     </div>
   );
@@ -430,7 +430,7 @@ export function ProposalStage({ view, actions }: { view: OutingView; actions: Ou
 
   return (
     <div className="space-y-6">
-      <ScreenHeader view={view} title="Pick a merchant-confirmed quote" lead="Suggestions are not bookings or payment approvals." />
+      <ScreenHeader view={view} title="Pick a place and a price" lead="These are the venues’ own prices. Picking one books nothing yet." />
       {view.organizer.can.draftPlan && <PlanDraftPanel view={view} actions={actions} applied={aiPlan} onApplied={setAiPlan} />}
       <div className="grid gap-6 lg:grid-cols-[1.3fr_1fr]">
         <div className="space-y-6">
@@ -443,11 +443,11 @@ export function ProposalStage({ view, actions }: { view: OutingView; actions: Ou
             </div>
             {proposal?.note && <p className="text-ink-muted">{proposal.note}</p>}
             {view.outing.isFixture && (
-              <p className="text-small text-ink-muted">Demo catalogue. Prices and availability are fixture data.</p>
+              <p className="text-small text-ink-muted">Demo catalogue. Prices and availability are sample data.</p>
             )}
             {!proposal || proposal.candidates.length === 0 ? (
               <EmptyState icon={<Info className="size-6" />} title="No options yet">
-                We couldn&apos;t find a catalogue match for this plan. Try another budget round.
+                We couldn&apos;t find a venue that fits this plan. Try another budget round.
               </EmptyState>
             ) : (
               <div role="radiogroup" aria-label="Catalogue options" className="space-y-3">

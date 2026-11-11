@@ -15,6 +15,7 @@ import type { StudioPage } from "./StudioDashboard";
 import type { AgStudioApi } from "ag-studio";
 import { AskBox, type AppliedQuery } from "./AskBox";
 import { Badge } from "./Badge";
+import { FIXTURE_ROW_LABEL } from "@/lib/domain/labels";
 import { labelRows, usePaymentMode } from "./modes";
 import { studioInstanceKey, studioRowsSignature } from "./studioInstance";
 
@@ -37,7 +38,7 @@ function useStableStudioRows(rows: MerchantBookingRow[]): MerchantBookingRow[] {
 }
 
 type Segment = "SANDBOX" | "FIXTURE" | "BOTH";
-const SEGMENT_LABEL: Record<Segment, string> = { SANDBOX: "Sandbox", FIXTURE: "Fixture", BOTH: "All" };
+const SEGMENT_LABEL: Record<Segment, string> = { SANDBOX: "Sandbox", FIXTURE: FIXTURE_ROW_LABEL, BOTH: "All" };
 
 export interface DashboardClientProps {
   /** AG Studio licence key from the server env (a configuration value; never logged). */
@@ -169,20 +170,20 @@ export default function DashboardClient({ licenseKey, fixtures, aiEnabled, merch
             </button>
           ))}
         </div>
-        <span className="m-footnote" style={{ margin: 0 }}>{counts.sandbox} paid through PayPal sandbox · {counts.fixture} simulated (Fixture)</span>
+        <span className="m-footnote" style={{ margin: 0 }}>{counts.sandbox} paid through PayPal sandbox · {counts.fixture} simulated</span>
       </div>
 
       {activeSegment === "BOTH" && (
         <div className="m-banner" role="note" data-tone="danger">
           <AlertTriangle size={18} aria-hidden />
-          <span>These totals mix PayPal sandbox payments with simulated ones. Simulated bookings are marked Fixture in the table. Pick Sandbox or Fixture for totals that mean one thing.</span>
+          <span>These totals mix PayPal sandbox payments with simulated ones. The table says which each booking is. Pick Sandbox or Simulated for totals that mean one thing.</span>
         </div>
       )}
-      {/* No banner for the Fixture segment: the header badge and the per-row "Fixture" label already say it. */}
+      {/* No banner for the Simulated segment: the header badge and the per-row "Simulated" label already say it. */}
       {activeSegment === "SANDBOX" && (
         <div className="m-banner" role="note" data-tone="info">
           <Info size={18} aria-hidden />
-          <span>Showing bookings paid through PayPal&apos;s sandbox: PayPal&apos;s own test system, with test money. Simulated demo bookings are under Fixture.</span>
+          <span>Showing bookings paid through PayPal&apos;s sandbox: PayPal&apos;s own test system, with test money. Simulated demo bookings are under Simulated.</span>
         </div>
       )}
       {otherCurrency > 0 && (
@@ -238,7 +239,7 @@ export default function DashboardClient({ licenseKey, fixtures, aiEnabled, merch
             <p>
               <strong>No bookings match.</strong>
               <br />
-              {applied ? "Clear the filter above, or switch between Sandbox and Fixture." : activeSegment === "SANDBOX" ? "No PayPal sandbox bookings yet. Switch to Fixture to explore the demo bookings." : "Nothing to show yet."}
+              {applied ? "Clear the filter above, or switch between Sandbox and Simulated." : activeSegment === "SANDBOX" ? "No PayPal sandbox bookings yet. Switch to Simulated to explore the demo bookings." : "Nothing to show yet."}
             </p>
           </div>
         )}

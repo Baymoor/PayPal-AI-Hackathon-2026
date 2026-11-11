@@ -1,7 +1,7 @@
 /**
  * Typed development fixtures for the merchant dashboard (used only with ?fixtures=1 in
  * non-production builds). Times are relative to `now` so "closing today" stays true.
- * These are NOT sandbox data: rows with isFixture=true are labelled "Fixture" in the UI,
+ * These are NOT sandbox data: rows with isFixture=true are labelled "Simulated" in the UI,
  * and the sandbox-looking rows here exist only to exercise the layout.
  */
 import type { MerchantBookingRow, MerchantOutingDetail, MerchantOperationRow, MerchantParticipantRow, QuoteView } from "@/lib/contracts/views";

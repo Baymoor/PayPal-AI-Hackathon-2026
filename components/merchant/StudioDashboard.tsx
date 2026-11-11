@@ -146,7 +146,7 @@ function buildReport(sort: DashboardQuery["sort"], currency: string, page: Studi
             ...(col ? { sort: [{ field: { id: col }, direction: sort!.direction }] } : {}),
             format: {
               title: { enabled: true, text: "Bookings" },
-              subtitle: { enabled: true, text: "One row per outing. Real sandbox rows and fixtures are labelled" },
+              subtitle: { enabled: true, text: "One row per outing. Row type says Sandbox or Simulated" },
               crossFilter: "filter",
               style: { grandTotalRow: { enabled: false }, columnAutoSize: true },
             },

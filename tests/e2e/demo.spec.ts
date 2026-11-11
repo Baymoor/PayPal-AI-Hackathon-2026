@@ -22,7 +22,7 @@ test("demo hub: reset, persona switching and every seeded stage", async ({ page 
   await reset;
   await expect(page.getByRole("button", { name: "Reset demo data" })).toBeEnabled();
   await expect(page.getByRole("heading", { name: "Maya's birthday karaoke" })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Finished outings" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "More sample outings" })).toBeVisible();
 
   await test.step("collecting: Noor still has to commit; Ben already did", async () => {
     await openAs(page, "Maya's birthday karaoke", "Noor");
@@ -45,23 +45,23 @@ test("demo hub: reset, persona switching and every seeded stage", async ({ page 
   });
 
   await test.step("history: confirmed, cancelled, refund pending", async () => {
-    await openAs(page, "Sam's farewell karaoke (synthetic)", "Tom");
+    await openAs(page, "Sam's farewell karaoke (sample)", "Tom");
     await expect(page.getByRole("heading", { name: "You’re going." })).toBeVisible();
     // 3 payers sharing $100: $33.34 / $33.33 / $33.33, never above the $33.34 cap.
     await expect(page.locator("dl > div").filter({ hasText: "Your final share" })).toContainText(/\$33\.3[34]/);
 
-    await openAs(page, "Jonas's 30th (synthetic)", "Jonas");
+    await openAs(page, "Jonas's 30th (sample)", "Jonas");
     await expect(page.getByText("Your share was covered, so you pay $0.")).toBeVisible();
 
-    await openAs(page, "Office escape room (synthetic)", "Kai");
+    await openAs(page, "Office escape room (sample)", "Kai");
     await expect(page.getByRole("heading", { name: "Outing cancelled." })).toBeVisible();
     await expect(page.getByText(/No booking payment was collected/)).toBeVisible();
 
-    await openAs(page, "Launch party karaoke (synthetic)", "Leo");
+    await openAs(page, "Launch party karaoke (sample)", "Leo");
     await expect(page.getByRole("heading", { name: "Booking not confirmed." })).toBeVisible();
     await expect(page.getByText("A payment failed; completed payments are being refunded.")).toBeVisible();
 
-    await openAs(page, "Escape room with the climbing crew (synthetic)", "Elias");
+    await openAs(page, "Escape room with the climbing crew (sample)", "Elias");
     await expect(page.getByRole("button", { name: "Review & authorize $30" })).toBeVisible();
   });
 });
