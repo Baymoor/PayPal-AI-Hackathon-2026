@@ -38,6 +38,7 @@ import { enqueueJob, operationsJobKey } from "../jobs/queue";
 import type { MerchantBookingRow, MerchantOperationRow, MerchantOutingDetail, MerchantParticipantRow } from "../contracts/views";
 import type { PaymentProviderName } from "../domain/types";
 import { getOutingsAi } from "../ai";
+import { FixtureOutingsAi } from "../ai/fixture";
 import { DashboardQuerySchema, type AiSource, type DashboardQuery } from "../ai/types";
 import { config } from "../env";
 import { isActiveParticipant } from "./outings";
@@ -304,12 +305,18 @@ export const MAX_DASHBOARD_QUESTION_CHARS = 300;
  * The result is data for the client-side grid; it cannot invoke any service,
  * let alone capture/void/refund.
  */
-export async function dashboardQuery(db: DbOrTx, question: string, now: Date = new Date()): Promise<DashboardQueryResult> {
+export async function dashboardQuery(
+  db: DbOrTx,
+  question: string,
+  now: Date = new Date(),
+  /** `sampleOnly`: answer with the deterministic sample parser (labelled FIXTURE) and never call the real model. */
+  opts: { sampleOnly?: boolean } = {},
+): Promise<DashboardQueryResult> {
   const q = question.replace(/\s+/g, " ").trim().slice(0, MAX_DASHBOARD_QUESTION_CHARS);
   if (!q) throw badRequest("INVALID_QUESTION", "Ask a question about your bookings");
   let source: string = config().aiMode;
   try {
-    const ai = getOutingsAi();
+    const ai = opts.sampleOnly ? new FixtureOutingsAi() : getOutingsAi();
     source = ai.source;
     const result = await ai.dashboardQuery({ question: q, now });
     const query = DashboardQuerySchema.parse(result.output);

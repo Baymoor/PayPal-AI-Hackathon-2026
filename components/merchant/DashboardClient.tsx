@@ -47,11 +47,13 @@ export interface DashboardClientProps {
   fixtures: boolean;
   /** Studio AI assistant is only offered when the server can serve it. */
   aiEnabled: boolean;
+  /** Set when the assistant is for signed-in judges only and this visitor is not one: where to sign in. */
+  assistantSignInHref?: string | null;
   /** The signed-in merchant's name (demo sign-in can pick any demo venue); null when unknown. */
   merchantName?: string | null;
 }
 
-export default function DashboardClient({ licenseKey, fixtures, aiEnabled, merchantName = null }: DashboardClientProps) {
+export default function DashboardClient({ licenseKey, fixtures, aiEnabled, assistantSignInHref = null, merchantName = null }: DashboardClientProps) {
   const router = useRouter();
   const [rawRows, setRows] = useState<MerchantBookingRow[] | null>(null);
   const paymentMode = usePaymentMode();
@@ -151,7 +153,12 @@ export default function DashboardClient({ licenseKey, fixtures, aiEnabled, merch
         </div>
         <span className="m-spacer" />
         {fixtures && <Badge tone="fixture">Dev fixtures mode (?fixtures=1)</Badge>}
-        {aiEnabled && (
+        {aiEnabled && assistantSignInHref && (
+          <a className="m-btn" href={assistantSignInHref}>
+            <Bot size={16} aria-hidden /> Sign in as a judge to use the assistant
+          </a>
+        )}
+        {aiEnabled && !assistantSignInHref && (
           <button type="button" className="m-btn" aria-pressed={assistant} onClick={() => setAssistant((v) => !v)}>
             <Bot size={16} aria-hidden /> {assistant ? "Hide assistant" : "Ask the assistant"}
           </button>

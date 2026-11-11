@@ -1,5 +1,6 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
+import { isJudgeSession, judgeLoginHref } from "@/lib/auth/judge";
 import { MERCHANT_COOKIE, merchantSessionFromCookieValue } from "@/lib/auth/session";
 import DashboardClient from "@/components/merchant/DashboardClient";
 import { signedInMerchantName } from "./signed-in-merchant";
@@ -26,5 +27,7 @@ export default async function MerchantDashboardPage({ searchParams }: { searchPa
     (process.env.NODE_ENV !== "production" && fixtures && sp.ai === "1"); // dev-only preview of the panel
   // Fixture rows are all The Sound Room's; a real session names whichever venue it is scoped to.
   const merchantName = fixtures ? "The Sound Room" : await signedInMerchantName();
-  return <DashboardClient licenseKey={licenseKey} fixtures={fixtures} aiEnabled={aiEnabled} merchantName={merchantName} />;
+  // The assistant is real Claude: with the judge gate on, visitors who are not judges get a sign-in link instead.
+  const assistantSignInHref = aiEnabled && !(await isJudgeSession()) ? judgeLoginHref("/merchant") : null;
+  return <DashboardClient licenseKey={licenseKey} fixtures={fixtures} aiEnabled={aiEnabled} assistantSignInHref={assistantSignInHref} merchantName={merchantName} />;
 }

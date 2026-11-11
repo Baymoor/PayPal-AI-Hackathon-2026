@@ -6,7 +6,7 @@
  * NDJSON lines: {kind:"event", event} for the chat UI and a final {kind:"done", response}.
  *
  * Safety:
- *  - requires a merchant session; same-origin check; per-merchant rate limit; body/turn caps;
+ *  - requires a merchant session and, when the judge gate is on, a judge session; same-origin check; per-merchant rate limit; body/turn caps;
  *  - the model id and max_tokens are ours (the request's `model` is ignored);
  *  - ONLY Studio's read-only view / query / filter tools are forwarded to the model. Tools that
  *    edit expressions or widgets are dropped, and no payment, booking or admin action exists as a tool;
@@ -17,6 +17,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
 import { isModernModel } from "@/lib/ai/anthropic";
 import { estimateStudioTurnTokens, studioTokenBudget } from "@/lib/ai/studio-budget";
+import { requireJudge } from "@/lib/auth/judge";
 import { config } from "@/lib/env";
 import { assertSameOrigin, handle, json, ServiceError } from "@/lib/http";
 import { requireMerchant } from "@/lib/services/access";
@@ -162,6 +163,8 @@ const line = (o: unknown) => new TextEncoder().encode(JSON.stringify(o) + "\n");
 export const POST = handle(async (req: Request): Promise<Response> => {
   assertSameOrigin(req);
   const { merchantId } = requireMerchant(req);
+  // The demo merchant sign-in needs no credentials, so real Claude is for signed-in judges only.
+  requireJudge(req);
   const cfg = config();
   if (!cfg.anthropic || cfg.aiMode !== "ANTHROPIC") {
     return json({ error: { code: "AI_UNAVAILABLE", message: "The assistant is switched off on this site because no AI model is connected. Use the filter box above the dashboard instead." } }, { status: 503 });
