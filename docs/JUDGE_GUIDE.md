@@ -2,7 +2,7 @@
 
 Outings lets a group book an outing without anyone fronting the money: private budget vote, PayPal holds of each person's maximum, and a server deadline that books it or releases everything. This guide walks you through it in about 10 minutes, from one browser.
 
-Two things to know first. Payments are **PayPal sandbox** only. Without API keys the app runs in **simulated** modes ("fixture" in the code) that are labelled on every screen ("Simulated · not real PayPal", "Sample AI text (no model call)"); [section 6](#6-real-simulated-and-verified) lists exactly what is real.
+Three things to know first. Payments are **PayPal sandbox** only. Without API keys the app runs in **simulated** modes ("fixture" in the code) that are labelled on every screen ("Simulated · not real PayPal", "Sample AI text (no model call)"); [section 6](#6-real-simulated-and-verified) lists exactly what is real. And on the live demo you [sign in as a judge](#sign-in-as-a-judge) before creating an outing; the `/demo` stories need no sign-in.
 
 ## 1. The 10-minute path
 
@@ -25,6 +25,7 @@ Follow [Run it in the README](../README.md#run-it-about-5-minutes) (Node 22.12+,
 - `SESSION_SECRET` and `CRON_SECRET` may stay empty locally. Without `CRON_SECRET` the deadline tick is open, but only in demo mode outside production.
 - On another port, set `APP_BASE_URL` to match: approval and invitation links are built from it.
 - `npm run demo:reset` wipes and re-seeds everything; `npm run db:seed` replaces only the demo outings.
+- The judge sign-in is off unless `JUDGE_PASSWORD` is set, so locally you can skip it.
 
 **Real PayPal sandbox (optional).** Create a sandbox REST app and a Personal buyer account in the PayPal Developer Dashboard, set `PAYPAL_CLIENT_ID` and `PAYPAL_CLIENT_SECRET`, and approve payments as the **Personal** account (PayPal refuses a business paying itself; a private window helps). `npx tsx scripts/paypal-smoke.ts` proves the adapter and writes redacted [evidence](evidence/README.md).
 
@@ -32,7 +33,13 @@ Follow [Run it in the README](../README.md#run-it-about-5-minutes) (Node 22.12+,
 
 ## 3. Plan your own outing in one browser
 
-Judge mode (demo mode only) lets you play every person without invitation links or private windows.
+### Sign in as a judge
+
+On the live demo, open `/judge/login` and sign in with username `judge` and the password given to judges with the submission. `/new` sends you there when you are not signed in, and brings you back afterwards. Your outings then use real Claude and the PayPal sandbox. Without a sign-in you can still play every `/demo` story, open invitation links and use the venue dashboard's demo sign-in.
+
+### Plan it
+
+Judge mode (demo mode only, and separate from the sign-in) lets you play every person without invitation links or private windows.
 
 1. **Brief.** Open `/new`, enter a name and click a starter: *Karaoke for Maya's birthday*, *Movie night*, *Wine tasting with the girlies*, *Gym session at the new gym with the boys* or *Padel doubles*. Each matches a fictional venue with one price for the group. The right panel shows what the AI understood.
    ![Brief](screenshots/brief.png)
@@ -61,14 +68,16 @@ On `/demo`, **Watch a deadline settle** creates a fresh karaoke outing ($100 roo
 | A payment fails at the deadline | Run the deadline, then again a few seconds later | Never confirmed: Jules's payment is declined, the other holds released and the three collected shares refunded; one refund needs a second try, and it is read back, not sent twice |
 | Ten friends share the room | Open as Kai, authorize $20 (estimate $10), then run the deadline | Confirmed: each of ten payers charged exactly $10 from a $20 hold |
 
-The services and the settlement engine are the real ones; only the payment provider is the simulator, with failures injected on purpose. **Run the deadline now** runs the same worker as the scheduler and can't settle early: the deadline is checked against the database clock.
+The stories need no sign-in. They always use the payment simulator and sample AI text, even on the live demo where PayPal sandbox and Claude keys are set, so nobody spends real API calls on them. The services and the settlement engine are the real ones; only the payment provider is the simulator, with failures injected on purpose. **Run the deadline now** runs the same worker as the scheduler and can't settle early: the deadline is checked against the database clock.
+
+**Reset demo data** re-seeds the standard demo outings but leaves any story started in the last 15 minutes, so you never cut short another judge's run. Older runs are cleaned up.
 
 ## 5. The venue's dashboard
 
 1. Open `/merchant/login`, choose a venue in the demo login (The Sound Room holds the seeded outings and scenarios) and sign in.
 2. **Bookings** and **Money** pages in AG Studio: KPIs, bookings by status, the custom *Booking Readiness* and *Money flow* widgets, and an AG Grid table. Clicking a chart cross-filters the page. Holds are never counted as revenue.
    ![Merchant dashboard](screenshots/merchant-dashboard.png) ![Merchant money](screenshots/merchant-money.png)
-3. Ask: *"Show outings closing today with missing required participants."* The AI returns a validated, read-only filter; it cannot move money.
+3. Ask: *"Show outings closing today with missing required participants."* The AI returns a validated, read-only filter; it cannot move money. Signed in as a judge, Claude reads the question and the AG Studio assistant answers; without a sign-in the filter uses the sample parser and the assistant asks you to sign in.
 4. Click an outing name for the drill-down: each person's status, money authorized vs allocated vs captured vs refunded, the payment operations, and a retry for failed ones.
    ![Merchant drill-down](screenshots/merchant-drilldown.png)
 
@@ -77,9 +86,9 @@ The services and the settlement engine are the real ones; only the payment provi
 | Piece | Without keys | With keys | Verified |
 |---|---|---|---|
 | Payments | Simulator, labelled "Simulated · not real PayPal" | PayPal sandbox, Orders v2 | **Yes, 7 Nov 2026:** authorize, $10-of-$20 final capture, idempotent replay, void, refund, and one full outing settled through the app ([evidence](evidence/README.md)) |
-| AI | Deterministic parser, labelled "Sample AI text (no model call)" | Claude, structured outputs | **Yes, 11 Nov 2026**, on the hosted demo: a full `scripts/ai-smoke.ts` run passed 12 of 13 checks, and the one that failed (venue ranking) was fixed and then passed 3 of 3 reruns. The automated tests use a mocked SDK |
-| Deadline, splitting, consent, access | Real code | Real code | 543 automated tests and 8 browser tests ([testing](TESTING.md)) |
-| Demo stories on `/demo` | Simulated, always | Simulated, always | Real services, simulated provider |
+| AI | Deterministic parser, labelled "Sample AI text (no model call)" | Claude, structured outputs, on outings you create (demo outings stay on the sample parser) | **Yes, 11 Nov 2026**, on the hosted demo: a full `scripts/ai-smoke.ts` run passed 12 of 13 checks, and the one that failed (venue ranking) was fixed and then passed 3 of 3 reruns. The automated tests use a mocked SDK |
+| Deadline, splitting, consent, access | Real code | Real code | 552 automated tests and 8 browser tests ([testing](TESTING.md)) |
+| Demo outings and stories on `/demo` | Simulated payments and sample AI, always | Simulated payments and sample AI, always | Real services, simulated provider |
 
 Not verified: PayPal webhook signatures against real deliveries, and PayPal negative testing. The hosted demo is live at https://outings.baymoor.dev, and its worker settles outings at the deadline with every browser closed (checked on 10 and 11 Nov 2026). `GET /api/health` shows the active modes without secrets. Limits and threat model: [security and limitations](SECURITY_AND_LIMITATIONS.md).
 
@@ -96,6 +105,7 @@ Not verified: PayPal webhook signatures against real deliveries, and PayPal nega
 | Private budget votes | [views.ts](../lib/services/views.ts) | [access.test.ts](../tests/access/access.test.ts) |
 | AI suggests, rules decide | [validate.ts](../lib/ai/validate.ts), [budget-options.ts](../lib/domain/budget-options.ts) | [ai.test.ts](../tests/ai/ai.test.ts), [budget-options.test.ts](../tests/domain/budget-options.test.ts) |
 | Judge mode can't cross outings or hijack a payment | [judge-persona.ts](../lib/demo/judge-persona.ts) | [judge-persona.test.ts](../tests/services/judge-persona.test.ts) |
+| Demo outings never call Claude, and never claim to | `aiModeForOuting` in [lib/ai/index.ts](../lib/ai/index.ts) | [ai-mode-per-outing.test.ts](../tests/services/ai-mode-per-outing.test.ts) |
 
 Diagrams and invariants: [architecture](ARCHITECTURE.md).
 

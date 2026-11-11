@@ -37,6 +37,22 @@ The last three are the hosted demo's platform: a DigitalOcean server running Doc
 
 Check that each URL opens in a private window (signed out) before submitting.
 
+## Testing instructions (judges only)
+
+Paste this only into a field that judges see and the public does not (a testing-instructions field, or the message to judges). Replace `[JUDGE PASSWORD]` with the value of `JUDGE_PASSWORD` on the server, and the two sandbox placeholders with a PayPal **sandbox** Personal test account (or delete that line). Never put the real values in the repo, the public description or the video.
+
+```
+Live demo: https://outings.baymoor.dev
+
+1. No sign-in needed: open /demo and press Start on any story ("Watch a deadline settle"). The demo outings always use the payment simulator and sample AI text, labelled on screen.
+2. To plan your own outing with real Claude and PayPal sandbox payments, sign in at https://outings.baymoor.dev/judge/login
+   Username: judge
+   Password: [JUDGE PASSWORD]
+   Then open /new, pick a starter and use the "Acting as" bar to play every person. The judge guide walks through it: https://github.com/Baymoor/PayPal-AI-Hackathon-2026/blob/main/docs/JUDGE_GUIDE.md
+3. Approve PayPal sandbox payments with a sandbox Personal (buyer) account, your own or this one: [SANDBOX BUYER EMAIL] / [SANDBOX BUYER PASSWORD]. No real money moves.
+4. Venue view: /merchant/login, demo sign-in. Signed in as a judge, the AG Studio assistant and the question box use Claude.
+```
+
 ## Image gallery, in this order
 
 The pictures are in `docs/gallery/`: nine 2400×1600 PNGs (3:2, each under 1 MB), composed from real captures of the production build. The demo screens in them run on the labelled payment simulator and sample AI text, so no caption below claims real PayPal. For the PayPal sandbox proof, screenshot the result table in [evidence/README.md](evidence/README.md) or your own PayPal sandbox dashboard.
@@ -61,7 +77,7 @@ The pictures are in `docs/gallery/`: nine 2400×1600 PNGs (3:2, each under 1 MB)
 >
 > **Real PayPal sandbox.** The payment adapter is verified against the PayPal REST sandbox: authorize, a $10 final capture of a $20 hold (PayPal then released the rest), idempotent capture replay, void, and refund. One full outing also ran through the app itself: three payers each authorized $50, and at the deadline the server captured $33.34, $33.33 and $33.33, exactly $100. All three holds were approved from a single sandbox buyer account. Reading every authorization back from PayPal matched the app's records.
 >
-> **Simulated, and labelled on screen.** The one-click scenarios on `/demo`, including the failed capture and the refund recovery in the video, use our payment simulator ("Simulated · not real PayPal"), not PayPal. PayPal webhook delivery and PayPal's negative-testing headers are implemented but not yet verified against PayPal.
+> **Simulated, and labelled on screen.** The one-click scenarios on `/demo`, including the failed capture and the refund recovery in the video, use our payment simulator ("Simulated · not real PayPal"), not PayPal, and sample AI text ("Sample AI text (no model call)"), not Claude. Only signed-in judges create outings that use Claude and the PayPal sandbox. PayPal webhook delivery and PayPal's negative-testing headers are implemented but not yet verified against PayPal.
 >
 > **AI.** [A] Claude extracts the plan from the brief, ranks catalogue offers, summarizes the budget reveal and answers read-only questions in the merchant dashboard, including AG Studio's agent panel. [B] The Claude integration is implemented and tested against a mocked SDK, but not yet verified against the Anthropic API, so the demo and video use a clearly labelled stand-in ("Sample AI text (no model call)") instead. In every mode, AI never decides who pays, how much or when; plain server code does.
 >
