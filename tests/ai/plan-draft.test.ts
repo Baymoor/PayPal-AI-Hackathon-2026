@@ -315,6 +315,9 @@ describe("AnthropicOutingsAi.draftPlan (mocked client)", () => {
     expect(params.tool_choice).toBeUndefined();
     expect(params.temperature).toBeUndefined();
     expect(params.output_config.effort).toBe("low");
+    // Thinking counts toward max_tokens, so the planner gets room for it.
+    expect(params.max_tokens).toBe(8000);
+    expect(PLAN_SYSTEM.trimEnd().endsWith("Think the problem through before you answer.")).toBe(true);
     expect(params.output_config.format.type).toBe("json_schema");
     const schema = params.output_config.format.schema;
     expect(Object.keys(schema.properties).sort()).toEqual(

@@ -373,6 +373,38 @@ describe("suggested budget-vote amounts", () => {
     expect(create.mock.calls[0][0].messages[0].content).not.toMatch(/suggestedVote/);
   });
 
+  it("gives the two reasoning tasks a think-first line and room to think; extraction stays small", async () => {
+    const ranker = make({ ranked: [], note: "n" });
+    await ranker.ai.proposeOfferings({ extraction: BriefExtractionSchema.parse(briefJson), catalogue, agreedBudgetMinor: 2000, budgetUnit: "PER_PERSON", groupSize: 6, payerCount: 5 });
+    const ranking = ranker.create.mock.calls[0][0];
+    expect(ranking.system.trimEnd().endsWith("Think the problem through before you answer.")).toBe(true);
+    expect(ranking.max_tokens).toBe(8000);
+    expect(ranking.output_config.effort).toBe("low");
+
+    const reader = make(briefJson);
+    await reader.ai.extractBrief({ brief, now: NOW, timezone: "UTC" });
+    const extraction = reader.create.mock.calls[0][0];
+    expect(extraction.system).not.toMatch(/Think the problem through/);
+    expect(extraction.max_tokens).toBe(3000);
+    // Worked examples steer the judgement calls (budget unit, covered guest, when to suggest amounts).
+    expect(extraction.system).toMatch(/<examples>[\s\S]*<\/examples>/);
+  });
+
+  it("tells the dashboard translator what each field takes, with the recovery status as a name", async () => {
+    const { create, ai } = make({ filters: [], sort: null, focus: null, explanation: "e" });
+    await ai.dashboardQuery({ question: "refunds pending", now: NOW });
+    const system = create.mock.calls[0][0].system as string;
+    expect(system).toMatch(/cleanup \(the recovery status\): one of NONE, VOID_PENDING, REFUND_PENDING, NEEDS_ATTENTION, COMPLETE/);
+    expect(system).not.toMatch(/cleanup take booleans/);
+  });
+
+  it("gives the reveal one rule for the suggested amount", async () => {
+    const { create, ai } = make({ headline: "h", summary: "s", suggestedAmountMinor: 2000 });
+    const agg: RevealAggregate = { unit: "PER_PERSON", currency: "USD", voteCount: 3, invitedCount: 3, buckets: [], minMinor: 1500, maxMinor: 3000, medianMinor: 2000 };
+    await ai.summarizeReveal({ aggregate: agg, extraction: null });
+    expect(create.mock.calls[0][0].system).toMatch(/the amount in buckets with the most votes; when two or more amounts tie for the most, use medianMinor/);
+  });
+
   it("tells the ranker the budget is per person and hands it the app's own share for each offering", async () => {
     const { create, ai } = make({ ranked: [], note: "n" });
     const extraction = BriefExtractionSchema.parse(briefJson);

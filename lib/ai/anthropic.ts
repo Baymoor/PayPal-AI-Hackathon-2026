@@ -50,6 +50,25 @@ export const ANTHROPIC_BASE_URL = "https://api.anthropic.com";
 export const REQUEST_TIMEOUT_MS = 20_000;
 export const MAX_RETRIES = 1;
 export const MAX_OUTPUT_TOKENS = 3000;
+/**
+ * Ranking and planning work something out before they answer, and thinking counts toward max_tokens even though
+ * it is never returned. A limit sized for the JSON alone would cut those answers off; billing follows actual use.
+ */
+export const MAX_REASONING_OUTPUT_TOKENS = 8000;
+
+/** What one kind of request needs. Extraction and summaries stay small; the two reasoning tasks get room to think. */
+interface TaskSettings {
+  effort: "low" | "medium" | "high";
+  maxTokens: number;
+}
+
+/**
+ * Effort stays "low" (Anthropic's starting point for extraction, classification and chat on Claude Sonnet 5.5).
+ * The reasoning tasks get their accuracy from the think-first line in their prompts instead; raise their effort
+ * here only after `scripts/ai-smoke.ts` shows the latency is acceptable.
+ */
+const EXTRACTION: TaskSettings = { effort: "low", maxTokens: MAX_OUTPUT_TOKENS };
+const REASONING: TaskSettings = { effort: "low", maxTokens: MAX_REASONING_OUTPUT_TOKENS };
 
 /** The parts of a Messages API response we read (everything else is ignored). */
 export interface AnthropicMessageLike {
@@ -118,15 +137,15 @@ export class AnthropicOutingsAi implements OutingsAi {
       }) as unknown as AnthropicLike);
   }
 
-  private async call<S extends z.ZodType>(system: string, user: string, schema: S): Promise<z.infer<S>> {
+  private async call<S extends z.ZodType>(system: string, user: string, schema: S, task: TaskSettings = EXTRACTION): Promise<z.infer<S>> {
     const params: Record<string, unknown> = {
       model: this.model,
-      max_tokens: MAX_OUTPUT_TOKENS,
+      max_tokens: task.maxTokens,
       system,
       messages: [{ role: "user", content: user }],
       output_config: {
         format: { type: "json_schema", schema: toJsonSchema(schema) },
-        ...(isModernModel(this.model) ? { effort: "low" } : {}),
+        ...(isModernModel(this.model) ? { effort: task.effort } : {}),
       },
       // No temperature: the API version the SDK sends (2026-10-21) rejects sampling params on every model.
     };
@@ -170,7 +189,7 @@ export class AnthropicOutingsAi implements OutingsAi {
   }
 
   async proposeOfferings(input: ProposalInput): Promise<AiResult<Proposal>> {
-    const raw = await this.call(PROPOSAL_SYSTEM, proposalUserMessage(input), ProposalSchema);
+    const raw = await this.call(PROPOSAL_SYSTEM, proposalUserMessage(input), ProposalSchema, REASONING);
     const v = validateProposal(raw, input.catalogue);
     return this.wrap(v.output, v.warnings);
   }
@@ -193,7 +212,7 @@ export class AnthropicOutingsAi implements OutingsAi {
    * value reaches the organizer; nothing here is applied automatically.
    */
   async draftPlan(input: PlanDraftInput): Promise<AiResult<PlanDraft>> {
-    const raw = await this.call(PLAN_SYSTEM, planUserMessage(input), PlanDraftSchema);
+    const raw = await this.call(PLAN_SYSTEM, planUserMessage(input), PlanDraftSchema, REASONING);
     return this.wrap(raw, []);
   }
 }
