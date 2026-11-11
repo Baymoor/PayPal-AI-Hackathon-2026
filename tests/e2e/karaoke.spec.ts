@@ -16,6 +16,7 @@ import {
   newPage,
   openInvitation,
   shot,
+  shotAround,
   tickUntil,
   viewOf,
 } from "./helpers";
@@ -38,6 +39,14 @@ test("karaoke for Maya: plan, vote privately, commit, settle at the deadline, me
   contexts.push(org.context);
   pages.Alex = org.page;
   const alex = org.page;
+
+  await test.step("the landing page, as a visitor first sees it", async () => {
+    const visitor = await newPage(browser, DESKTOP);
+    contexts.push(visitor.context);
+    await visitor.page.goto("/");
+    await expect(visitor.page.getByRole("heading", { level: 1 })).toBeVisible();
+    await shot(visitor.page, "landing", { fullPage: false });
+  });
 
   await test.step("(a) organizer writes the brief and sees what the (sample) AI understood", async () => {
     await alex.goto("/new");
@@ -120,7 +129,9 @@ test("karaoke for Maya: plan, vote privately, commit, settle at the deadline, me
     await expect(alex.getByRole("img", { name: /per person, by amount: .*\$20: 3 votes/ })).toBeVisible();
     await expect(alex.getByText("Amounts only. No names.")).toBeVisible();
     await expect(alex.getByText("Sample AI text (no model call)").first()).toBeVisible();
-    await shot(alex, "reveal", { fullPage: false });
+    // The chart, the summary and the proposed amount, without the demo controls above them.
+    const panel = alex.locator("figure").locator("xpath=ancestor::div[contains(@class,'lg:grid-cols')][1]");
+    await shotAround(alex, "reveal", [panel]);
 
     const maya = pages.Maya;
     await maya.reload();
@@ -149,6 +160,9 @@ test("karaoke for Maya: plan, vote privately, commit, settle at the deadline, me
     await expect(room).toContainText("$16.67 each with 6 paying");
     const suite = alex.locator("label").filter({ hasText: "Karaoke party suite" });
     await expect(suite).toContainText("$30 each with 6 paying, above the agreed $20");
+    // Within the agreed amount is a great fit; above it is at most a good one.
+    await expect(room).toContainText("Great fit");
+    await expect(suite).toContainText("Good fit");
     await room.click();
     await expect(room.getByText("Selected", { exact: true })).toBeVisible();
 
@@ -166,6 +180,8 @@ test("karaoke for Maya: plan, vote privately, commit, settle at the deadline, me
     await expect(alex.getByLabel("Minimum payers")).toHaveValue("5");
     await expect(alex.getByText(/^Each payer authorizes up to \$20 by /)).toBeVisible();
     await shot(alex, "sponsor");
+    // The two karaoke options side by side in budget terms: one within what the group agreed, one above it.
+    await shotAround(alex, "venue-cards", [alex.getByRole("heading", { name: "Ranked for your group" }), room, suite]);
   });
 
   await test.step("(b) open commitments with a deadline ~80 s away (server clock)", async () => {

@@ -78,7 +78,7 @@ The services and the settlement engine are the real ones; only the payment provi
 |---|---|---|---|
 | Payments | Simulator, labelled "Simulated · not real PayPal" | PayPal sandbox, Orders v2 | **Yes, 7 Nov 2026:** authorize, $10-of-$20 final capture, idempotent replay, void, refund, and one full outing settled through the app ([evidence](evidence/README.md)) |
 | AI | Deterministic parser, labelled "Sample AI text (no model call)" | Claude, structured outputs | Not yet against the real API; tests use a mocked SDK |
-| Deadline, splitting, consent, access | Real code | Real code | 440 automated tests and 6 browser tests ([testing](TESTING.md)) |
+| Deadline, splitting, consent, access | Real code | Real code | 527 automated tests and 8 browser tests ([testing](TESTING.md)) |
 | Demo stories on `/demo` | Simulated, always | Simulated, always | Real services, simulated provider |
 
 Not verified: PayPal webhook signatures against real deliveries, PayPal negative testing, and any hosted deployment. `GET /api/health` shows the active modes without secrets. Limits and threat model: [security and limitations](SECURITY_AND_LIMITATIONS.md).

@@ -1,4 +1,4 @@
-import { expect, type APIRequestContext, type Browser, type BrowserContext, type Page } from "@playwright/test";
+import { expect, type APIRequestContext, type Browser, type BrowserContext, type Locator, type Page } from "@playwright/test";
 import type { MerchantOutingDetail, OutingView } from "../../lib/contracts/views";
 import { E2E_ENV } from "./env";
 
@@ -18,6 +18,35 @@ export async function shot(page: Page, name: string, opts: { fullPage?: boolean;
     if (top) window.scrollTo(0, 0);
   }, !fullPage && !opts.keepScroll);
   await page.screenshot({ path: `docs/screenshots/${name}.png`, fullPage, animations: "disabled", caret: "hide" });
+}
+
+/** An element's box in page coordinates (not viewport coordinates), so it can clip a full-page screenshot. */
+async function pageBox(target: Locator): Promise<{ left: number; top: number; right: number; bottom: number }> {
+  return target.evaluate((el) => {
+    const r = el.getBoundingClientRect();
+    return { left: r.left + window.scrollX, top: r.top + window.scrollY, right: r.right + window.scrollX, bottom: r.bottom + window.scrollY };
+  });
+}
+
+/**
+ * Like `shot`, but only the area that covers the given elements, with a little breathing room. For the README,
+ * where a whole long page would bury the one thing the picture is there to show.
+ */
+export async function shotAround(page: Page, name: string, targets: readonly Locator[], padding = 24): Promise<void> {
+  if (process.env.E2E_SCREENSHOTS !== "1") return;
+  await page.evaluate(() => document.fonts.ready);
+  const boxes = await Promise.all(targets.map(pageBox));
+  const left = Math.max(0, Math.min(...boxes.map((b) => b.left)) - padding);
+  const top = Math.max(0, Math.min(...boxes.map((b) => b.top)) - padding);
+  const right = Math.max(...boxes.map((b) => b.right)) + padding;
+  const bottom = Math.max(...boxes.map((b) => b.bottom)) + padding;
+  await page.screenshot({
+    path: `docs/screenshots/${name}.png`,
+    fullPage: true,
+    clip: { x: left, y: top, width: right - left, height: bottom - top },
+    animations: "disabled",
+    caret: "hide",
+  });
 }
 
 export async function newPage(browser: Browser, device: typeof MOBILE | typeof DESKTOP): Promise<{ context: BrowserContext; page: Page }> {

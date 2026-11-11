@@ -115,9 +115,11 @@ The model extracts facts and drafts suggestions; deterministic code validates ev
 
 - `extractBrief`: a budget the brief does not state is dropped; categories must exist in the catalogue.
 - `proposeOfferings`: only real, active offerings that fit the group survive; prices come from the database.
-- `summarizeReveal`: sees an anonymous vote distribution; an out-of-range suggested total is replaced by the median.
+- `summarizeReveal`: sees an anonymous vote distribution; an out-of-range suggested amount is replaced by the median.
 - `draftPlan`: `validatePlanDraft` drops (never fixes) invalid offerings, times, deadlines and sponsors.
 - `dashboardQuery` and the [AG Studio proxy](../app/api/merchant/ai/studio/route.ts): read-only filters and view tools only; no capture, void, refund or edit tool exists.
+
+**Consistent answers.** The model is Claude Sonnet 5.5 at `low` effort with structured output (`output_config.format`), which fixes the shape of every answer. Sonnet 5.5 rejects sampling parameters, so there is no temperature to turn down; the [prompts](../lib/ai/prompts.ts) get consistency from structure instead, following Anthropic's prompting guidance for this model. Each task lists its decision rules in the order to apply them, with a tie-break (the ranker has an explicit category, group, budget and needs rubric; the planner uses the same slot and deadline rules as the sample planner). The tasks with judgement calls carry worked examples. Ranking and planning end with a think-first line and get a larger `max_tokens`, because with structured output the model can only reason in its thinking, which counts toward that limit. The effect on the real API is not yet measured: [ai-smoke.ts](../scripts/ai-smoke.ts) needs the owner's key.
 
 Budget votes are per person ("what would you personally pay?"). The vote amounts are sized per outing by `chooseBudgetOptions` in [budget-options.ts](../lib/domain/budget-options.ts). The AI's five suggested amounts are used only if they are whole dollars, strictly increasing, at most 10x apart, and contain the app's own anchor, which also catches a model answering with whole-group totals. Otherwise the code builds 0.5x, 0.75x, 1x, 1.5x, 2x around that anchor: the brief's per-person budget, else its total divided by the people paying, else the lower median of what matching catalogue offerings cost per person, else $20.
 
