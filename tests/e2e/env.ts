@@ -6,6 +6,15 @@
 export const E2E_PORT = Number(process.env.E2E_PORT ?? 3400);
 export const E2E_BASE_URL = process.env.E2E_BASE_URL ?? `http://localhost:${E2E_PORT}`;
 
+/**
+ * A second server from the same build with the judge gate ON, used only by judge-login.spec.ts.
+ * Every other spec runs against the main server, where JUDGE_PASSWORD is blank (gate off).
+ */
+export const E2E_JUDGE_PORT = Number(process.env.E2E_JUDGE_PORT ?? E2E_PORT + 100);
+export const E2E_JUDGE_BASE_URL = process.env.E2E_JUDGE_BASE_URL ?? `http://localhost:${E2E_JUDGE_PORT}`;
+/** Test-only credentials (not secrets, never used on a real deployment). */
+export const E2E_JUDGE = { username: "e2e-judge", password: "e2e-judge-password-not-a-secret" } as const;
+
 export const E2E_ENV: Record<string, string> = {
   DATABASE_URL: process.env.E2E_DATABASE_URL ?? process.env.DATABASE_URL ?? "postgres://outings:outings@localhost:5432/outings",
   DEMO_FIXTURES_ENABLED: "true",
@@ -23,4 +32,15 @@ export const E2E_ENV: Record<string, string> = {
   PAYPAL_CLIENT_SECRET: "",
   PAYPAL_WEBHOOK_ID: "",
   OUTINGS_ANTHROPIC_API_KEY: "",
+  JUDGE_PASSWORD: "",
+};
+
+export const E2E_JUDGE_ENV: Record<string, string> = {
+  ...E2E_ENV,
+  APP_BASE_URL: E2E_JUDGE_BASE_URL,
+  E2E_PORT: String(E2E_JUDGE_PORT),
+  // The main server (started first) has already built NEXT_DIST_DIR.
+  E2E_SKIP_BUILD: "1",
+  JUDGE_USERNAME: E2E_JUDGE.username,
+  JUDGE_PASSWORD: E2E_JUDGE.password,
 };

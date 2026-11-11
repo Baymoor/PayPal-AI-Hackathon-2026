@@ -1,5 +1,5 @@
 import { defineConfig } from "@playwright/test";
-import { E2E_BASE_URL, E2E_ENV } from "./tests/e2e/env";
+import { E2E_BASE_URL, E2E_ENV, E2E_JUDGE_BASE_URL, E2E_JUDGE_ENV } from "./tests/e2e/env";
 
 /**
  * End-to-end tests in a real Chromium against the PRODUCTION build (FIXTURE payment + AI modes).
@@ -8,6 +8,7 @@ import { E2E_BASE_URL, E2E_ENV } from "./tests/e2e/env";
  *   E2E_SKIP_BUILD=1 npm run test:e2e     reuse an existing .next-e2e build
  *   E2E_SCREENSHOTS=1 npm run test:e2e    also refresh docs/screenshots/*.png
  *
+ * A second server on :3500 runs the same build with the judge gate on (JUDGE_PASSWORD set) for judge-login.spec.ts.
  * A server already listening on :3400 is reused (it must use the same CRON_SECRET, see tests/e2e/env.ts).
  * Time-based settlement is driven through POST /api/cron/tick (bearer CRON_SECRET), exactly like a scheduler;
  * a separately running `npm run worker` is harmless. The global setup TRUNCATES the e2e database.
@@ -31,13 +32,25 @@ export default defineConfig({
     reducedMotion: "reduce",
   },
   projects: [{ name: "chromium", use: { browserName: "chromium" } }],
-  webServer: {
-    command: "node tests/e2e/serve.mjs",
-    url: `${E2E_BASE_URL}/api/health`,
-    reuseExistingServer: true,
-    timeout: 5 * 60_000,
-    env: E2E_ENV,
-    stdout: "ignore",
-    stderr: "pipe",
-  },
+  // Started in order: the main server builds the app, the judge-gate server (judge-login.spec.ts) reuses that build.
+  webServer: [
+    {
+      command: "node tests/e2e/serve.mjs",
+      url: `${E2E_BASE_URL}/api/health`,
+      reuseExistingServer: true,
+      timeout: 5 * 60_000,
+      env: E2E_ENV,
+      stdout: "ignore",
+      stderr: "pipe",
+    },
+    {
+      command: "node tests/e2e/serve.mjs",
+      url: `${E2E_JUDGE_BASE_URL}/api/health`,
+      reuseExistingServer: true,
+      timeout: 5 * 60_000,
+      env: E2E_JUDGE_ENV,
+      stdout: "ignore",
+      stderr: "pipe",
+    },
+  ],
 });
