@@ -24,6 +24,9 @@ export const RATE_LIMITS = {
   vote: { capacity: 20, refillPerMinute: 30 },
   mutation: { capacity: 60, refillPerMinute: 60 },
   merchantLogin: { capacity: 5, refillPerMinute: 5 },
+  judgeLogin: { capacity: 10, refillPerMinute: 10 },
+  /** Wrong judge credentials: 5 in a row, then one more guess a minute. */
+  judgeLoginFailure: { capacity: 5, refillPerMinute: 1 },
   invite: { capacity: 30, refillPerMinute: 30 },
   demo: { capacity: 10, refillPerMinute: 10 },
 } satisfies Record<string, RateLimitRule>;
@@ -101,6 +104,17 @@ export function rateLimit(req: Request, route: string, rule: RateLimitRule, nowM
   if (!takeToken(`${clientIp(req)}|${route}`, rule, nowMs)) {
     throw new ServiceError("RATE_LIMITED", 429, "Too many requests. Please wait a moment and try again.");
   }
+}
+
+/**
+ * True while the caller still has a token for this route, without spending one. For buckets that are only
+ * charged on failure (wrong sign-in credentials): check before the attempt, charge with `takeToken` after.
+ */
+export function hasToken(req: Request, route: string, rule: RateLimitRule, nowMs: number = Date.now()): boolean {
+  const b = buckets().get(`${clientIp(req)}|${route}`);
+  if (!b) return true;
+  const elapsedMin = Math.max(0, nowMs - b.updatedAt) / 60_000;
+  return Math.min(rule.capacity, b.tokens + elapsedMin * rule.refillPerMinute) >= 1;
 }
 
 /** Test helper. */

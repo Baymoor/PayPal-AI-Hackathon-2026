@@ -12,6 +12,9 @@ const boolish = z
   .optional()
   .transform((v) => v === "true" || v === "1");
 
+export const MIN_JUDGE_PASSWORD_LENGTH = 16;
+export const DEFAULT_JUDGE_USERNAME = "judge";
+
 const EnvSchema = z.object({
   NODE_ENV: z.string().optional(),
   DATABASE_URL: z.string().optional(),
@@ -20,6 +23,15 @@ const EnvSchema = z.object({
   CRON_SECRET: z.string().optional(),
   DEMO_FIXTURES_ENABLED: boolish,
   MERCHANT_DASHBOARD_PASSWORD: z.string().optional(),
+  JUDGE_USERNAME: z.string().max(100).optional(),
+  // Empty = unset (judge gate off). When set it guards real PayPal sandbox and Claude use, so no short passwords.
+  JUDGE_PASSWORD: z
+    .string()
+    .max(200)
+    .optional()
+    .refine((v) => !v || v.trim().length === 0 || v.trim().length >= MIN_JUDGE_PASSWORD_LENGTH, {
+      message: `JUDGE_PASSWORD must be at least ${MIN_JUDGE_PASSWORD_LENGTH} characters`,
+    }),
   PAYPAL_ENV: z.enum(["sandbox"]).optional(),
   PAYPAL_CLIENT_ID: z.string().optional(),
   PAYPAL_CLIENT_SECRET: z.string().optional(),
@@ -43,6 +55,11 @@ export interface AppConfig {
   cronSecret: string | undefined;
   demoFixturesEnabled: boolean;
   merchantDashboardPassword: string | undefined;
+  /**
+   * Judge sign-in (lib/auth/judge.ts). null = gate off: everyone may create real outings and use real AI,
+   * as in local development and tests. Set JUDGE_PASSWORD to switch the gate on.
+   */
+  judge: { username: string; password: string } | null;
   paymentMode: PaymentMode;
   paypal: { clientId: string; clientSecret: string; webhookId: string | undefined; merchantId: string | undefined; apiBase: string } | null;
   agStudioLicenseKey: string | undefined;
@@ -72,8 +89,15 @@ function parseTrustedProxyHops(v: string | undefined): number {
   return Number(s);
 }
 
+/** A readable configuration error (variable names and rules only, never values). */
+function parseEnv(env: NodeJS.ProcessEnv): z.infer<typeof EnvSchema> {
+  const result = EnvSchema.safeParse(env);
+  if (result.success) return result.data;
+  throw new Error(`Invalid environment: ${result.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; ")}`);
+}
+
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
-  const parsed = EnvSchema.parse(env);
+  const parsed = parseEnv(env);
   const isProduction = parsed.NODE_ENV === "production";
   const demo = parsed.DEMO_FIXTURES_ENABLED;
 
@@ -94,6 +118,9 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
   const apiKey = nonEmpty(parsed.OUTINGS_ANTHROPIC_API_KEY);
   const anthropic = apiKey ? { apiKey, model: nonEmpty(parsed.OUTINGS_AI_MODEL) ?? "claude-sonnet-5-5" } : null;
 
+  const judgePassword = nonEmpty(parsed.JUDGE_PASSWORD);
+  const judge = judgePassword ? { username: nonEmpty(parsed.JUDGE_USERNAME) ?? DEFAULT_JUDGE_USERNAME, password: judgePassword } : null;
+
   const secret = nonEmpty(parsed.SESSION_SECRET);
   if (!secret && isProduction) {
     throw new Error("SESSION_SECRET is required in production");
@@ -109,6 +136,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     cronSecret: nonEmpty(parsed.CRON_SECRET),
     demoFixturesEnabled: demo,
     merchantDashboardPassword: nonEmpty(parsed.MERCHANT_DASHBOARD_PASSWORD),
+    judge,
     paymentMode: paypal ? "PAYPAL_SANDBOX" : demo ? "FIXTURE" : "DISABLED",
     paypal,
     agStudioLicenseKey: nonEmpty(parsed.AG_STUDIO_LICENSE_KEY),

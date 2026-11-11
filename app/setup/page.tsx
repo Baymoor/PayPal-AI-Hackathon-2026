@@ -14,6 +14,8 @@ const ENV_VARS: { name: string; secret: boolean; note: string }[] = [
   { name: "SESSION_SECRET", secret: true, note: "Cookie signing; required in production" },
   { name: "CRON_SECRET", secret: true, note: "Bearer token for /api/cron/tick" },
   { name: "MERCHANT_DASHBOARD_PASSWORD", secret: true, note: "Merchant sign-in" },
+  { name: "JUDGE_USERNAME", secret: true, note: "Judge sign-in (default: judge)" },
+  { name: "JUDGE_PASSWORD", secret: true, note: "Judge sign-in; set = only judges create outings or reach Claude" },
   { name: "DEMO_FIXTURES_ENABLED", secret: false, note: "Labelled fixture modes" },
   { name: "PAYPAL_CLIENT_ID", secret: true, note: "Sandbox REST app" },
   { name: "PAYPAL_CLIENT_SECRET", secret: true, note: "Sandbox REST app" },

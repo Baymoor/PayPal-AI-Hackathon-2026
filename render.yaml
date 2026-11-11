@@ -34,6 +34,11 @@ services:
         value: "1"
       - key: MERCHANT_DASHBOARD_PASSWORD
         sync: false
+      # Judge sign-in (/judge/login): set a password of 16+ characters to keep real outings and Claude for judges.
+      - key: JUDGE_USERNAME
+        value: judge
+      - key: JUDGE_PASSWORD
+        sync: false
       - key: PAYPAL_ENV
         value: sandbox
       - key: PAYPAL_CLIENT_ID
