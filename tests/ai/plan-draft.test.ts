@@ -244,8 +244,17 @@ describe("validatePlanDraft drops invalid fields with a note (never fixes them u
   it("sanitizes free text and rejects malformed shapes", () => {
     const v = validatePlanDraft({ ...GOOD, rationale: ["see [this](https://evil.example) www.evil.example now"], cautions: ["ok"] }, ctx());
     expect(v.rationale).toEqual(["see this now"]);
-    expect(() => validatePlanDraft({ ...GOOD, rationale: ["a", "b", "c", "d", "e"] }, ctx())).toThrow();
     expect(() => validatePlanDraft({ ...GOOD, minPayers: 2.5 }, ctx())).toThrow();
+    expect(() => validatePlanDraft({ ...GOOD, rationale: "one long reason" } as unknown as PlanDraft, ctx())).toThrow();
+  });
+
+  it("trims long or extra reasons and cautions instead of discarding the draft", () => {
+    // Real Claude (11 Nov 2026) wrote a third reason over 140 characters; that must not sink the plan.
+    const long = "x".repeat(200);
+    const v = validatePlanDraft({ ...GOOD, rationale: ["a", "b", long, "d", "e"], cautions: ["1", "2", "3", long, ""] }, ctx());
+    expect(v.dropped).toEqual([]);
+    expect(v.rationale).toEqual(["a", "b", "x".repeat(140), "d"]);
+    expect(v.cautions).toEqual(["1", "2", "3"]);
   });
 });
 
@@ -348,9 +357,21 @@ describe("AnthropicOutingsAi.draftPlan (mocked client)", () => {
   });
 
   it("throws AiOutputError on a draft that breaks the schema", async () => {
-    const { ai } = make(reply({ ...GOOD, rationale: ["1", "2", "3", "4", "5"] }));
+    const { ai } = make(reply({ ...GOOD, minPayers: "five" }));
     await expect(ai.draftPlan(await planInput())).rejects.toBeInstanceOf(AiOutputError);
-    const { ai: ai2 } = make(reply({ ...GOOD, minPayers: "five" }));
+    const { ai: ai2 } = make(reply({ ...GOOD, cautions: null }));
     await expect(ai2.draftPlan(await planInput())).rejects.toBeInstanceOf(AiOutputError);
+  });
+
+  it("accepts a draft whose reasons are longer or more than the form shows (the validator trims them)", async () => {
+    const long = `${"The private karaoke room fits all six of you and is the room the organizer already picked, ".repeat(2)}so it comes first.`;
+    const { ai } = make(reply({ ...GOOD, rationale: ["1", "2", long, "4", "5"] }));
+    const r = await ai.draftPlan(await planInput());
+    expect(long.length).toBeGreaterThan(140);
+    expect(r.output.rationale).toHaveLength(5);
+    const kept = validatePlanDraft(r.output, ctx()).rationale;
+    expect(kept).toHaveLength(4);
+    expect(kept[2].length).toBeLessThanOrEqual(140);
+    expect(long.startsWith(kept[2])).toBe(true);
   });
 });

@@ -222,8 +222,11 @@ export const PlanDraftSchema = z.object({
   deadlineLocal: localWallTime,
   minPayers: z.number().int(),
   sponsoredParticipantName: z.string().max(80).nullable(),
-  rationale: z.array(z.string().min(1).max(140)).max(4),
-  cautions: z.array(z.string().min(1).max(140)).max(3),
+  // No length or count limits on the free text: structured output cannot carry them (toJsonSchema strips
+  // them), so the model never sees them, and one wordy reason would throw away the whole draft.
+  // validatePlanDraft keeps at most 4 reasons and 3 cautions, each trimmed to 140 characters.
+  rationale: z.array(z.string()),
+  cautions: z.array(z.string()),
 });
 export type PlanDraft = z.infer<typeof PlanDraftSchema>;
 
