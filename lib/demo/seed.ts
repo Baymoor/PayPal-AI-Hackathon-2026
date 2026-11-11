@@ -14,9 +14,11 @@
  * - Settlement snapshots are produced by the real `decideSettlement` policy.
  *
  * Re-seeding deletes FIXTURE outings only; the merchant/catalogue are upserted
- * by slug so ids referenced by real (non-fixture) outings stay stable.
+ * by slug so ids referenced by real (non-fixture) outings stay stable. A /demo
+ * story started in the last DEMO_SCENARIO_KEEP_MS (15 min) survives a re-seed,
+ * so one visitor's Reset never wipes another visitor's run; older runs go.
  */
-import { and, desc, eq, inArray, or, sql } from "drizzle-orm";
+import { and, desc, eq, gt, inArray, not, or, sql, type SQL } from "drizzle-orm";
 import type { Db } from "../db/client";
 import {
   aiRuns,
@@ -54,7 +56,16 @@ import { aggregateVotes, commitStatement, type StoredBriefExtraction, type Store
 import { authorizeRequestId, orderRequestId } from "../services/payments";
 import { checkAvailability, zonedParts, zonedTimeToUtc } from "../services/catalogue";
 
-import { DEMO_BUDGET_TITLE, DEMO_MAIN_TITLE, DEMO_MERCHANT_NAME, DEMO_MERCHANT_SLUG, DEMO_TIMEZONE } from "./constants";
+import {
+  DEMO_BUDGET_TITLE,
+  DEMO_MAIN_TITLE,
+  DEMO_MERCHANT_NAME,
+  DEMO_MERCHANT_SLUG,
+  DEMO_SCENARIO_HISTORY_MS,
+  DEMO_SCENARIO_KEEP_MS,
+  DEMO_SCENARIO_TITLES,
+  DEMO_TIMEZONE,
+} from "./constants";
 import { seedDemoVenues, upsertVenue } from "./venues";
 
 export { DEMO_BUDGET_TITLE, DEMO_MAIN_TITLE, DEMO_MERCHANT_NAME, DEMO_MERCHANT_SLUG, DEMO_TIMEZONE };
@@ -166,9 +177,27 @@ export async function truncateAppTables(db: Db): Promise<void> {
   await db.execute(sql.raw(`TRUNCATE ${APP_TABLES.join(", ")} RESTART IDENTITY CASCADE`));
 }
 
-/** Deletes FIXTURE outings and everything hanging off them. Real outings are untouched. */
-export async function deleteFixtureOutings(db: Db): Promise<number> {
-  const rows = await db.select({ id: outings.id }).from(outings).where(eq(outings.isFixture, true));
+/**
+ * A /demo story a visitor started less than DEMO_SCENARIO_KEEP_MS before `now`. Scenario outings are
+ * recognised by their exact titles (as the hub recognises them); their row is created
+ * DEMO_SCENARIO_HISTORY_MS before the button press because the brief-to-proposal history is backdated.
+ */
+function freshScenarioOuting(now: Date): SQL {
+  const createdAfter = new Date(now.getTime() - DEMO_SCENARIO_KEEP_MS - DEMO_SCENARIO_HISTORY_MS);
+  return and(inArray(outings.title, Object.values(DEMO_SCENARIO_TITLES)), gt(outings.createdAt, createdAfter))!;
+}
+
+/**
+ * Deletes FIXTURE outings and everything hanging off them. Real outings are untouched. With
+ * `keepFreshScenariosAt`, /demo stories started within DEMO_SCENARIO_KEEP_MS of that time are kept too.
+ */
+export async function deleteFixtureOutings(db: Db, opts: { keepFreshScenariosAt?: Date } = {}): Promise<number> {
+  const keepAt = opts.keepFreshScenariosAt;
+  const fixture = eq(outings.isFixture, true);
+  const rows = await db
+    .select({ id: outings.id })
+    .from(outings)
+    .where(keepAt ? and(fixture, not(freshScenarioOuting(keepAt))) : fixture);
   const ids = rows.map((r) => r.id);
   if (ids.length === 0) return 0;
   await db.transaction(async (tx) => {
@@ -865,7 +894,8 @@ export async function seedDemo(db: Db, opts: { now?: Date; secret?: string } = {
   const { merchant, offerings: cat } = await seedCatalogue(db);
   // The fictional venues behind the /new starters (movie night, wine, gym, padel).
   await seedDemoVenues(db);
-  await deleteFixtureOutings(db);
+  // Replace the standard set, but never wipe a /demo story someone started in the last few minutes.
+  await deleteFixtureOutings(db, { keepFreshScenariosAt: now });
   const tz = merchant.timezone;
   const ago = (ms: number) => new Date(now.getTime() - ms);
 

@@ -32,6 +32,7 @@ import { approveFixturePayment, startPayment } from "../services/payments";
 import {
   DEMO_MERCHANT_SLUG,
   DEMO_SCENARIO_DEADLINE_SECONDS,
+  DEMO_SCENARIO_HISTORY_MS,
   DEMO_SCENARIO_KINDS,
   DEMO_SCENARIO_TITLES,
   clampScenarioSeconds,
@@ -239,7 +240,7 @@ export async function createDemoScenario(
       title,
       brief: plan.brief ?? BRIEF,
       status: "PROPOSED",
-      createdAt: new Date(now.getTime() - 30 * MIN),
+      createdAt: new Date(now.getTime() - DEMO_SCENARIO_HISTORY_MS),
       people: cast,
       // Agreed per person: the most any payer is asked to hold for this room (its price over the minimum payers).
       proposal: { merchant, offering: room, proposedBudgetMinor: perPayerCap(room.priceMinor, SCENARIO_MIN_PAYERS) },

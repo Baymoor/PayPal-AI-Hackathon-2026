@@ -1,5 +1,6 @@
 /**
- * One-click demo scenarios (lib/demo/scenarios.ts, POST /api/demo/scenario, POST /api/demo/tick).
+ * One-click demo scenarios (lib/demo/scenarios.ts, POST /api/demo/scenario, POST /api/demo/tick), and
+ * POST /api/demo/reset leaving a story someone started in the last 15 minutes alone.
  *
  * Each scenario must create a valid COLLECTING fixture outing through the real services, and the
  * REAL engine (runWorkerTick + the real FixtureProvider) must take it to the advertised outcome once
@@ -21,7 +22,8 @@ import { runWorkerTick } from "@/lib/jobs/runner";
 import { settleJobKey } from "@/lib/jobs/queue";
 import { createDemoScenario, demoScenarioStatus, demoTickAllowed, type DemoScenario, type DemoScenarioKind } from "@/lib/demo/scenarios";
 import { DEMO_MERCHANT_NAME, DEMO_SCENARIO_TITLES } from "@/lib/demo/constants";
-import { deleteFixtureOutings } from "@/lib/demo/seed";
+import { deleteFixtureOutings, seedDemo, type DemoState } from "@/lib/demo/seed";
+import * as resetRoute from "@/app/api/demo/reset/route";
 import * as scenarioRoute from "@/app/api/demo/scenario/route";
 import * as tickRoute from "@/app/api/demo/tick/route";
 
@@ -276,6 +278,46 @@ describe("the real engine settles each scenario at the deadline", () => {
     expect(await outingRow(s.outingId)).toBeUndefined();
     const left = await db.execute(sql`select count(*)::int as n from fixture_provider_objects`);
     expect((left.rows[0] as { n: number }).n).toBe(0);
+  });
+});
+
+describe("Reset leaves a /demo story another visitor is still in", () => {
+  /** The story was started `minutes` ago: move its row (backdated history included) back in time. */
+  async function startedMinutesAgo(outingId: string, minutes: number): Promise<void> {
+    const row = await outingRow(outingId);
+    await getDb().update(outings).set({ createdAt: new Date(row.createdAt.getTime() - minutes * 60_000) }).where(eq(outings.id, outingId));
+  }
+
+  it("keeps a story started a minute ago, removes a 20-minute-old one and restores the seeded set", async () => {
+    const db = getDb();
+    const before = await seedDemo(db, { now: new Date() });
+    const stale = await createDemoScenario(db, { kind: "capture-failure" });
+    const fresh = await createDemoScenario(db, { kind: "holdout" });
+    await startedMinutesAgo(stale.outingId, 20);
+    await startedMinutesAgo(fresh.outingId, 1);
+    const staleAttempts = await attemptsOf(stale.outingId);
+    expect(staleAttempts).toHaveLength(5);
+
+    const res = await resetRoute.POST(request("/api/demo/reset", { method: "POST" }));
+    expect(res.status).toBe(200);
+    const after = await body<DemoState>(res);
+
+    // The fresh story is untouched and still live: its holds and their simulator objects are intact.
+    expect(await outingRow(fresh.outingId)).toMatchObject({ status: "COLLECTING", isFixture: true });
+    expect((await demoScenarioStatus(db, fresh.outingId))!.payers).toEqual({ total: 5, committed: 4 });
+    for (const a of await attemptsOf(fresh.outingId)) expect(await readFixtureObject(db, a.authorizationId!)).not.toBeNull();
+
+    // The 20-minute-old story is cleaned up, simulator objects included.
+    expect(await outingRow(stale.outingId)).toBeUndefined();
+    expect(await attemptsOf(stale.outingId)).toEqual([]);
+    for (const a of staleAttempts) expect(await readFixtureObject(db, a.authorizationId!)).toBeNull();
+
+    // The standard set is re-seeded: the same titles, all of them new outings.
+    const reseeded = after.outings.filter((o) => o.outingId !== fresh.outingId);
+    expect(reseeded.map((o) => o.title).sort()).toEqual(before.outings.map((o) => o.title).sort());
+    expect(reseeded.some((o) => before.outings.some((b) => b.outingId === o.outingId))).toBe(false);
+    expect(after.outings.map((o) => o.outingId)).toContain(fresh.outingId);
+    expect(after.outingId).not.toBe(before.outingId);
   });
 });
 

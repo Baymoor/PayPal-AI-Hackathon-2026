@@ -42,6 +42,15 @@ export type DemoScenarioKind = (typeof DEMO_SCENARIO_KINDS)[number];
 /** Commitment deadline of a scenario outing, in seconds from creation (the policy minimum is 60 s). */
 export const DEMO_SCENARIO_DEADLINE_SECONDS = { min: 60, max: 600, default: 120 } as const;
 
+/**
+ * A scenario's brief, votes, reveal and proposal are seeded as history that starts this long before the
+ * visitor pressed the button, so the outing's createdAt is backdated by exactly this much.
+ */
+export const DEMO_SCENARIO_HISTORY_MS = 30 * 60_000;
+
+/** Reset leaves a scenario alone for this long after a visitor started it, so nobody's run is wiped mid-story. */
+export const DEMO_SCENARIO_KEEP_MS = 15 * 60_000;
+
 /** Exact titles of scenario outings (also how the hub recognises them). */
 export const DEMO_SCENARIO_TITLES: Record<DemoScenarioKind, string> = {
   "settle-soon": "Maya's karaoke · settles on time (scenario)",
