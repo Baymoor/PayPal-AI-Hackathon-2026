@@ -1,5 +1,6 @@
 import { ArrowUpRight } from "lucide-react";
 import Link from "next/link";
+import { JudgeSessionLink } from "@/components/judge/JudgeSessionLink";
 import { SandboxBadge } from "./Badge";
 import { cn } from "./cn";
 
@@ -106,6 +107,8 @@ export function SiteFooter() {
           Try the demo
         </Link>
         <MerchantSideLink className={link}>Merchant dashboard</MerchantSideLink>
+        {/* Only on deployments with a judge gate (JUDGE_PASSWORD set); otherwise it renders nothing. */}
+        <JudgeSessionLink />
       </nav>
       <div className="mx-auto flex max-w-[1180px] items-center gap-4 text-small text-ink-muted">
         <span aria-hidden className="h-px flex-1 bg-line-strong" />
