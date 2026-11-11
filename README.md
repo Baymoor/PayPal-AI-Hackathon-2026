@@ -89,7 +89,7 @@ Claude reads the brief, suggests vote amounts, ranks venues, summarizes the vote
 | Piece | Status |
 |---|---|
 | PayPal Orders v2 (authorize, under-capture, void, refund) | **Verified in the PayPal sandbox**, including one full outing settled through the app ([evidence](docs/evidence/README.md)) |
-| Deadline engine, splitting, consent, access control | Real code in every mode. 552 automated tests, most against a real Postgres, plus 8 browser tests ([testing](docs/TESTING.md)) |
+| Deadline engine, splitting, consent, access control | Real code in every mode. 580 automated tests, most against a real Postgres, plus 9 browser tests ([testing](docs/TESTING.md)) |
 | Claude | Real API when `OUTINGS_ANTHROPIC_API_KEY` is set, as on the live demo, for outings that signed-in judges create. Demo outings (the seeded ones and every `/demo` story) always use a deterministic parser labelled **Sample AI text (no model call)**, and so does every outing when no key is set. **Verified against the real API** on the hosted demo on 11 Nov 2026: a full `scripts/ai-smoke.ts` run passed 12 of 13 checks, and the one that failed (venue ranking) was fixed and then passed 3 of 3 reruns. |
 | Payments on demo outings, or without PayPal keys | A simulator labelled **Simulated · not real PayPal** on every screen. Demo outings use it even when PayPal keys are set. |
 | Who gets what on the live demo | **Anyone:** the `/demo` stories, invitation links, the venue dashboard's demo sign-in and its plain-language filter (sample parser). **Signed-in judges** (`/judge/login`): their own outings on `/new` with real Claude and PayPal sandbox, the AG Studio assistant, and Claude behind the filter. |

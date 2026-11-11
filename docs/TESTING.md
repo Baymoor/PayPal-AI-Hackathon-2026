@@ -1,6 +1,6 @@
 # Testing
 
-552 Vitest tests in 46 files (most against a real Postgres) and 8 Playwright browser tests pin the money, consent and access rules; the real PayPal sandbox is checked by two scripts, and real Claude by a smoke script run on the hosted demo.
+580 Vitest tests in 47 files (most against a real Postgres) and 9 Playwright browser tests pin the money, consent and access rules; the real PayPal sandbox is checked by two scripts, and real Claude by a smoke script run on the hosted demo.
 
 Related: [README](../README.md) · [judge guide](JUDGE_GUIDE.md) · [architecture invariants](ARCHITECTURE.md) · [security and limitations](SECURITY_AND_LIMITATIONS.md) · [PayPal sandbox evidence](evidence/README.md)
 
@@ -63,8 +63,8 @@ Vitest and Playwright last ran on 11 and 12 Nov 2026 on the owner's Windows 11 m
 | Check | Result |
 |---|---|
 | `tsc --noEmit`, `eslint` | Clean |
-| Vitest | 552 tests in 46 files pass |
-| Playwright (production build, Chromium) | 8/8 pass: karaoke settle, holdout cancel, organizer cancel, demo hub, capture-failure compensation, big-group under-capture, dashboard refresh keeps AG Studio, `/setup` access |
+| Vitest | 580 tests in 47 files pass |
+| Playwright (production build, Chromium) | 9/9 pass: karaoke settle, holdout cancel, organizer cancel, demo hub, capture-failure compensation, big-group under-capture, dashboard refresh keeps AG Studio, `/setup` access, judge sign-in |
 | PayPal adapter, real sandbox ([paypal-smoke.ts](../scripts/paypal-smoke.ts)) | All expectations met: authorize, $10-of-$20 final capture, capture replay idempotent, void then capture refused with `AUTHORIZATION_VOIDED`, capture, refund ([evidence](evidence/README.md)) |
 | One full outing through the app, real sandbox ([paypal-verify-outing.ts](../scripts/paypal-verify-outing.ts)) | Three participants, three $50 holds (all approved with one sandbox buyer account), $33.34 / $33.33 / $33.33 captured at the deadline; PayPal's records match the app's (`allMatch: true`) |
 | Real Claude ([ai-smoke.ts](../scripts/ai-smoke.ts)) | Run on the hosted demo on 11 Nov 2026: a full run passed 12 of 13 checks; the one that failed (venue ranking) was fixed and then passed 3 of 3 reruns. The Vitest AI tests use a mocked SDK |

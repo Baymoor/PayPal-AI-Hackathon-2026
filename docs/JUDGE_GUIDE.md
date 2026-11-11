@@ -87,7 +87,7 @@ The stories need no sign-in. They always use the payment simulator and sample AI
 |---|---|---|---|
 | Payments | Simulator, labelled "Simulated · not real PayPal" | PayPal sandbox, Orders v2 | **Yes, 7 Nov 2026:** authorize, $10-of-$20 final capture, idempotent replay, void, refund, and one full outing settled through the app ([evidence](evidence/README.md)) |
 | AI | Deterministic parser, labelled "Sample AI text (no model call)" | Claude, structured outputs, on outings you create (demo outings stay on the sample parser) | **Yes, 11 Nov 2026**, on the hosted demo: a full `scripts/ai-smoke.ts` run passed 12 of 13 checks, and the one that failed (venue ranking) was fixed and then passed 3 of 3 reruns. The automated tests use a mocked SDK |
-| Deadline, splitting, consent, access | Real code | Real code | 552 automated tests and 8 browser tests ([testing](TESTING.md)) |
+| Deadline, splitting, consent, access | Real code | Real code | 580 automated tests and 9 browser tests ([testing](TESTING.md)) |
 | Demo outings and stories on `/demo` | Simulated payments and sample AI, always | Simulated payments and sample AI, always | Real services, simulated provider |
 
 Not verified: PayPal webhook signatures against real deliveries, and PayPal negative testing. The hosted demo is live at https://outings.baymoor.dev, and its worker settles outings at the deadline with every browser closed (checked on 10 and 11 Nov 2026). `GET /api/health` shows the active modes without secrets. Limits and threat model: [security and limitations](SECURITY_AND_LIMITATIONS.md).
