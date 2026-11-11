@@ -165,6 +165,8 @@ describe("fixture dashboard + ranker + reveal", () => {
     ];
     const r = await ai.proposeOfferings({ extraction: ex, catalogue: rooms, agreedBudgetMinor: 2000, budgetUnit: "PER_PERSON", groupSize: 6, payerCount: 5 });
     expect(r.output.ranked.map((x) => x.offeringId)).toEqual(["off_b", "off_a"]);
+    // Above the agreed amount is at most a good fit, so the label never contradicts the card's "above the agreed" line.
+    expect(r.output.ranked.map((x) => x.fit)).toEqual(["GREAT", "GOOD"]);
   });
   it("judges the budget by the app's share, never its own arithmetic: no share, no budget verdict", async () => {
     const ex = (await ai.extractBrief({ brief: CANONICAL, now: NOW, timezone: "UTC" })).output;

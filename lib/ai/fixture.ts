@@ -310,7 +310,7 @@ export class FixtureOutingsAi implements OutingsAi {
         reasons.push("Tagged as private.");
       }
       if (reasons.length === 0) reasons.push("Weak match; listed for completeness.");
-      return { item, score, reasons: labelFirstReason(reasons), concerns, catMatch };
+      return { item, score, reasons: labelFirstReason(reasons), concerns, catMatch, overBudget: verdict !== null && !verdict.within };
     });
     // Category first (as the note says), so an unrelated cheap offering never outranks the activity asked for.
     scored.sort(
@@ -321,7 +321,9 @@ export class FixtureOutingsAi implements OutingsAi {
     const briefHasCategory = input.extraction.categories.length > 0;
     const fitOf = (s: (typeof scored)[number]): Proposal["ranked"][number]["fit"] => {
       if (briefHasCategory && !s.catMatch) return "STRETCH";
-      return s.score >= 7 ? "GREAT" : s.score >= 4 ? "GOOD" : "STRETCH";
+      // Above what the group agreed is never a great fit, whatever else it has going for it (the rule PROPOSAL_SYSTEM states).
+      if (s.score >= 7 && !s.overBudget) return "GREAT";
+      return s.score >= 4 ? "GOOD" : "STRETCH";
     };
     const raw: Proposal = {
       ranked: scored
