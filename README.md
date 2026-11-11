@@ -15,7 +15,7 @@ Built for the **PayPal AI Hackathon 2026**. PayPal **sandbox** only: no real mon
 | Today | With Outings |
 |---|---|
 | One friend pays the venue, then chases everyone for weeks. | Nobody fronts anything. Each person's money goes to the venue through PayPal. |
-| Nobody wants to be the one who says "that's too expensive". | **Budget poker:** votes are private and the reveal shows only the totals. |
+| Nobody wants to be the one who says "that's too expensive". | **Budget poker:** everyone privately says what they would personally pay, and the reveal shows only how many chose each amount. |
 | Half the group commits, the booking falls through, refunds get messy. | Nobody is charged unless every required person commits by the deadline. |
 
 ## How it works
@@ -31,7 +31,7 @@ flowchart LR
 ```
 
 1. **Brief.** The organizer types the plan in their own words, or picks one of five starters. Claude extracts the activity, date, group size and budget.
-2. **Budget poker.** Everyone privately picks a total. The vote amounts fit the outing (a $60 padel court gets $30 to $120). The API never returns anyone else's vote, and the reveal needs at least 3 votes.
+2. **Budget poker.** Everyone privately says what they would personally pay. The vote amounts fit the outing (a $60 padel court for four gets $8 to $30 each). The app then compares that with each venue: a fixed total divided by the people paying, so covering a guest raises everyone else's share. The API never returns anyone else's vote, and the reveal needs at least 3 votes.
 3. **Pick a venue.** Claude ranks the venues' offerings against the brief and the agreed budget. The organizer can cover a guest of honour.
 4. **Commit.** Each payer reviews the exact terms and authorizes their maximum through PayPal: a $100 room split by 5 payers is a $20 hold. More payers lower the estimate; nothing is charged yet.
 5. **Deadline.** A durable server job, not a browser timer and not the AI, freezes the roster and decides. It captures penny-exact shares with `final_capture`, or voids every hold. If a capture fails midway it releases the rest and refunds what was taken.

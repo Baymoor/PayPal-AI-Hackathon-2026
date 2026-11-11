@@ -20,7 +20,8 @@ import { merchants, offerings, outings, quoteVersions } from "@/lib/db/schema";
 import type { OutingView } from "@/lib/contracts/views";
 import type { AiResult, BriefExtraction } from "@/lib/ai/types";
 import { FixtureOutingsAi } from "@/lib/ai/fixture";
-import { DEFAULT_BUDGET_OPTIONS_MINOR, validateBudgetOptions } from "@/lib/domain/budget-options";
+import { headcountOf, perPersonShareMinor } from "@/lib/domain/budget-fit";
+import { DEFAULT_BUDGET_OPTIONS_MINOR, LEGACY_TOTAL_OPTIONS_MINOR, validateBudgetOptions } from "@/lib/domain/budget-options";
 import { nextLocalWeekdayAt, seedCatalogue, seedDemo } from "@/lib/demo/seed";
 import { DEMO_VENUE_SPECS, seedDemoVenues, type VenueOfferingSpec } from "@/lib/demo/venues";
 import { DEMO_MERCHANT_SLUG, DEMO_TIMEZONE, DEMO_VENUE_NAMES, DEMO_VENUE_SLUGS } from "@/lib/demo/constants";
@@ -85,7 +86,7 @@ describe("one-click starters in FIXTURE AI mode", () => {
     expect(view.brief.model).toBeNull();
     expect(view.brief.extraction?.categories).toContain(starter.category);
 
-    // Vote options: valid, built from the brief's own budget, and the theme venue's price is votable.
+    // Vote options: valid, per person, built from the brief's own budget, and the theme venue's share is votable.
     const options = view.budget.options;
     expect(validateBudgetOptions(options).ok).toBe(true);
     const stored = (await storedOptions(outingId))!;
@@ -96,8 +97,13 @@ describe("one-click starters in FIXTURE AI mode", () => {
     expect(stored.model).toBeNull();
     const themeOffering = DEMO_VENUE_SPECS.find((v) => v.slug === starter.venueSlug)?.offerings[0];
     const themePrice = themeOffering?.priceMinor ?? 10_000; // The Sound Room's private karaoke room
-    expect(options[0]).toBeLessThanOrEqual(themePrice);
-    expect(options[4]).toBeGreaterThanOrEqual(themePrice);
+    // What one payer would pay for it: the price over the people the brief says pay (a covered guest does not).
+    const extraction = view.brief.extraction!;
+    const headcount = headcountOf(extraction.groupSize.count!, extraction.guestOfHonour.coverTheirShare ? 1 : 0);
+    const themeShare = perPersonShareMinor({ pricingModel: "FIXED_TOTAL", priceMinor: themePrice }, headcount);
+    expect(options[0]).toBeLessThanOrEqual(themeShare);
+    expect(options[4]).toBeGreaterThanOrEqual(themeShare);
+    expect(options[4]).toBeLessThan(themePrice); // per-person amounts, not the whole booking
     expect(options[2]).toBe(stored.anchorMinor);
 
     // Agree the brief's own budget: the starter's venue ranks first.
@@ -116,12 +122,13 @@ describe("one-click starters in FIXTURE AI mode", () => {
     }
   });
 
-  it("the karaoke starter keeps the historic $50-$200 options the demo and e2e rely on", async () => {
+  it("the karaoke starter gets $10, $15, $20, $30, $40: the amounts the demo and e2e rely on", async () => {
     await seedAllVenues();
     aiState.current = new FixtureOutingsAi();
     const karaoke = OUTING_STARTERS.find((s) => s.id === "karaoke-birthday")!;
     const { outingId } = await svc.createOuting(getDb(), { organizerName: "Alex", brief: karaoke.brief });
-    expect((await storedOptions(outingId))?.optionsMinor).toEqual([...DEFAULT_BUDGET_OPTIONS_MINOR]);
+    expect((await storedOptions(outingId))?.optionsMinor).toEqual([1_000, 1_500, 2_000, 3_000, 4_000]);
+    expect(await storedOptions(outingId)).toMatchObject({ basis: "BRIEF_TOTAL", anchorMinor: 2_000 }); // $100 over 5 payers
   });
 });
 
@@ -133,7 +140,7 @@ function aiSuggesting(suggestion: number[] | null, budget: BriefExtraction["budg
   ai.extractBrief = async (): Promise<AiResult<BriefExtraction>> => ({
     source: "FIXTURE",
     model: null,
-    output: { ...defaultExtraction("Wine tasting"), categories: ["wine-tasting"], budget, groupSize: { count: 6, isEstimate: false }, suggestedVoteTotalsMinor: suggestion },
+    output: { ...defaultExtraction("Wine tasting"), categories: ["wine-tasting"], budget, groupSize: { count: 6, isEstimate: false }, suggestedVotePerPersonMinor: suggestion },
     warnings: [],
   });
   return ai;
@@ -144,33 +151,37 @@ describe("budget-poker vote options", () => {
 
   it("uses a valid AI suggestion and records its honest source", async () => {
     await seedAllVenues();
-    aiState.current = aiSuggesting([15_000, 20_000, 30_000, 40_000, 50_000], { amountMinor: 30_000, unit: "TOTAL" });
+    // $300 for six is $50 each, and the suggestion contains it.
+    aiState.current = aiSuggesting([2_500, 4_000, 5_000, 7_500, 10_000], { amountMinor: 30_000, unit: "TOTAL" });
     const { outingId, participantId } = await svc.createOuting(getDb(), { organizerName: "Alex", brief });
     expect(await storedOptions(outingId)).toMatchObject({ basis: "AI_SUGGESTION", source: "FIXTURE", model: null, notes: [] });
     const view = await buildOutingView(getDb(), { outingId, participantId });
-    expect(view.budget.options).toEqual([15_000, 20_000, 30_000, 40_000, 50_000]);
+    expect(view.budget).toMatchObject({ unit: "PER_PERSON", options: [2_500, 4_000, 5_000, 7_500, 10_000] });
   });
 
   it("re-validates on the server: an invalid or off-brief suggestion falls back to the ladder", async () => {
     await seedAllVenues();
-    aiState.current = aiSuggesting([30_000, 20_000, 10_000, 5000, 1000], { amountMinor: 30_000, unit: "TOTAL" });
+    aiState.current = aiSuggesting([10_000, 7_500, 5_000, 4_000, 2_500], { amountMinor: 30_000, unit: "TOTAL" });
     const bad = await svc.createOuting(getDb(), { organizerName: "Alex", brief });
-    expect(await storedOptions(bad.outingId)).toMatchObject({ basis: "BRIEF_TOTAL", source: null, optionsMinor: [15_000, 22_500, 30_000, 45_000, 60_000] });
+    expect(await storedOptions(bad.outingId)).toMatchObject({ basis: "BRIEF_TOTAL", source: null, anchorMinor: 5_000, optionsMinor: [2_500, 3_800, 5_000, 7_500, 10_000] });
     expect((await storedOptions(bad.outingId))!.notes[0]).toMatch(/strictly increasing/);
 
-    aiState.current = aiSuggesting([100_000, 150_000, 200_000, 250_000, 300_000], { amountMinor: 30_000, unit: "TOTAL" });
+    // Whole-group totals where per-person amounts were asked for: they leave out the $50 each the brief means.
+    aiState.current = aiSuggesting([15_000, 20_000, 30_000, 40_000, 50_000], { amountMinor: 30_000, unit: "TOTAL" });
     const offBrief = await svc.createOuting(getDb(), { organizerName: "Alex", brief });
-    expect(await storedOptions(offBrief.outingId)).toMatchObject({ basis: "BRIEF_TOTAL", optionsMinor: [15_000, 22_500, 30_000, 45_000, 60_000] });
+    expect(await storedOptions(offBrief.outingId)).toMatchObject({ basis: "BRIEF_TOTAL", optionsMinor: [2_500, 3_800, 5_000, 7_500, 10_000] });
+    expect((await storedOptions(offBrief.outingId))!.notes[0]).toMatch(/do not include the budget stated/);
   });
 
   it("anchors on the category's catalogue price when the brief states no budget", async () => {
     await seedAllVenues();
     aiState.current = aiSuggesting(null, { amountMinor: null, unit: "UNKNOWN" });
     const { outingId } = await svc.createOuting(getDb(), { organizerName: "Alex", brief: "Wine tasting for six" });
-    expect(await storedOptions(outingId)).toMatchObject({ basis: "CATEGORY_MEDIAN", anchorMinor: 24_000, optionsMinor: [12_000, 18_000, 24_000, 36_000, 48_000] });
+    // The $240 tasting table over six payers is $40 each.
+    expect(await storedOptions(outingId)).toMatchObject({ basis: "CATEGORY_MEDIAN", anchorMinor: 4_000, optionsMinor: [2_000, 3_000, 4_000, 6_000, 8_000] });
   });
 
-  it("outings stored without options (or with tampered ones) keep the historic list; votes stay any amount", async () => {
+  it("outings stored without options (or with tampered ones) get the default list for their unit; votes stay any amount", async () => {
     await seedAllVenues();
     aiState.current = new FixtureOutingsAi();
     const padel = OUTING_STARTERS.find((s) => s.id === "padel-doubles")!;
@@ -188,6 +199,11 @@ describe("budget-poker vote options", () => {
       .set({ briefExtraction: { ...stored, budgetOptions: { ...stored.budgetOptions!, optionsMinor: [1, 2, 3] } } })
       .where(eq(outings.id, outingId));
     expect((await buildOutingView(getDb(), { outingId, participantId })).budget.options).toEqual([...DEFAULT_BUDGET_OPTIONS_MINOR]);
+
+    // An outing from before per-person voting has no stored options and voted on a group total.
+    await getDb().update(outings).set({ briefExtraction: legacy, budgetUnit: "TOTAL" }).where(eq(outings.id, outingId));
+    expect((await buildOutingView(getDb(), { outingId, participantId })).budget).toMatchObject({ unit: "TOTAL", options: [...LEGACY_TOTAL_OPTIONS_MINOR] });
+    await getDb().update(outings).set({ briefExtraction: stored, budgetUnit: "PER_PERSON" }).where(eq(outings.id, outingId));
 
     // Options are tiles, not limits: a custom vote outside them is still accepted.
     await svc.startBudget(getDb(), { outingId, participantId });

@@ -26,7 +26,8 @@ const getDb = setupServiceTests();
 
 const CANONICAL = "A karaoke night for Maya's birthday. Six of us, Friday evening. We want a private room and to cover Maya's share.";
 const NOW = new Date("2026-11-04T12:00:00Z"); // Wednesday 13:00 in Copenhagen
-const VOTES = { Alex: 10_000, Ben: 10_000, Freya: 7_500, Jules: 15_000 } as const;
+/** Per-person votes; the median, $20, is agreed. */
+const VOTES = { Alex: 2_000, Ben: 2_000, Freya: 1_500, Jules: 3_000 } as const;
 
 async function expectCode(p: Promise<unknown>, code: string, status: number) {
   const err = await p.then(
@@ -49,7 +50,7 @@ async function proposed(db: ReturnType<typeof getDb>, opts: { stopAt?: "BUDGETIN
   if (opts.stopAt === "BUDGETING") return { outingId, ids, org, offerings };
   for (const [name, amountMinor] of Object.entries(VOTES)) await svc.vote(db, { outingId, participantId: ids[name] }, { amountMinor }, NOW);
   await svc.reveal(db, org, NOW);
-  await svc.agreeBudget(db, org, { amountMinor: 10_000 }, NOW);
+  await svc.agreeBudget(db, org, { amountMinor: 2_000 }, NOW);
   return { outingId, ids, org, offerings };
 }
 
@@ -124,8 +125,9 @@ describe("draftPlan", () => {
     const res = await svc.draftPlan(db, { outingId: f.outingId, organizerId: f.ids.Alex, now: NOW });
 
     const input = fake.calls.find((c) => c.method === "draftPlan")!.input as PlanDraftInput;
-    expect(Object.keys(input).sort()).toEqual(["agreedBudgetMinor", "catalogue", "extraction", "now", "roster", "selectedOfferingId", "timezone"]);
-    expect(input.agreedBudgetMinor).toBe(10_000);
+    expect(Object.keys(input).sort()).toEqual(["agreedBudgetMinor", "budgetUnit", "catalogue", "extraction", "now", "roster", "selectedOfferingId", "timezone"]);
+    expect(input.agreedBudgetMinor).toBe(2_000);
+    expect(input.budgetUnit).toBe("PER_PERSON");
     expect(input.roster.map((p) => p.name)).toEqual(["Alex", "Ben", "Freya", "Jules", "Noor", "Maya"]);
     for (const p of input.roster) expect(Object.keys(p).sort()).toEqual(["isOrganizer", "name", "payer", "sponsored"]);
     const ids = Object.values(f.ids);

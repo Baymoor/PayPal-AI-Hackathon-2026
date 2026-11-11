@@ -302,11 +302,6 @@ export const ERROR_COPY: Readonly<Record<string, ErrorCopy>> = {
     nextStep: "Wait for more people to vote, then reveal.",
     tone: "info",
   },
-  INVALID_UNIT: {
-    title: "Votes are for the group's total",
-    explanation: "Suggest what the whole outing should cost in total, not a per-person amount.",
-    nextStep: "Pick a total budget and vote again.",
-  },
   INVALID_AMOUNT: {
     title: "That amount doesn't work",
     explanation: "Budgets need to be more than $0, in dollars and cents, and not unrealistically large.",

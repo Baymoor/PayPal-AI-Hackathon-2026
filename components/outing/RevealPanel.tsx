@@ -9,23 +9,25 @@ import { StatusBanner } from "@/components/ui/StatusBanner";
 import { VoteGrid } from "@/components/ui/VoteTile";
 import { cn } from "@/components/ui/cn";
 import type { OutingActions } from "./api";
+import { budgetCopy } from "./budgetCopy";
 import { ActionErrorBanner, useAction } from "./useAction";
 
 /** Aggregate-only distribution as an accessible bar chart (role=img with a full text alternative). */
 export function DistributionChart({ view }: { view: OutingView }) {
   const agg = view.budget.aggregate;
   if (!agg) return null;
+  const copy = budgetCopy(agg.unit);
   const amounts = Array.from(new Set([...view.budget.options, ...agg.buckets.map((b) => b.amountMinor)])).sort((a, b) => a - b);
   const countFor = (m: number) => agg.buckets.find((b) => b.amountMinor === m)?.count ?? 0;
   const max = Math.max(1, ...amounts.map(countFor));
   const modal = Math.max(...amounts.map(countFor));
   const alt =
-    "Budget suggestions by amount: " +
+    copy.chartAltLead +
     amounts.map((m) => `${formatMoney(m)}: ${countFor(m)} ${countFor(m) === 1 ? "vote" : "votes"}`).join(", ") +
     ".";
   return (
     <figure className="space-y-3">
-      <figcaption className="font-semibold">Budget suggestions (number of votes)</figcaption>
+      <figcaption className="font-semibold">{copy.chartTitle}</figcaption>
       <div role="img" aria-label={alt} className="flex h-[200px] items-end justify-between gap-2 sm:gap-4">
         {amounts.map((m) => {
           const c = countFor(m);
@@ -53,10 +55,11 @@ export function RevealPanel({ view, actions }: { view: OutingView; actions: Outi
   const agg = budget.aggregate;
   const org = view.organizer?.can;
   const { pending, error, run } = useAction();
-  const suggested = budget.aiSummary?.suggestedTotalMinor ?? agg?.medianMinor ?? null;
+  const suggested = budget.aiSummary?.suggestedAmountMinor ?? agg?.medianMinor ?? null;
   const [override, setOverride] = useState<number | null>(null);
   const [pick, setPick] = useState(false);
   const target = override ?? suggested;
+  const copy = budgetCopy(budget.unit);
 
   if (!agg) return <StatusBanner tone="info">The reveal isn&apos;t available yet.</StatusBanner>;
 
@@ -84,7 +87,7 @@ export function RevealPanel({ view, actions }: { view: OutingView; actions: Outi
             </div>
           </dl>
         </Card>
-        <p className="text-small text-ink-muted">Totals only. No names.</p>
+        <p className="text-small text-ink-muted">{copy.revealFootnote}</p>
       </div>
 
       <div className="space-y-6">
@@ -100,7 +103,7 @@ export function RevealPanel({ view, actions }: { view: OutingView; actions: Outi
         )}
 
         <Card tone="navy" className="space-y-1">
-          <Eyebrow className="!text-cream/80">Proposed group budget</Eyebrow>
+          <Eyebrow className="!text-cream/80">{copy.proposedLabel}</Eyebrow>
           <p className="font-money text-[56px] leading-[56px]">
             {formatMoney(budget.proposedBudgetMinor ?? target ?? 0)}
           </p>
@@ -118,7 +121,7 @@ export function RevealPanel({ view, actions }: { view: OutingView; actions: Outi
                 loadingLabel="Saving…"
                 onClick={() => run("agree", async () => { await actions.agreeBudget(target); await actions.refresh(); })}
               >
-                Agree on {formatMoney(target)} budget
+                {copy.agreeButton(target)}
               </Button>
             )}
             {org.agreeBudget && (
@@ -128,7 +131,14 @@ export function RevealPanel({ view, actions }: { view: OutingView; actions: Outi
                 </Button>
                 {pick && (
                   <div className="mt-2">
-                    <VoteGrid legend="Agreed total budget" options={budget.options} value={override} onChange={setOverride} />
+                    <VoteGrid
+                      legend={copy.agreeLegend}
+                      customLabel={copy.customLabel}
+                      customExample={copy.customExample}
+                      options={budget.options}
+                      value={override}
+                      onChange={setOverride}
+                    />
                   </div>
                 )}
               </div>

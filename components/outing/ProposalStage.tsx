@@ -12,6 +12,7 @@ import { EmptyState } from "@/components/ui/States";
 import { Toggle } from "@/components/ui/Toggle";
 import { cn } from "@/components/ui/cn";
 import type { OutingActions } from "./api";
+import { budgetCopy, holdAboveBudgetLine, shareLine } from "./budgetCopy";
 import { formatDeadline, isoToZonedLocal, zonedLocalToIso } from "./format";
 import { InvitePanel } from "./InvitePanel";
 import { AI_REVIEW_COPY, AiPrefillFrame, PlanDraftPanel, type AppliedPlanDraft } from "./PlanDraftPanel";
@@ -31,8 +32,11 @@ function CandidateCard({
   disabled,
   name,
   aiSuggested = false,
+  agreedPerPersonMinor,
 }: {
   c: CatalogueCandidateView;
+  /** The agreed per-person budget, or null when none is agreed or the outing agreed a group total. */
+  agreedPerPersonMinor: number | null;
   selected: boolean;
   onSelect: () => void;
   disabled: boolean;
@@ -73,6 +77,10 @@ function CandidateCard({
             <Pill tone="neutral">
               {formatMoney(c.priceMinor)} per attendee · up to {c.capacity} people
             </Pill>
+          )}
+          {/* The app's own arithmetic for the roster as it stands: covering a guest changes it at once. */}
+          {c.budget && agreedPerPersonMinor !== null && (
+            <Pill tone={c.budget.within ? "neutral" : "blush"}>{shareLine(c.budget, agreedPerPersonMinor)}</Pill>
           )}
         </span>
         {(c.reasons.length > 0 || c.concerns.length > 0) && (
@@ -307,6 +315,9 @@ function OpenForm({
   if (!problem && mp > payers) problem = `Minimum payers can't be more than the ${payers} ${payers === 1 ? "person" : "people"} paying.`;
   const canOpen = !!view.organizer?.can.openCollection;
   const cap = candidate && candidate.pricingModel === "FIXED_TOTAL" && Number.isInteger(mp) && mp >= 1 ? Math.ceil(candidate.priceMinor / mp) : null;
+  // Each payer consents to their own hold; this only tells the organizer when it is more than people said they would pay.
+  const agreedPerPerson = view.budget.unit === "PER_PERSON" ? view.budget.proposedBudgetMinor : null;
+  const holdAboveBudget = cap !== null && agreedPerPerson !== null && cap > agreedPerPerson;
 
   return (
     <Card as="section" aria-labelledby="open-h" className="space-y-4">
@@ -339,6 +350,12 @@ function OpenForm({
           {cap !== null
             ? `Each payer authorizes up to ${formatMoney(cap)} by ${formatDeadline(deadlineIso, tz)}.`
             : `Everyone commits by ${formatDeadline(deadlineIso, tz)}.`}
+        </p>
+      )}
+      {deadlineIso && !problem && holdAboveBudget && agreedPerPerson !== null && (
+        <p className="flex items-start gap-2 text-small text-ink-muted">
+          <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden />
+          {holdAboveBudgetLine(agreedPerPerson)}
         </p>
       )}
       {problem && (
@@ -392,6 +409,7 @@ export function ProposalStage({ view, actions }: { view: OutingView; actions: Ou
   const selectedId = optimistic ?? proposal?.selectedOfferingId ?? null;
   const selected = proposal?.candidates.find((c) => c.offeringId === selectedId);
   const proposed = view.budget.proposedBudgetMinor;
+  const copy = budgetCopy(view.budget.unit);
 
   if (!view.viewer.isOrganizer || !view.organizer) {
     return (
@@ -401,7 +419,7 @@ export function ProposalStage({ view, actions }: { view: OutingView; actions: Ou
           title="The organizer is finalizing the plan"
           lead={
             proposed !== null
-              ? `The group agreed on a ${formatMoney(proposed)} starting budget. You'll get a personal invitation to review and commit when it's ready.`
+              ? `${copy.agreedSentence(proposed)} You'll get a personal invitation to review and commit when it's ready.`
               : "You'll get a personal invitation to review and commit when it's ready."
           }
         />
@@ -437,6 +455,7 @@ export function ProposalStage({ view, actions }: { view: OutingView; actions: Ou
                   <CandidateCard
                     key={c.offeringId}
                     c={c}
+                    agreedPerPersonMinor={view.budget.unit === "PER_PERSON" ? proposed : null}
                     name={radioName}
                     selected={selectedId === c.offeringId}
                     aiSuggested={!!aiPlan?.offeringApplied && aiPlan.response.draft.offeringId === c.offeringId}
@@ -459,7 +478,7 @@ export function ProposalStage({ view, actions }: { view: OutingView; actions: Ou
         <div className="space-y-6">
           {proposed !== null && (
             <Card tone="navy">
-              <Eyebrow className="!text-cream/80">Agreed group budget</Eyebrow>
+              <Eyebrow className="!text-cream/80">{copy.agreedLabel}</Eyebrow>
               <p className="font-money text-[40px] leading-[44px]">{formatMoney(proposed)}</p>
               <p className="text-cream/90">A starting point, not a merchant quote.</p>
             </Card>

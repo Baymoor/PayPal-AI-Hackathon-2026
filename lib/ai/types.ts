@@ -157,7 +157,7 @@ export const RevealSummarySchema = z.object({
   headline: z.string().min(1).max(90),
   summary: z.string().min(1).max(320),
   /** Must lie within [min, max] of the votes; validated in code. */
-  suggestedTotalMinor: z.number().int().positive(),
+  suggestedAmountMinor: z.number().int().positive(),
 });
 export type RevealSummary = z.infer<typeof RevealSummarySchema>;
 

@@ -10,6 +10,7 @@ import { Card } from "@/components/ui/Card";
 import { StatusBanner } from "@/components/ui/StatusBanner";
 import { VoteGrid } from "@/components/ui/VoteTile";
 import type { OutingActions } from "./api";
+import { budgetCopy } from "./budgetCopy";
 import { InvitePanel } from "./InvitePanel";
 import { RevealPanel } from "./RevealPanel";
 import { ScreenHeader } from "./Shell";
@@ -21,6 +22,7 @@ export function BudgetStage({ view, actions }: { view: OutingView; actions: Outi
   const { pending, error, run } = useAction();
   const [choice, setChoice] = useState<number | null>(budget.myVoteMinor);
   const org = view.organizer?.can;
+  const copy = budgetCopy(budget.unit);
 
   if (budget.revealed) {
     return (
@@ -49,7 +51,7 @@ export function BudgetStage({ view, actions }: { view: OutingView; actions: Outi
         title="Budget poker"
         lead={
           <>
-            <p className="font-medium">Suggest a total budget.</p>
+            <p className="font-medium">{copy.question}</p>
             <p>This does not authorize a payment.</p>
           </>
         }
@@ -67,7 +69,14 @@ export function BudgetStage({ view, actions }: { view: OutingView; actions: Outi
             });
           }}
         >
-          <VoteGrid legend="Your total budget suggestion" options={budget.options} value={choice} onChange={setChoice} />
+          <VoteGrid
+            legend={copy.voteLegend}
+            customLabel={copy.customLabel}
+            customExample={copy.customExample}
+            options={budget.options}
+            value={choice}
+            onChange={setChoice}
+          />
           <p className="flex items-center justify-center gap-2 text-center text-body">
             <Lock className="size-5" aria-hidden />
             Your vote stays private until reveal

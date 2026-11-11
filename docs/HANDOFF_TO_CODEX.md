@@ -110,7 +110,7 @@ Answered on 7 Nov 2026: authorization status/remainder after a partial `final_ca
 - AG Studio: trial watermark off localhost without a key; grid scrolls horizontally below ~1300 px; NL-query focus ring locates widgets by layout order; one axe finding inside AG Charts (third-party landmark label).
 - `next dev`/`next build` with a custom `NEXT_DIST_DIR` rewrites `tsconfig.json` includes — restore with `git checkout tsconfig.json`.
 - Seeded "Maya's birthday karaoke" closes ~2 h after seeding; use the `/demo` scenarios for a live settlement.
-- Budget poker implements TOTAL mode only (no per-person input mode).
+- Budget poker votes per person ("what would you personally pay?"). Outings created before that keep `budget_unit = TOTAL` and their "total" wording; there is no way to create a new TOTAL outing.
 
 ## 7. Visual direction
 

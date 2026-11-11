@@ -55,12 +55,12 @@ Each row is a risk, the files that pin it, and one test name to find with your e
 
 ## Latest results
 
-Vitest and Playwright last ran on 10 Nov 2026 on the owner's Windows 11 machine with Postgres 16 in Docker, in FIXTURE modes; the PayPal scripts ran on 7 Nov 2026 against the real sandbox.
+Vitest and Playwright last ran on 11 Nov 2026 on the owner's Windows 11 machine with Postgres 16 in Docker, in FIXTURE modes; the PayPal scripts ran on 7 Nov 2026 against the real sandbox.
 
 | Check | Result |
 |---|---|
 | `tsc --noEmit`, `eslint` | Clean |
-| Vitest | 485 tests in 42 files pass |
+| Vitest | 523 tests in 44 files pass |
 | Playwright (production build, Chromium) | 8/8 pass: karaoke settle, holdout cancel, organizer cancel, demo hub, capture-failure compensation, big-group under-capture, dashboard refresh keeps AG Studio, `/setup` access |
 | PayPal adapter, real sandbox ([paypal-smoke.ts](../scripts/paypal-smoke.ts)) | All expectations met: authorize, $10-of-$20 final capture, capture replay idempotent, void then capture refused with `AUTHORIZATION_VOIDED`, capture, refund ([evidence](evidence/README.md)) |
 | One full outing through the app, real sandbox ([paypal-verify-outing.ts](../scripts/paypal-verify-outing.ts)) | Three participants, three $50 holds (all approved with one sandbox buyer account), $33.34 / $33.33 / $33.33 captured at the deadline; PayPal's records match the app's (`allMatch: true`) |

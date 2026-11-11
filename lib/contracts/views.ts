@@ -9,6 +9,7 @@
 import type { AiSource, BriefExtraction, RevealAggregate } from "../ai/types";
 import type {
   AttendanceState,
+  BudgetUnit,
   CleanupState,
   OperationKind,
   OperationStatus,
@@ -39,6 +40,21 @@ export interface PersonView {
   hasVoted: boolean;
 }
 
+/**
+ * How an offering's cost compares with the budget the group agreed, computed
+ * by the application from the live roster (never by the AI). Display only:
+ * the quote and each payer's cap come from the commitment terms.
+ */
+export interface CandidateBudgetView {
+  /** One payer's share (PER_PERSON budget) or the whole booking (TOTAL budget), minor units. */
+  costMinor: number;
+  /** People paying right now: everyone invited who has not declined, minus the covered guest. */
+  payers: number;
+  within: boolean;
+  /** How far the cost is above the agreed amount; 0 when within. */
+  overByMinor: number;
+}
+
 export interface CatalogueCandidateView {
   offeringId: string;
   name: string;
@@ -55,6 +71,8 @@ export interface CatalogueCandidateView {
   fit: "GREAT" | "GOOD" | "STRETCH" | null;
   reasons: string[];
   concerns: string[];
+  /** Null until a budget is agreed. */
+  budget: CandidateBudgetView | null;
 }
 
 export interface QuoteView {
@@ -137,8 +155,9 @@ export interface OutingView {
   };
   budget: {
     round: number;
-    unit: "TOTAL";
-    /** Suggested totals in minor units, e.g. [5000, 7500, 10000, 15000, 20000]. */
+    /** What every amount below means: PER_PERSON = what one person would pay; TOTAL = the whole group (older outings). */
+    unit: BudgetUnit;
+    /** Vote amounts in minor units, in `unit`, e.g. [1000, 1500, 2000, 3000, 4000]. */
     options: number[];
     myVoteMinor: number | null;
     votedCount: number;
@@ -148,7 +167,7 @@ export interface OutingView {
     canReveal: boolean;
     /** Aggregate only; null until revealed. */
     aggregate: RevealAggregate | null;
-    aiSummary: { headline: string; summary: string; suggestedTotalMinor: number; source: AiSource; model: string | null } | null;
+    aiSummary: { headline: string; summary: string; suggestedAmountMinor: number; source: AiSource; model: string | null } | null;
     proposedBudgetMinor: number | null;
   };
   /** Organizer sees candidates while choosing; everyone sees the selected offering. */

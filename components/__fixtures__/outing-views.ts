@@ -30,23 +30,27 @@ const orgCanNone = {
   selectOffering: false, editRoster: false, openCollection: false, cancel: false,
 };
 
-const OPTIONS = [5000, 7500, 10000, 15000, 20000];
+/** Per-person vote amounts: what one person would personally pay. */
+const OPTIONS = [1000, 1500, 2000, 3000, 4000];
 
 const candidates: CatalogueCandidateView[] = [
   {
     offeringId: "o-sound", name: "Private karaoke room", merchantName: "The Sound Room", category: "Karaoke", description: "Private room with a stage screen, two mics and a snack menu. Up to 10 guests.",
     location: "Downtown", pricingModel: "FIXED_TOTAL", priceMinor: 10000, currency: "USD", capacity: 10, minAttendees: 3, fit: "GREAT",
     reasons: ["Fixed total — more guests lower everyone’s share", "Private room, as you asked"], concerns: [],
+    budget: { costMinor: 2000, payers: 5, within: true, overByMinor: 0 },
   },
   {
     offeringId: "o-pottery", name: "Pottery studio session", merchantName: "Clay & Co", category: "Workshop", description: "Guided wheel session with firing included.",
     location: "Riverside", pricingModel: "PER_ATTENDEE", priceMinor: 3500, currency: "USD", capacity: 8, minAttendees: 2, fit: "GOOD",
     reasons: ["Hands-on and social"], concerns: ["Price grows with each extra guest", "Less of a birthday-party feel"],
+    budget: { costMinor: 4200, payers: 5, within: false, overByMinor: 2200 },
   },
   {
     offeringId: "o-escape", name: "Escape room for six", merchantName: "Locked In", category: "Game", description: "60-minute themed room.",
     location: "Midtown", pricingModel: "FIXED_TOTAL", priceMinor: 18000, currency: "USD", capacity: 6, minAttendees: 4, fit: "STRETCH",
-    reasons: ["Great for a group of six"], concerns: ["Above the agreed $100 budget", "Capacity of six is tight"],
+    reasons: ["Great for a group of six"], concerns: ["About $36 each, above the agreed $20 per person", "Capacity of six is tight"],
+    budget: { costMinor: 3600, payers: 5, within: false, overByMinor: 1600 },
   },
 ];
 
@@ -87,7 +91,7 @@ function base(over: DeepPartial<OutingView> = {}): OutingView {
     viewer: { participantId: "p2", displayName: "Ben", role: "INVITEE", payerType: "PAYER", required: true, attendance: "PENDING", isOrganizer: false },
     brief,
     budget: {
-      round: 1, unit: "TOTAL", options: OPTIONS, myVoteMinor: null, votedCount: 3, invitedCount: 6, revealed: false, canReveal: false,
+      round: 1, unit: "PER_PERSON", options: OPTIONS, myVoteMinor: null, votedCount: 3, invitedCount: 6, revealed: false, canReveal: false,
       aggregate: null, aiSummary: null, proposedBudgetMinor: null,
     },
     proposal: null,
@@ -118,7 +122,7 @@ const organizer = { participantId: "p0", displayName: "Alex", role: "ORGANIZER" 
 const collecting = (over: DeepPartial<OutingView> = {}): OutingView =>
   base({
     outing: { status: "COLLECTING", stage: "COMMIT", activityAt: ACTIVITY, deadlineAt: DEADLINE },
-    budget: { revealed: true, proposedBudgetMinor: 10000, votedCount: 6 },
+    budget: { revealed: true, proposedBudgetMinor: 2000, votedCount: 6 },
     proposal: { candidates, note: null, source: "FIXTURE", selectedOfferingId: "o-sound" },
     quote: quote(),
     roster: {
@@ -160,7 +164,7 @@ export const FIXTURES: Record<string, { label: string; view: OutingView }> = {
   "budget-voted": {
     label: "Budget poker — voted, 4 of 6",
     view: base({
-      budget: { myVoteMinor: 10000, votedCount: 4 },
+      budget: { myVoteMinor: 2000, votedCount: 4 },
       roster: { people: people((i) => ({ hasVoted: i <= 3 })) },
     }),
   },
@@ -168,7 +172,7 @@ export const FIXTURES: Record<string, { label: string; view: OutingView }> = {
     label: "Budget poker — organizer, can reveal, invite",
     view: base({
       viewer: organizer,
-      budget: { myVoteMinor: 10000, votedCount: 4, canReveal: true },
+      budget: { myVoteMinor: 2000, votedCount: 4, canReveal: true },
       roster: { people: people((i) => ({ hasVoted: i <= 3 })) },
       organizer: { can: { ...orgCanNone, addInvitees: true, reveal: true } },
     }),
@@ -178,12 +182,12 @@ export const FIXTURES: Record<string, { label: string; view: OutingView }> = {
     view: base({
       viewer: organizer,
       budget: {
-        revealed: true, votedCount: 6, myVoteMinor: 10000, proposedBudgetMinor: null,
+        revealed: true, votedCount: 6, myVoteMinor: 2000, proposedBudgetMinor: null,
         aggregate: {
-          unit: "TOTAL", currency: "USD", voteCount: 6, invitedCount: 6, minMinor: 5000, maxMinor: 15000, medianMinor: 10000,
-          buckets: [{ amountMinor: 5000, count: 1 }, { amountMinor: 7500, count: 1 }, { amountMinor: 10000, count: 3 }, { amountMinor: 15000, count: 1 }],
+          unit: "PER_PERSON", currency: "USD", voteCount: 6, invitedCount: 6, minMinor: 1000, maxMinor: 3000, medianMinor: 2000,
+          buckets: [{ amountMinor: 1000, count: 1 }, { amountMinor: 1500, count: 1 }, { amountMinor: 2000, count: 3 }, { amountMinor: 3000, count: 1 }],
         },
-        aiSummary: { headline: "Most of the group is around $100", summary: "Three of six suggested $100 and the middle of the range is $100. One person wants to spend less, one a bit more.", suggestedTotalMinor: 10000, source: "FIXTURE", model: null },
+        aiSummary: { headline: "Most of the group is around $20 each", summary: "Three of six said $20 per person and the middle of the range is $20. One person wants to spend less, one a bit more.", suggestedAmountMinor: 2000, source: "FIXTURE", model: null },
       },
       organizer: { can: { ...orgCanNone, agreeBudget: true, newRound: true } },
       me: { can: emptyCan },
@@ -193,12 +197,12 @@ export const FIXTURES: Record<string, { label: string; view: OutingView }> = {
     label: "Reveal — aggregate (guest)",
     view: base({
       budget: {
-        revealed: true, votedCount: 6, myVoteMinor: 10000,
+        revealed: true, votedCount: 6, myVoteMinor: 2000,
         aggregate: {
-          unit: "TOTAL", currency: "USD", voteCount: 6, invitedCount: 6, minMinor: 5000, maxMinor: 15000, medianMinor: 10000,
-          buckets: [{ amountMinor: 5000, count: 1 }, { amountMinor: 7500, count: 1 }, { amountMinor: 10000, count: 3 }, { amountMinor: 15000, count: 1 }],
+          unit: "PER_PERSON", currency: "USD", voteCount: 6, invitedCount: 6, minMinor: 1000, maxMinor: 3000, medianMinor: 2000,
+          buckets: [{ amountMinor: 1000, count: 1 }, { amountMinor: 1500, count: 1 }, { amountMinor: 2000, count: 3 }, { amountMinor: 3000, count: 1 }],
         },
-        aiSummary: { headline: "Most of the group is around $100", summary: "Three of six suggested $100.", suggestedTotalMinor: 10000, source: "ANTHROPIC", model: "claude-sonnet-5-5" },
+        aiSummary: { headline: "Most of the group is around $20 each", summary: "Three of six said $20 per person.", suggestedAmountMinor: 2000, source: "ANTHROPIC", model: "claude-sonnet-5-5" },
       },
       me: { can: emptyCan },
     }),
@@ -208,7 +212,7 @@ export const FIXTURES: Record<string, { label: string; view: OutingView }> = {
     view: base({
       outing: { status: "PROPOSED", stage: "INVITE" },
       viewer: organizer,
-      budget: { revealed: true, proposedBudgetMinor: 10000, votedCount: 6 },
+      budget: { revealed: true, proposedBudgetMinor: 2000, votedCount: 6 },
       proposal: { candidates, note: "The karaoke room is a fixed price, so every extra guest lowers the share.", source: "FIXTURE", selectedOfferingId: "o-sound" },
       roster: {
         people: people((i) => ({ payerType: i === 1 ? "SPONSORED" : "PAYER", required: i < 5 })),
@@ -224,7 +228,7 @@ export const FIXTURES: Record<string, { label: string; view: OutingView }> = {
     view: base({
       outing: { status: "PROPOSED", stage: "INVITE" },
       viewer: organizer,
-      budget: { revealed: true, proposedBudgetMinor: 10000 },
+      budget: { revealed: true, proposedBudgetMinor: 2000 },
       proposal: { candidates, note: null, source: "ANTHROPIC", selectedOfferingId: "o-pottery" },
       estimates: { capMinor: 3500, projectedPayers: 6, estimatedShareMinor: 3500 },
       organizer: { can: { ...orgCanNone, addInvitees: true, selectOffering: true, editRoster: true, openCollection: true } },
@@ -233,7 +237,7 @@ export const FIXTURES: Record<string, { label: string; view: OutingView }> = {
   },
   "proposal-guest": {
     label: "Invite — guest waits",
-    view: base({ outing: { status: "PROPOSED", stage: "INVITE" }, budget: { revealed: true, proposedBudgetMinor: 10000 }, me: { can: emptyCan } }),
+    view: base({ outing: { status: "PROPOSED", stage: "INVITE" }, budget: { revealed: true, proposedBudgetMinor: 2000 }, me: { can: emptyCan } }),
   },
   invitation: { label: "Invitation — 4 of 5 payers committed", view: collecting() },
   "invitation-sandbox": {

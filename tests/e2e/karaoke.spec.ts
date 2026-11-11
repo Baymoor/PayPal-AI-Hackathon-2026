@@ -22,7 +22,8 @@ import {
 
 const INVITEES = ["Ben", "Freya", "Jules", "Noor", "Maya"] as const;
 type Name = "Alex" | (typeof INVITEES)[number];
-const VOTES: Partial<Record<Name, string>> = { Alex: "$100", Ben: "$100", Freya: "$75", Jules: "$150", Noor: "$100" };
+/** Per-person votes: what each would personally pay. */
+const VOTES: Partial<Record<Name, string>> = { Alex: "$20", Ben: "$20", Freya: "$15", Jules: "$30", Noor: "$20" };
 const PAYERS: Name[] = ["Alex", "Ben", "Freya", "Jules", "Noor"];
 
 test("karaoke for Maya: plan, vote privately, commit, settle at the deadline, merchant sees it", async ({ browser, request }) => {
@@ -62,6 +63,7 @@ test("karaoke for Maya: plan, vote privately, commit, settle at the deadline, me
   await test.step("(a) start budget poker and create one-time invitation links", async () => {
     await alex.getByRole("button", { name: "Start budget poker" }).click();
     await expect(alex.getByRole("heading", { name: "Budget poker", level: 1 })).toBeVisible();
+    await expect(alex.getByText("What would you personally pay for this outing?")).toBeVisible();
     await alex.getByLabel("Names, one per line or separated by commas").fill(INVITEES.join("\n"));
     await alex.getByRole("button", { name: "Create invitation links" }).click();
     await expect(alex.getByText("Copy these links now")).toBeVisible();
@@ -103,7 +105,8 @@ test("karaoke for Maya: plan, vote privately, commit, settle at the deadline, me
     // People carry only "has voted", never an amount.
     for (const person of v.roster.people) expect(Object.keys(person).filter((k) => /amount|vote(?!d)/i.test(k))).toEqual([]);
     const ben = await viewOf(pages.Ben, outingId);
-    expect(ben.budget.myVoteMinor).toBe(10_000); // only your own vote
+    expect(ben.budget.myVoteMinor).toBe(2_000); // only your own vote
+    expect(ben.budget.unit).toBe("PER_PERSON");
     // Only the organizer can reveal.
     const forbidden = await maya.request.post(`/api/outings/${outingId}/budget/reveal`, { headers: { origin: new URL(maya.url()).origin } });
     expect(forbidden.status()).toBe(403);
@@ -114,7 +117,8 @@ test("karaoke for Maya: plan, vote privately, commit, settle at the deadline, me
     await alex.reload();
     await alex.getByRole("button", { name: "Reveal", exact: true }).click();
     await expect(alex.getByRole("heading", { name: "Here’s where the group landed" })).toBeVisible();
-    await expect(alex.getByRole("img", { name: /\$100: 3 votes/ })).toBeVisible();
+    await expect(alex.getByRole("img", { name: /per person, by amount: .*\$20: 3 votes/ })).toBeVisible();
+    await expect(alex.getByText("Amounts only. No names.")).toBeVisible();
     await expect(alex.getByText("Fixture AI (no model call)").first()).toBeVisible();
     await shot(alex, "reveal", { fullPage: false });
 
@@ -126,9 +130,9 @@ test("karaoke for Maya: plan, vote privately, commit, settle at the deadline, me
     expect(v.budget.revealed).toBe(true);
     expect(v.budget.aggregate?.buckets).toEqual(
       expect.arrayContaining([
-        { amountMinor: 7_500, count: 1 },
-        { amountMinor: 10_000, count: 3 },
-        { amountMinor: 15_000, count: 1 },
+        { amountMinor: 1_500, count: 1 },
+        { amountMinor: 2_000, count: 3 },
+        { amountMinor: 3_000, count: 1 },
       ]),
     );
     expect(v.budget.myVoteMinor).toBeNull();
@@ -136,12 +140,15 @@ test("karaoke for Maya: plan, vote privately, commit, settle at the deadline, me
     expect(JSON.stringify(v.budget)).not.toMatch(new RegExp(names.join("|")));
   });
 
-  await test.step("(b) agree on $100, pick the karaoke room, sponsor Maya", async () => {
-    await alex.getByRole("button", { name: "Agree on $100 budget" }).click();
+  await test.step("(b) agree on $20 per person, pick the karaoke room, sponsor Maya", async () => {
+    await alex.getByRole("button", { name: "Agree on $20 per person" }).click();
     await expect(alex.getByRole("heading", { name: "Pick a merchant-confirmed quote" })).toBeVisible();
     const room = alex.locator("label").filter({ hasText: "Private karaoke room" });
     await expect(room).toContainText("$100 fixed total · up to 10 people");
-    await expect(alex.locator("label").filter({ hasText: "Karaoke party suite" })).toBeVisible();
+    // Six invited and nobody covered yet: the app divides the room by the people paying right now.
+    await expect(room).toContainText("$16.67 each with 6 paying");
+    const suite = alex.locator("label").filter({ hasText: "Karaoke party suite" });
+    await expect(suite).toContainText("$30 each with 6 paying, above the agreed $20");
     await room.click();
     await expect(room.getByText("Selected", { exact: true })).toBeVisible();
 
@@ -150,6 +157,9 @@ test("karaoke for Maya: plan, vote privately, commit, settle at the deadline, me
     await expect(alex.getByLabel("Guest of honour").locator("option:checked")).toHaveText("Maya");
     await alex.getByRole("switch", { name: "Cover Maya's share" }).click();
     await expect(alex.getByText("On. Maya pays $0.")).toBeVisible();
+    // Covering Maya leaves five payers, so every share rises: exactly the $20 each the group agreed.
+    await expect(room).toContainText("$20 each with 5 paying");
+    await expect(suite).toContainText("$36 each with 5 paying, above the agreed $20");
     const split = alex.locator("section", { has: alex.getByRole("heading", { name: "Split preview" }) });
     await expect(split).toContainText("Each paying participant$20");
     await expect(split).toContainText("Maya pays$0");

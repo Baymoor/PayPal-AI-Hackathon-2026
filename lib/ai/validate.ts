@@ -165,7 +165,8 @@ function validVoteAmounts(suggestion: number[] | null, warnings: string[]): numb
 
 /* ------------------------------- proposals ---------------------------------- */
 
-const GROWS_RE = /(attendee|per[- ]?person|per head|grows?|increase|scales?)/i;
+// "per person" is not a signal here: budget sentences say it ("above the agreed $20 per person") about any offering.
+const GROWS_RE = /(attendee|per head|grows?|increase|scales?)/i;
 export const PER_ATTENDEE_CONCERN = "Priced per attendee, so the total grows with each person who joins.";
 
 export function validateProposal(raw: Proposal, catalogue: CatalogueItemForAi[]): Validated<Proposal> {
@@ -203,16 +204,16 @@ export function validateProposal(raw: Proposal, catalogue: CatalogueItemForAi[])
 export function validateReveal(raw: RevealSummary, aggregate: RevealAggregate): Validated<RevealSummary> {
   const warnings: string[] = [];
   const s = RevealSummarySchema.parse(raw);
-  let total = s.suggestedTotalMinor;
+  let total = s.suggestedAmountMinor;
   if (total < aggregate.minMinor || total > aggregate.maxMinor) {
     warnings.push(
-      `suggestedTotalMinor ${total} was outside the vote range [${aggregate.minMinor}, ${aggregate.maxMinor}]; clamped to the median.`,
+      `suggestedAmountMinor ${total} was outside the vote range [${aggregate.minMinor}, ${aggregate.maxMinor}]; clamped to the median.`,
     );
     total = Math.min(Math.max(aggregate.medianMinor, aggregate.minMinor), aggregate.maxMinor);
   }
   const headline = sanitizeText(s.headline, 90) || "Budget poker results";
   const summary = sanitizeText(s.summary, 320) || "The group's votes are summarised above.";
-  return { output: { headline, summary, suggestedTotalMinor: total }, warnings };
+  return { output: { headline, summary, suggestedAmountMinor: total }, warnings };
 }
 
 /* ------------------------------ dashboard NL -------------------------------- */

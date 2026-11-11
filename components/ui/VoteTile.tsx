@@ -4,18 +4,24 @@ import { useId, useState } from "react";
 import { formatMoney, parseMajorToMinor } from "@/lib/domain/money";
 import { cn } from "./cn";
 
-/** Radio group of total-budget tiles. Native radios give arrow-key navigation for free. */
+/** Radio group of budget tiles plus a custom amount. Native radios give arrow-key navigation for free. */
 export function VoteGrid({
   options,
   value,
   onChange,
   legend,
+  customLabel,
+  customExample,
   disabled,
 }: {
   options: number[];
   value: number | null;
   onChange: (minor: number | null) => void;
   legend: string;
+  /** Label of the custom amount field; it says what the amount means (per person, or a group total). */
+  customLabel: string;
+  /** A plausible amount in whole dollars, e.g. "20": the placeholder and the error hint. */
+  customExample: string;
   disabled?: boolean;
 }) {
   const name = useId();
@@ -37,7 +43,7 @@ export function VoteGrid({
       setCustomError(null);
       onChange(minor);
     } catch {
-      setCustomError("Enter a whole-dollar or cents amount like 120 or 120.50");
+      setCustomError(`Enter a whole-dollar or cents amount like ${customExample} or ${customExample}.50`);
       onChange(null);
     }
   }
@@ -111,7 +117,7 @@ export function VoteGrid({
       {customOpen && (
         <div className="mt-3">
           <label htmlFor={`${name}-custom`} className="mb-1.5 block text-small font-semibold">
-            Custom total (USD)
+            {customLabel}
           </label>
           <div className="flex items-center gap-2">
             <span aria-hidden className="font-money text-[24px]">
@@ -126,7 +132,7 @@ export function VoteGrid({
               aria-invalid={customError ? true : undefined}
               aria-describedby={customError ? `${name}-err` : undefined}
               className="min-h-[48px] w-full rounded-chip border border-line-strong bg-white px-4 text-body"
-              placeholder="120"
+              placeholder={customExample}
             />
           </div>
           {customError && (

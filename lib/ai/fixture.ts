@@ -15,6 +15,7 @@ import type {
   PlanDraftInput,
   PlanRosterEntry,
   Proposal,
+  ProposalInput,
   RevealAggregate,
   RevealSummary,
 } from "./types";
@@ -26,6 +27,7 @@ import {
   validateProposal,
   validateReveal,
 } from "./validate";
+import { bookingTotalMinor, budgetFit, perPersonShareMinor } from "../domain/budget-fit";
 import { formatMoney, isCurrency } from "../domain/money";
 import { zonedParts, zonedTimeToUtc } from "../services/catalogue";
 
@@ -160,6 +162,43 @@ function labelFirstReason(reasons: readonly string[]): string[] {
   return [`${RANKER_LABEL}${first.charAt(0).toLowerCase()}${first.slice(1)}`, ...rest];
 }
 
+interface BudgetVerdict {
+  within: boolean;
+  text: string;
+}
+
+/**
+ * Budget check for one offering, in the unit the group agreed. Against a per-person budget the share is the
+ * application's own figure (never worked out here); against a total it is the whole booking.
+ */
+function budgetVerdict(item: CatalogueItemForAi, input: ProposalInput, groupSize: number | null): BudgetVerdict | null {
+  const budget = input.agreedBudgetMinor;
+  if (budget === null) return null;
+  if (input.budgetUnit === "PER_PERSON") {
+    const share = item.perPersonShareMinor ?? null;
+    if (share === null) return null;
+    const within = budgetFit(share, budget).kind === "WITHIN";
+    return { within, text: `About ${formatMoney(share)} each, ${within ? "within" : "above"} the agreed ${formatMoney(budget)} per person.` };
+  }
+  if (groupSize === null) return null;
+  const within = budgetFit(bookingTotalMinor(item, groupSize), budget).kind === "WITHIN";
+  return { within, text: within ? "Estimated total is within the agreed budget." : "Estimated total exceeds the agreed budget." };
+}
+
+/** Why the chosen offering may be above what the group agreed, or null. `payers` is who pays once the suggested sponsorship applies. */
+function planBudgetCaution(offering: PlanCatalogueItem, input: PlanDraftInput, payers: number): string | null {
+  const budget = input.agreedBudgetMinor;
+  if (offering.pricingModel !== "FIXED_TOTAL" || budget === null || offering.currency !== "USD") return null;
+  if (input.budgetUnit !== "PER_PERSON") {
+    if (offering.priceMinor <= budget) return null;
+    return `Fixture planner: the ${formatMoney(offering.priceMinor)} fixed total is above the agreed ${formatMoney(budget)} budget.`;
+  }
+  if (payers < 1) return null;
+  const share = perPersonShareMinor(offering, { attendees: input.roster.length, payers });
+  if (share <= budget) return null;
+  return `Fixture planner: about ${formatMoney(share)} each with ${payers} paying is above the agreed ${formatMoney(budget)} per person.`;
+}
+
 export class FixtureOutingsAi implements OutingsAi {
   readonly source = "FIXTURE" as const;
 
@@ -232,20 +271,14 @@ export class FixtureOutingsAi implements OutingsAi {
       summary: summary.slice(0, 6),
       // The fixture parser never suggests vote amounts; the app's deterministic ladder
       // (lib/domain/budget-options.ts) computes them and is labelled as such.
-      suggestedVoteTotalsMinor: null,
+      suggestedVotePerPersonMinor: null,
     };
     const v = validateBrief(raw, { categories: input.categories, sourceText: text });
     return this.wrap(v.output, ["Fixture parser: extracted with regex/keyword rules.", ...v.warnings]);
   }
 
-  async proposeOfferings(input: {
-    extraction: BriefExtraction;
-    catalogue: CatalogueItemForAi[];
-    agreedBudgetMinor: number | null;
-    groupSize: number | null;
-  }): Promise<AiResult<Proposal>> {
+  async proposeOfferings(input: ProposalInput): Promise<AiResult<Proposal>> {
     const n = input.groupSize ?? input.extraction.groupSize.count;
-    const budget = input.agreedBudgetMinor;
     const wantsPrivate = input.extraction.needs.some((x) => /private/i.test(x));
     const scored = input.catalogue.map((item) => {
       let score = 0;
@@ -262,13 +295,11 @@ export class FixtureOutingsAi implements OutingsAi {
           reasons.push(`Fits a group of ${n}.`);
         } else concerns.push(`Group of ${n} is outside ${item.minAttendees}-${item.capacity}.`);
       }
-      if (budget !== null && n !== null) {
-        const total = item.pricingModel === "FIXED_TOTAL" ? item.priceMinor : item.priceMinor * n;
-        if (total <= budget) {
-          score += 2;
-          reasons.push("Estimated total is within the agreed budget.");
-        } else concerns.push("Estimated total exceeds the agreed budget.");
-      }
+      const verdict = budgetVerdict(item, input, n);
+      if (verdict?.within) {
+        score += 2;
+        reasons.push(verdict.text);
+      } else if (verdict) concerns.push(verdict.text);
       if (input.extraction.prefersFixedTotal && item.pricingModel === "FIXED_TOTAL") {
         score += 1;
         reasons.push("Fixed total, so more attendees lower each share.");
@@ -312,10 +343,13 @@ export class FixtureOutingsAi implements OutingsAi {
     const a = input.aggregate;
     // Same money formatting as every other screen ("$45", not "45.00 USD").
     const fmt = (m: number) => (isCurrency(a.currency) ? formatMoney(m, a.currency) : `${(m / 100).toFixed(2)} ${a.currency}`);
+    // A vote is what one person would pay, or (older outings) a total for the group: the words always say which.
+    const perPerson = a.unit === "PER_PERSON";
+    const median = perPerson ? `the median is ${fmt(a.medianMinor)} per person` : `the median proposed total is ${fmt(a.medianMinor)}`;
     const raw: RevealSummary = {
-      headline: `Fixture summary: votes ranged ${fmt(a.minMinor)} to ${fmt(a.maxMinor)}`,
-      summary: `${a.voteCount} of ${a.invitedCount} invitees voted; the median proposed total is ${fmt(a.medianMinor)}. Votes are proposals, not payment authorizations. The organizer chooses the final quote.`,
-      suggestedTotalMinor: a.medianMinor,
+      headline: `Fixture summary: votes ranged ${fmt(a.minMinor)} to ${fmt(a.maxMinor)}${perPerson ? " per person" : ""}`,
+      summary: `${a.voteCount} of ${a.invitedCount} invitees voted; ${median}. Votes are proposals, not payment authorizations. The organizer chooses the final quote.`,
+      suggestedAmountMinor: a.medianMinor,
     };
     const v = validateReveal(raw, a);
     return this.wrap(v.output, v.warnings);
@@ -408,11 +442,8 @@ export class FixtureOutingsAi implements OutingsAi {
         ? `Fixture planner: keeps your choice, ${offering.name}.`
         : `Fixture planner: ${offering.name} is the top-ranked fixed-total option that fits everyone invited.`,
     );
-    if (offering.pricingModel === "FIXED_TOTAL" && input.agreedBudgetMinor !== null && offering.currency === "USD") {
-      if (offering.priceMinor > input.agreedBudgetMinor) {
-        cautions.push(`Fixture planner: the ${formatMoney(offering.priceMinor)} fixed total is above the agreed ${formatMoney(input.agreedBudgetMinor)} budget.`);
-      }
-    }
+    // The budget caution belongs here, with the offering, but a per-person share needs the sponsor decided below.
+    const budgetCautionAt = cautions.length;
 
     // Activity slot.
     const part = PART_OF_DAY[ex.dateWindow.partOfDay ?? "EVENING"];
@@ -460,11 +491,15 @@ export class FixtureOutingsAi implements OutingsAi {
       cautions.push(`Fixture planner: ${honour.name} is the guest of honour, but the brief doesn't say the group covers their share.`);
     }
 
+    const payers = roster.length - (sponsor ? 1 : 0);
+    const budgetCaution = planBudgetCaution(offering, input, payers);
+    if (budgetCaution) cautions.splice(budgetCautionAt, 0, budgetCaution);
+
     const raw: PlanDraft = {
       offeringId: offering.offeringId,
       activityStartLocal: activity ? formatLocalWallTime(activity, tz) : "",
       deadlineLocal: deadline ? formatLocalWallTime(deadline, tz) : "",
-      minPayers: roster.length - (sponsor ? 1 : 0),
+      minPayers: payers,
       sponsoredParticipantName: sponsor?.name ?? null,
       rationale: rationale.slice(0, 4).map((r) => r.slice(0, 140)),
       cautions: cautions.slice(0, 3).map((r) => r.slice(0, 140)),

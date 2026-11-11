@@ -140,7 +140,9 @@ export interface StoredReveal {
   summary: {
     headline: string;
     summary: string;
-    suggestedTotalMinor: number;
+    /** In the aggregate's unit. Reveals stored before per-person voting carry `suggestedTotalMinor` instead. */
+    suggestedAmountMinor: number;
+    suggestedTotalMinor?: number;
     source: AiSource;
     model: string | null;
     /** Set when we overrode the AI (e.g. suggestion outside the vote range). */
@@ -599,7 +601,7 @@ export async function vote(db: Db, actor: ParticipantActor, input: { amountMinor
 }
 
 /** Aggregate-only summary of a set of votes cast in one unit (no names, no mapping from vote to voter). */
-export function aggregateVotes(amounts: readonly number[], invitedCount: number, currency: string, unit: BudgetUnit = "TOTAL"): RevealAggregate {
+export function aggregateVotes(amounts: readonly number[], invitedCount: number, currency: string, unit: BudgetUnit): RevealAggregate {
   if (amounts.length === 0) throw new Error("no votes to aggregate");
   const sorted = [...amounts].sort((a, b) => a - b);
   const counts = new Map<number, number>();
@@ -661,7 +663,7 @@ export async function reveal(db: Db, actor: ParticipantActor, now: Date = new Da
     if (call.ok) {
       const parsed = RevealSummarySchema.safeParse(call.result.output);
       if (parsed.success) {
-        let suggested = parsed.data.suggestedTotalMinor;
+        let suggested = parsed.data.suggestedAmountMinor;
         let note: string | null = null;
         if (suggested < aggregate.minMinor || suggested > aggregate.maxMinor) {
           suggested = aggregate.medianMinor;
@@ -670,7 +672,7 @@ export async function reveal(db: Db, actor: ParticipantActor, now: Date = new Da
         summary = {
           headline: parsed.data.headline,
           summary: parsed.data.summary,
-          suggestedTotalMinor: suggested,
+          suggestedAmountMinor: suggested,
           source: call.result.source,
           model: call.result.model,
           note,

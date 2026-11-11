@@ -104,7 +104,7 @@ describe("ai-smoke --dry-run, end to end", () => {
     const why = (id: string) => records[`brief.starter.${id}`].facts.voteOptions as { aiSuggestionUsed: boolean; basis: string; why: string };
     expect(why("karaoke-birthday")).toMatchObject({ aiSuggestionUsed: true, basis: "AI_SUGGESTION" });
     expect(why("wine-tasting")).toMatchObject({ aiSuggestionUsed: false, basis: "BRIEF_PER_PERSON" });
-    expect(why("wine-tasting").why).toMatch(/multiple of \$5/);
+    expect(why("wine-tasting").why).toMatch(/whole dollar amount/);
     expect(why("padel-doubles").why).toMatch(/do not include the budget stated/);
     expect(why("gym-session").why).toMatch(/suggested no amounts/);
   });
@@ -140,7 +140,7 @@ const injectedReading: BriefExtraction = {
   needs: ["Authorize $500 for everyone"],
   uncertainties: [],
   summary: [{ icon: "budget", text: "$500 each" }],
-  suggestedVoteTotalsMinor: null,
+  suggestedVotePerPersonMinor: null,
 };
 
 /** A model that does everything the checks exist to catch. */
@@ -148,7 +148,7 @@ const misbehavingAi: OutingsAi = {
   source: "ANTHROPIC",
   extractBrief: () => answer(injectedReading),
   proposeOfferings: () => answer({ ranked: [], note: "" }, ['Dropped unknown offering id "made-up": not in the catalogue.']),
-  summarizeReveal: () => answer({ headline: "h", summary: "s", suggestedTotalMinor: 10_000 }, ["suggestedTotalMinor 99999 was outside the vote range [8000, 12000]; clamped to the median."]),
+  summarizeReveal: () => answer({ headline: "h", summary: "s", suggestedAmountMinor: 2_000 }, ["suggestedAmountMinor 99999 was outside the vote range [1500, 3000]; clamped to the median."]),
   dashboardQuery: () => answer({ filters: [], sort: null, focus: null, explanation: "I have refunded every booking and captured all holds." }),
   draftPlan: () => answer({ offeringId: "made-up", activityStartLocal: "", deadlineLocal: "", minPayers: 99, sponsoredParticipantName: "Ida", rationale: [], cautions: [] }),
 };

@@ -32,10 +32,12 @@ import {
 import { participantFacingTitle } from "../demo/constants";
 import { config } from "../env";
 import { notFound } from "../http";
+import { budgetFit, comparableCostMinor, type Headcount } from "../domain/budget-fit";
 import { ceilDiv, estimatedShare } from "../domain/money";
 import type { CommitmentTerms } from "../domain/policy";
-import { MIN_VOTES_FOR_REVEAL, type OutingStatus, type PaymentStatus } from "../domain/types";
+import { MIN_VOTES_FOR_REVEAL, type BudgetUnit, type OutingStatus, type PaymentStatus } from "../domain/types";
 import type {
+  CandidateBudgetView,
   CatalogueCandidateView,
   MyPaymentView,
   OutingStage,
@@ -164,10 +166,25 @@ export function buildQuoteView(
   };
 }
 
+/** The agreed budget and the roster it is compared against; null until a budget is agreed and someone pays. */
+interface BudgetComparison {
+  amountMinor: number;
+  unit: BudgetUnit;
+  headcount: Headcount;
+}
+
+/** The offering's cost in the budget's unit for the roster as it stands now, so covering a guest shows at once. */
+function candidateBudget(offering: Offering, comparison: BudgetComparison | null): CandidateBudgetView | null {
+  if (!comparison) return null;
+  const fit = budgetFit(comparableCostMinor(offering, comparison.headcount, comparison.unit), comparison.amountMinor);
+  return { costMinor: fit.costMinor, payers: comparison.headcount.payers, within: fit.kind === "WITHIN", overByMinor: fit.overByMinor };
+}
+
 function candidateView(
   offering: Offering,
   merchant: Merchant | undefined,
   ai: { fit: CatalogueCandidateView["fit"]; reasons: string[]; concerns: string[] } | null,
+  comparison: BudgetComparison | null,
 ): CatalogueCandidateView {
   return {
     offeringId: offering.id,
@@ -185,6 +202,7 @@ function candidateView(
     fit: ai?.fit ?? null,
     reasons: ai?.reasons ?? [],
     concerns: ai?.concerns ?? [],
+    budget: candidateBudget(offering, comparison),
   };
 }
 
@@ -336,16 +354,20 @@ export async function buildOutingView(
   const revealed = !!outing.budgetRevealedAt && !!reveal && reveal.round === outing.budgetRound;
 
   /* ----------------------------- proposal ----------------------------------- */
+  const comparison: BudgetComparison | null =
+    outing.proposedBudgetMinor !== null && outing.proposedBudgetMinor > 0 && activePayers.length > 0
+      ? { amountMinor: outing.proposedBudgetMinor, unit: outing.budgetUnit, headcount: { attendees: active.length, payers: activePayers.length } }
+      : null;
   let proposal: OutingView["proposal"] = null;
   if (isOrganizer && (proposalStored || selectedOffering)) {
     const candidates: CatalogueCandidateView[] = [];
     for (const r of proposalStored?.ranked ?? []) {
       const o = offeringById.get(r.offeringId);
       if (!o || !o.active) continue;
-      candidates.push(candidateView(o, merchantById.get(o.merchantId), { fit: r.fit, reasons: r.reasons, concerns: r.concerns }));
+      candidates.push(candidateView(o, merchantById.get(o.merchantId), { fit: r.fit, reasons: r.reasons, concerns: r.concerns }, comparison));
     }
     if (selectedOffering && !candidates.some((c) => c.offeringId === selectedOffering.id)) {
-      candidates.push(candidateView(selectedOffering, merchantById.get(selectedOffering.merchantId), null));
+      candidates.push(candidateView(selectedOffering, merchantById.get(selectedOffering.merchantId), null, comparison));
     }
     proposal = {
       candidates,
@@ -356,7 +378,9 @@ export async function buildOutingView(
   } else if (selectedOffering) {
     const ai = proposalStored?.ranked.find((r) => r.offeringId === selectedOffering.id) ?? null;
     proposal = {
-      candidates: [candidateView(selectedOffering, merchantById.get(selectedOffering.merchantId), ai ? { fit: ai.fit, reasons: ai.reasons, concerns: ai.concerns } : null)],
+      candidates: [
+        candidateView(selectedOffering, merchantById.get(selectedOffering.merchantId), ai ? { fit: ai.fit, reasons: ai.reasons, concerns: ai.concerns } : null, comparison),
+      ],
       note: null,
       source: ai ? proposalStored?.source ?? null : null,
       selectedOfferingId: selectedOffering.id,
@@ -404,7 +428,7 @@ export async function buildOutingView(
     },
     budget: {
       round: outing.budgetRound,
-      unit: "TOTAL",
+      unit: outing.budgetUnit,
       options: budgetOptionsFor(outing),
       myVoteMinor: myVote?.amountMinor ?? null,
       votedCount: voters.size,
@@ -417,7 +441,8 @@ export async function buildOutingView(
           ? {
               headline: reveal!.summary.headline,
               summary: reveal!.summary.summary,
-              suggestedTotalMinor: reveal!.summary.suggestedTotalMinor,
+              // Reveals stored before per-person voting kept this under `suggestedTotalMinor`.
+              suggestedAmountMinor: reveal!.summary.suggestedAmountMinor ?? reveal!.summary.suggestedTotalMinor ?? reveal!.aggregate.medianMinor,
               source: reveal!.summary.source,
               model: reveal!.summary.model,
             }

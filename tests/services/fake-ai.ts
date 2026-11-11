@@ -50,7 +50,7 @@ export class FakeAi implements OutingsAi {
   }
   async summarizeReveal(input: Parameters<OutingsAi["summarizeReveal"]>[0]): Promise<AiResult<RevealSummary>> {
     this.calls.push({ method: "summarizeReveal", input });
-    return wrap({ headline: "Here's where the group landed", summary: "Most votes cluster around the middle.", suggestedTotalMinor: input.aggregate.medianMinor });
+    return wrap({ headline: "Here's where the group landed", summary: "Most votes cluster around the middle.", suggestedAmountMinor: input.aggregate.medianMinor });
   }
   async dashboardQuery(input: { question: string; now: Date }): Promise<AiResult<DashboardQuery>> {
     this.calls.push({ method: "dashboardQuery", input });

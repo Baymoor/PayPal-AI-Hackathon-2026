@@ -44,11 +44,12 @@ test("a required guest never commits: deadline cancels, holds are voided, clean-
     await expect(page).toHaveURL(new RegExp(`/o/${outingId}$`));
     people[inv.displayName] = page;
   }
-  for (const [name, amountMinor] of [["Priya", 12_000], ["Sam", 12_000], ["Lea", 10_000], ["Oskar", 15_000]] as const) {
+  // Per-person votes; $30 each is agreed.
+  for (const [name, amountMinor] of [["Priya", 3_000], ["Sam", 3_000], ["Lea", 2_500], ["Oskar", 4_000]] as const) {
     await api(people[name]!, "POST", `/api/outings/${outingId}/budget/vote`, { amountMinor });
   }
   await api(priya, "POST", `/api/outings/${outingId}/budget/reveal`);
-  await api(priya, "POST", `/api/outings/${outingId}/budget/agree`, { amountMinor: 12_000 });
+  await api(priya, "POST", `/api/outings/${outingId}/budget/agree`, { amountMinor: 3_000 });
   const proposed = await viewOf(priya, outingId);
   const escape = proposed.proposal!.candidates.find((c) => c.name.startsWith("Escape room"))!;
   await api(priya, "POST", `/api/outings/${outingId}/select`, { offeringId: escape.offeringId });
@@ -131,9 +132,9 @@ test("organizer cancels while collecting: the server cancels and releases the ho
   const lea = await newPage(browser, MOBILE);
   await sam.page.goto(invites[0]!.link);
   await lea.page.goto(invites[1]!.link);
-  for (const p of [priya.page, sam.page, lea.page]) await api(p, "POST", `/api/outings/${outingId}/budget/vote`, { amountMinor: 10_000 });
+  for (const p of [priya.page, sam.page, lea.page]) await api(p, "POST", `/api/outings/${outingId}/budget/vote`, { amountMinor: 3_500 });
   await api(priya.page, "POST", `/api/outings/${outingId}/budget/reveal`);
-  await api(priya.page, "POST", `/api/outings/${outingId}/budget/agree`, { amountMinor: 10_000 });
+  await api(priya.page, "POST", `/api/outings/${outingId}/budget/agree`, { amountMinor: 3_500 });
   const v = await viewOf(priya.page, outingId);
   const room = v.proposal!.candidates.find((c) => c.name === "Private karaoke room")!;
   await api(priya.page, "POST", `/api/outings/${outingId}/select`, { offeringId: room.offeringId });

@@ -1,4 +1,4 @@
-/** POST /api/outings/:id/budget/agree {amountMinor} (organizer): proposed TOTAL budget (not a payment) -> PROPOSED; AI ranks the catalogue. */
+/** POST /api/outings/:id/budget/agree {amountMinor} (organizer): proposed budget in the outing's unit, per person for new outings (not a payment) -> PROPOSED; AI ranks the catalogue. */
 import { getDb } from "@/lib/db/client";
 import { assertSameOrigin, handle, json, readJson } from "@/lib/http";
 import { requireOrganizer } from "@/lib/services/access";

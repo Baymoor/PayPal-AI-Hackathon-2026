@@ -24,7 +24,7 @@ import { merchants, offerings, outings, participants, paymentAttempts, paymentOp
 import { config, type AppConfig } from "../env";
 import { conflict } from "../http";
 import { recordAudit } from "../audit";
-import { formatMoney } from "../domain/money";
+import { formatMoney, perPayerCap } from "../domain/money";
 import type { CleanupState, OperationKind, OperationStatus, OutingStatus, ParticipantRole, PayerType } from "../domain/types";
 import { setFixtureFailure, type FixtureFailureMode, type FixtureOperation } from "../payments/fixture";
 import { consent, openCollection, respond } from "../services/outings";
@@ -50,14 +50,20 @@ const BRIEF =
 
 type CastKey = "alex" | "ben" | "freya" | "jules" | "noor" | "maya" | "leo" | "ida" | "omar" | "kai";
 
-/** Organizer + 4 payers + Maya (sponsored). sortKey order = capture order: Alex, Ben, Freya, Jules, Noor. */
+/** Every scenario opens commitments with this many required payers, so each hold is the room price / 5. */
+const SCENARIO_MIN_PAYERS = 5;
+
+/**
+ * Organizer + 4 payers + Maya (sponsored). sortKey order = capture order: Alex, Ben, Freya, Jules, Noor.
+ * Votes are per person ("what would you personally pay?"); the median is $20.
+ */
 const CAST: (PersonSpec & { key: CastKey })[] = [
-  { key: "alex", name: "Alex", organizer: true, voteMinor: 10_000 },
-  { key: "ben", name: "Ben", voteMinor: 10_000 },
-  { key: "freya", name: "Freya", voteMinor: 7_500 },
-  { key: "jules", name: "Jules", voteMinor: 15_000 },
-  { key: "noor", name: "Noor", voteMinor: 10_000 },
-  { key: "maya", name: "Maya", sponsored: true, voteMinor: 10_000 },
+  { key: "alex", name: "Alex", organizer: true, voteMinor: 2_000 },
+  { key: "ben", name: "Ben", voteMinor: 2_000 },
+  { key: "freya", name: "Freya", voteMinor: 1_500 },
+  { key: "jules", name: "Jules", voteMinor: 3_000 },
+  { key: "noor", name: "Noor", voteMinor: 2_000 },
+  { key: "maya", name: "Maya", sponsored: true, voteMinor: 2_000 },
 ];
 
 const BIG_BRIEF =
@@ -65,16 +71,16 @@ const BIG_BRIEF =
 
 /** Organizer + 9 payers, all PAYER (no sponsored guest): ten payers share the $100 room, $10 each. Kai commits live. */
 const BIG_CAST: (PersonSpec & { key: CastKey })[] = [
-  { key: "alex", name: "Alex", organizer: true, voteMinor: 10_000 },
-  { key: "ben", name: "Ben", voteMinor: 10_000 },
-  { key: "freya", name: "Freya", voteMinor: 7_500 },
-  { key: "jules", name: "Jules", voteMinor: 15_000 },
-  { key: "noor", name: "Noor", voteMinor: 10_000 },
-  { key: "maya", name: "Maya", voteMinor: 10_000 },
-  { key: "leo", name: "Leo", voteMinor: 12_000 },
-  { key: "ida", name: "Ida", voteMinor: 8_000 },
-  { key: "omar", name: "Omar", voteMinor: 10_000 },
-  { key: "kai", name: "Kai", voteMinor: 10_000 },
+  { key: "alex", name: "Alex", organizer: true, voteMinor: 2_000 },
+  { key: "ben", name: "Ben", voteMinor: 2_000 },
+  { key: "freya", name: "Freya", voteMinor: 1_500 },
+  { key: "jules", name: "Jules", voteMinor: 3_000 },
+  { key: "noor", name: "Noor", voteMinor: 2_000 },
+  { key: "maya", name: "Maya", voteMinor: 2_000 },
+  { key: "leo", name: "Leo", voteMinor: 2_500 },
+  { key: "ida", name: "Ida", voteMinor: 1_500 },
+  { key: "omar", name: "Omar", voteMinor: 2_000 },
+  { key: "kai", name: "Kai", voteMinor: 2_000 },
 ];
 
 interface InjectedFailure {
@@ -235,7 +241,8 @@ export async function createDemoScenario(
       status: "PROPOSED",
       createdAt: new Date(now.getTime() - 30 * MIN),
       people: cast,
-      proposal: { merchant, offering: room, proposedBudgetMinor: room.priceMinor },
+      // Agreed per person: the most any payer is asked to hold for this room (its price over the minimum payers).
+      proposal: { merchant, offering: room, proposedBudgetMinor: perPayerCap(room.priceMinor, SCENARIO_MIN_PAYERS) },
     },
     input.secret ?? cfg.sessionSecret,
   );
@@ -246,7 +253,7 @@ export async function createDemoScenario(
   // Real services from here: availability, deadline window, terms + hash (Maya sponsored, everyone
   // required), quote, SETTLE_DEADLINE job; then Maya's acceptance and each payer's consent + hold.
   const activityAt = nextLocalWeekdayAt(new Date(deadlineAt.getTime() + HOUR), 5, 19, merchant.timezone);
-  const opened = await openCollection(db, actor("alex"), { activityAt, deadlineAt, minPayers: 5 }, now);
+  const opened = await openCollection(db, actor("alex"), { activityAt, deadlineAt, minPayers: SCENARIO_MIN_PAYERS }, now);
   if (!plan.cast) await respond(db, actor("maya"), { response: "ACCEPT" }, now);
 
   for (const key of plan.committed) {

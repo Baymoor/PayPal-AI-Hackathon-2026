@@ -230,7 +230,7 @@ export interface PersonSpec {
   consentAt?: Date;
   /** FIXTURE authorization time (requires consentAt). */
   authorizeAt?: Date;
-  /** Budget vote (current round), minor units. */
+  /** Budget vote (current round): what this person would personally pay, minor units. */
   voteMinor?: number;
 }
 
@@ -302,7 +302,7 @@ export async function seedOuting(db: Db, spec: OutingSpec, secret: string): Prom
       briefExtraction: extraction,
       status: spec.status,
       currency: "USD",
-      budgetUnit: "TOTAL",
+      budgetUnit: "PER_PERSON",
       displayTimezone: DEMO_TIMEZONE,
       isFixture: true,
       createdAt: spec.createdAt,
@@ -374,7 +374,7 @@ export async function seedOuting(db: Db, spec: OutingSpec, secret: string): Prom
       participantId: people.get(p.key)!.id,
       round: 1,
       amountMinor: p.voteMinor,
-      unit: "TOTAL",
+      unit: "PER_PERSON",
       createdAt: new Date(spec.createdAt.getTime() + 5 * MIN),
       updatedAt: new Date(spec.createdAt.getTime() + 5 * MIN),
     });
@@ -390,7 +390,7 @@ export async function seedOuting(db: Db, spec: OutingSpec, secret: string): Prom
       const revealedAt = new Date(spec.createdAt.getTime() + 20 * MIN);
       const reveal: StoredReveal = {
         round: 1,
-        aggregate: aggregateVotes(votes, people.size, "USD"),
+        aggregate: aggregateVotes(votes, people.size, "USD", "PER_PERSON"),
         summary: null,
         revealedAt: revealedAt.toISOString(),
       };
@@ -883,12 +883,12 @@ export async function seedDemo(db: Db, opts: { now?: Date; secret?: string } = {
         status: "COLLECTING",
         createdAt: ago(3 * HOUR),
         people: [
-          { key: "alex", name: "Alex", organizer: true, voteMinor: 10_000, consentAt: ago(55 * MIN), authorizeAt: ago(54 * MIN) },
-          { key: "ben", name: "Ben", voteMinor: 10_000, consentAt: ago(48 * MIN), authorizeAt: ago(47 * MIN) },
-          { key: "freya", name: "Freya", voteMinor: 7_500, consentAt: ago(31 * MIN), authorizeAt: ago(30 * MIN) },
-          { key: "jules", name: "Jules", voteMinor: 15_000, consentAt: ago(14 * MIN), authorizeAt: ago(13 * MIN) },
-          { key: "noor", name: "Noor", voteMinor: 10_000 },
-          { key: "maya", name: "Maya", sponsored: true, attendance: "ACCEPTED", attendanceAt: ago(40 * MIN), voteMinor: 10_000 },
+          { key: "alex", name: "Alex", organizer: true, voteMinor: 2_000, consentAt: ago(55 * MIN), authorizeAt: ago(54 * MIN) },
+          { key: "ben", name: "Ben", voteMinor: 2_000, consentAt: ago(48 * MIN), authorizeAt: ago(47 * MIN) },
+          { key: "freya", name: "Freya", voteMinor: 1_500, consentAt: ago(31 * MIN), authorizeAt: ago(30 * MIN) },
+          { key: "jules", name: "Jules", voteMinor: 3_000, consentAt: ago(14 * MIN), authorizeAt: ago(13 * MIN) },
+          { key: "noor", name: "Noor", voteMinor: 2_000 },
+          { key: "maya", name: "Maya", sponsored: true, attendance: "ACCEPTED", attendanceAt: ago(40 * MIN), voteMinor: 2_000 },
         ],
         collection: {
           merchant,
@@ -897,7 +897,7 @@ export async function seedDemo(db: Db, opts: { now?: Date; secret?: string } = {
           activityAt,
           deadlineAt,
           openedAt: ago(HOUR),
-          proposedBudgetMinor: 10_000,
+          proposedBudgetMinor: 2_000, // $20 each: the $100 room over 5 payers
         },
       },
       secret,
@@ -921,10 +921,10 @@ export async function seedDemo(db: Db, opts: { now?: Date; secret?: string } = {
       status: "BUDGETING",
       createdAt: ago(40 * MIN),
       people: [
-        { key: "chloe", name: "Chloe", organizer: true, voteMinor: 10_000 },
-        { key: "dev", name: "Dev", voteMinor: 7_500 },
-        { key: "emil", name: "Emil", voteMinor: 10_000 },
-        { key: "farah", name: "Farah", voteMinor: 15_000 },
+        { key: "chloe", name: "Chloe", organizer: true, voteMinor: 2_000 },
+        { key: "dev", name: "Dev", voteMinor: 1_500 },
+        { key: "emil", name: "Emil", voteMinor: 2_000 },
+        { key: "farah", name: "Farah", voteMinor: 3_000 },
         { key: "gus", name: "Gus" },
         { key: "hedda", name: "Hedda" },
       ],
@@ -955,7 +955,7 @@ export async function seedDemo(db: Db, opts: { now?: Date; secret?: string } = {
           activityAt: localDayAt(deadlineAt, 1, 19, tz),
           deadlineAt,
           openedAt: new Date(deadlineAt.getTime() - 18 * HOUR),
-          proposedBudgetMinor: 10_000,
+          proposedBudgetMinor: 3_500, // $35 each: the $100 room over 3 payers is $33.34
         },
       },
       secret,
@@ -989,7 +989,7 @@ export async function seedDemo(db: Db, opts: { now?: Date; secret?: string } = {
           activityAt: localDayAt(deadlineAt, 1, 20, tz),
           deadlineAt,
           openedAt: new Date(deadlineAt.getTime() - 24 * HOUR),
-          proposedBudgetMinor: 10_000,
+          proposedBudgetMinor: 2_000, // $20 each: the $100 room over 5 payers
         },
       },
       secret,
@@ -1021,7 +1021,7 @@ export async function seedDemo(db: Db, opts: { now?: Date; secret?: string } = {
           activityAt: localDayAt(deadlineAt, 1, 18, tz),
           deadlineAt,
           openedAt: new Date(deadlineAt.getTime() - 24 * HOUR),
-          proposedBudgetMinor: 12_000,
+          proposedBudgetMinor: 3_000, // $30 each: the $120 room over 4 payers
         },
       },
       secret,
@@ -1064,7 +1064,7 @@ export async function seedDemo(db: Db, opts: { now?: Date; secret?: string } = {
           activityAt: localDayAt(deadlineAt, 1, 20, tz),
           deadlineAt,
           openedAt: new Date(deadlineAt.getTime() - 24 * HOUR),
-          proposedBudgetMinor: 18_000,
+          proposedBudgetMinor: 3_000, // $30 each: the $180 suite over 6 payers
         },
       },
       secret,
@@ -1151,7 +1151,7 @@ export async function seedDemo(db: Db, opts: { now?: Date; secret?: string } = {
           activityAt: localDayAt(now, 1, 18, tz),
           deadlineAt,
           openedAt: ago(4 * HOUR + 10 * MIN),
-          proposedBudgetMinor: 12_000,
+          proposedBudgetMinor: 3_000, // $30 each: the $120 room over 4 payers
         },
       },
       secret,

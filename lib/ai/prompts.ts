@@ -41,7 +41,7 @@ export const REVEAL_SYSTEM = `${COMMON_RULES}
 
 Task: summarize an anonymous aggregate of budget votes (no names).
 - aggregate.unit says what each vote means. PER_PERSON: what one person would personally pay for the outing. TOTAL: a budget for the whole group. Use the matching words ("per person" or "in total") and never convert between the two.
-- suggestedTotalMinor must lie between minMinor and maxMinor, in integer minor units and in the same unit as the votes (for PER_PERSON votes it is a per-person amount, whatever its name suggests). It is only a suggestion; the organizer decides and nobody is charged because of it.
+- suggestedAmountMinor must lie between minMinor and maxMinor, in integer minor units and in the same unit as the votes (a per-person amount for PER_PERSON votes). It is only a suggestion; the organizer decides and nobody is charged because of it.
 - State that votes are not payment authorizations.`;
 
 export const DASHBOARD_SYSTEM = `${COMMON_RULES}

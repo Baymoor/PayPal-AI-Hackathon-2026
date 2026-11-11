@@ -48,7 +48,7 @@ Booking status follows the transition table in [state-machine.ts](../lib/domain/
 stateDiagram-v2
   [*] --> DRAFT
   DRAFT --> BUDGETING: start budget poker
-  BUDGETING --> PROPOSED: organizer agrees a total budget
+  BUDGETING --> PROPOSED: organizer agrees a per-person budget
   PROPOSED --> BUDGETING: another round
   PROPOSED --> COLLECTING: quote confirmed, terms hashed,<br/>deadline job scheduled
   COLLECTING --> SETTLING: deadline passed, roster frozen,<br/>decision SETTLE
@@ -119,7 +119,9 @@ The model extracts facts and drafts suggestions; deterministic code validates ev
 - `draftPlan`: `validatePlanDraft` drops (never fixes) invalid offerings, times, deadlines and sponsors.
 - `dashboardQuery` and the [AG Studio proxy](../app/api/merchant/ai/studio/route.ts): read-only filters and view tools only; no capture, void, refund or edit tool exists.
 
-Budget vote amounts are sized per outing by `chooseBudgetOptions` in [budget-options.ts](../lib/domain/budget-options.ts). The AI's five suggested amounts are used only if they are whole $5 steps, strictly increasing, at most 10x apart, and include any budget the brief states. Otherwise the code builds 0.5x, 0.75x, 1x, 1.5x, 2x around an anchor: the brief's total, else per-person budget times group size, else the lower median of matching catalogue prices, else $100.
+Budget votes are per person ("what would you personally pay?"). The vote amounts are sized per outing by `chooseBudgetOptions` in [budget-options.ts](../lib/domain/budget-options.ts). The AI's five suggested amounts are used only if they are whole dollars, strictly increasing, at most 10x apart, and contain the app's own anchor, which also catches a model answering with whole-group totals. Otherwise the code builds 0.5x, 0.75x, 1x, 1.5x, 2x around that anchor: the brief's per-person budget, else its total divided by the people paying, else the lower median of what matching catalogue offerings cost per person, else $20.
+
+The agreed amount is compared with each offering by [budget-fit.ts](../lib/domain/budget-fit.ts): share = booking total / people paying, where the booking total is a fixed price, or a per-attendee price times the people coming. A covered guest comes but does not pay, so they raise the share under both models. The ranker is handed these shares and never computes one; the organizer's venue cards recompute them from the live roster. This is display and ranking only: quotes, caps and settled shares still come from `policy.ts` and `money.ts`. Outings created before per-person voting keep `budget_unit = TOTAL`, and every label and comparison follows the outing's own unit.
 
 ## Demo and judge mode
 

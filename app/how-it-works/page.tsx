@@ -31,7 +31,7 @@ const STEPS = [
   },
   {
     name: "Budget",
-    copy: "Everyone privately suggests a total budget. The group sees how the votes spread, never who said what. A vote is not a payment.",
+    copy: "Everyone privately says what they'd personally pay. The group sees how the votes spread, never who said what. A vote is not a payment.",
   },
   {
     name: "Invite",

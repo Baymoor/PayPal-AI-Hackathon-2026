@@ -8,7 +8,7 @@ import { Underlined } from "@/components/ui/Swoosh";
 import { PaymentSigninNotice } from "@/components/ui/PaymentSigninNotice";
 
 const STEPS = [
-  { n: 1, title: "Plan together", text: "Everyone suggests a total budget in private. Only the spread is revealed." },
+  { n: 1, title: "Plan together", text: "Everyone says in private what they'd personally pay. Only the spread is revealed." },
   { n: 2, title: "Commit your share", text: "Approve a hold for your maximum share. A hold is not a charge." },
   { n: 3, title: "Get confirmed", text: "At the deadline we book it and collect each exact share, or release every hold." },
 ];

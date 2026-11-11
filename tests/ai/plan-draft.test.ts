@@ -78,8 +78,8 @@ async function canonicalExtraction(brief = CANONICAL): Promise<BriefExtraction> 
 async function planInput(over: Partial<PlanDraftInput> = {}, brief = CANONICAL): Promise<PlanDraftInput> {
   return {
     extraction: await canonicalExtraction(brief),
-    agreedBudgetMinor: 10_000,
-    budgetUnit: "TOTAL",
+    agreedBudgetMinor: 2_000,
+    budgetUnit: "PER_PERSON",
     catalogue: [ROOM, SUITE, POTTERY],
     selectedOfferingId: null,
     roster: ROSTER,

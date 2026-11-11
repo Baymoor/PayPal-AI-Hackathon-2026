@@ -57,13 +57,16 @@ interface RosterRow {
   sponsored: boolean;
 }
 
-/** Canned suggested vote totals per starter: two accepted, one dropped by validateBrief, one rejected by the rules, one absent. */
+/**
+ * Canned suggested per-person vote amounts per starter: two accepted, one dropped by validateBrief (not whole
+ * dollars), one rejected by the rules (whole-group totals where per-person amounts were asked for), one absent.
+ */
 const STARTER_VOTE_SUGGESTIONS: Record<OutingStarter["id"], number[] | null> = {
-  "karaoke-birthday": [5_000, 7_500, 10_000, 15_000, 20_000],
-  "movie-night": [6_000, 9_000, 12_000, 18_000, 24_000],
-  "wine-tasting": [12_000, 20_000, 30_000, 40_000, 50_050],
+  "karaoke-birthday": [1_000, 1_500, 2_000, 2_500, 3_000],
+  "movie-night": [800, 1_200, 1_500, 2_000, 2_500],
+  "wine-tasting": [2_500, 4_000, 5_000, 7_500, 10_050],
   "gym-session": null,
-  "padel-doubles": [10_000, 12_500, 15_000, 20_000, 25_000],
+  "padel-doubles": [3_000, 4_500, 6_000, 9_000, 12_000],
 };
 
 const DAY_INDEX: Record<string, number> = { SUN: 0, MON: 1, TUE: 2, WED: 3, THU: 4, FRI: 5, SAT: 6 };
@@ -172,7 +175,7 @@ function starterExtraction(starter: OutingStarter): BriefExtraction {
     needs: [],
     uncertainties: [],
     summary: [{ icon: "activity", text: `[dry-run mock] ${starter.label}` }],
-    suggestedVoteTotalsMinor: STARTER_VOTE_SUGGESTIONS[starter.id],
+    suggestedVotePerPersonMinor: STARTER_VOTE_SUGGESTIONS[starter.id],
   };
 }
 
@@ -189,7 +192,7 @@ function injectedExtraction(): BriefExtraction {
     needs: [],
     uncertainties: ["The brief contains an instruction to authorize payments; it was treated as text, not as a budget."],
     summary: [{ icon: "activity", text: "[dry-run mock] Karaoke for six on Friday" }],
-    suggestedVoteTotalsMinor: null,
+    suggestedVotePerPersonMinor: null,
   };
 }
 
@@ -206,7 +209,7 @@ function genericExtraction(): BriefExtraction {
     needs: [],
     uncertainties: ["[dry-run mock] unrecognised brief"],
     summary: [{ icon: "note", text: "[dry-run mock] unrecognised brief" }],
-    suggestedVoteTotalsMinor: null,
+    suggestedVotePerPersonMinor: null,
   };
 }
 
@@ -235,11 +238,11 @@ function proposalReply(prompt: string): Proposal {
 
 function revealReply(prompt: string): RevealSummary {
   const line = prompt.split("\n").find((l) => l.startsWith("{") && l.includes("medianMinor"));
-  const aggregate = line ? (JSON.parse(line) as { medianMinor: number; voteCount: number }) : { medianMinor: 10_000, voteCount: 0 };
+  const aggregate = line ? (JSON.parse(line) as { medianMinor: number; voteCount: number }) : { medianMinor: 2_000, voteCount: 0 };
   return {
     headline: "[dry-run mock] The group lands near the middle",
     summary: `[dry-run mock] ${aggregate.voteCount} anonymous votes. Votes are not payment authorizations and nobody is charged.`,
-    suggestedTotalMinor: aggregate.medianMinor,
+    suggestedAmountMinor: aggregate.medianMinor,
   };
 }
 

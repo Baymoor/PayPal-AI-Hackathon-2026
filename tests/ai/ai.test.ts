@@ -78,13 +78,13 @@ describe("validation", () => {
     expect(JSON.stringify(v.output)).not.toMatch(/evil|http/);
   });
 
-  it("clamps suggestedTotalMinor to the median when outside the vote range", () => {
+  it("clamps suggestedAmountMinor to the median when outside the vote range", () => {
     const agg: RevealAggregate = { unit: "TOTAL", currency: "USD", voteCount: 4, invitedCount: 5, buckets: [], minMinor: 5000, maxMinor: 15000, medianMinor: 10000 };
-    const bad = validateReveal({ headline: "h", summary: "s", suggestedTotalMinor: 99999 }, agg);
-    expect(bad.output.suggestedTotalMinor).toBe(10000);
+    const bad = validateReveal({ headline: "h", summary: "s", suggestedAmountMinor: 99999 }, agg);
+    expect(bad.output.suggestedAmountMinor).toBe(10000);
     expect(bad.warnings.length).toBe(1);
-    const ok = validateReveal({ headline: "h", summary: "s", suggestedTotalMinor: 7500 }, agg);
-    expect(ok.output.suggestedTotalMinor).toBe(7500);
+    const ok = validateReveal({ headline: "h", summary: "s", suggestedAmountMinor: 7500 }, agg);
+    expect(ok.output.suggestedAmountMinor).toBe(7500);
     expect(ok.warnings).toEqual([]);
   });
 
@@ -144,20 +144,46 @@ describe("fixture dashboard + ranker + reveal", () => {
   });
   it("ranks the matching category first with budget/capacity fit", async () => {
     const ex = (await ai.extractBrief({ brief: CANONICAL, now: NOW, timezone: "UTC" })).output;
-    const r = await ai.proposeOfferings({ extraction: ex, catalogue, agreedBudgetMinor: 15000, groupSize: 6 });
+    // Six coming, Maya covered: five pay. The shares are the app's own figures, as agreeBudget passes them.
+    const shares: Record<string, number> = { off_k: 2400, off_p: 4800 };
+    const withShares = catalogue.map((item) => ({ ...item, perPersonShareMinor: shares[item.offeringId] }));
+    const r = await ai.proposeOfferings({ extraction: ex, catalogue: withShares, agreedBudgetMinor: 2500, budgetUnit: "PER_PERSON", groupSize: 6, payerCount: 5 });
     expect(r.output.ranked[0].offeringId).toBe("off_k");
     expect(r.output.ranked[0].reasons[0]).toMatch(/^Fixture ranker/);
+    expect(r.output.ranked[0].reasons.join(" ")).toContain("About $24 each, within the agreed $25 per person.");
     const p = r.output.ranked.find((x) => x.offeringId === "off_p");
     expect(p?.concerns.join(" ")).toMatch(/total grows/);
+    expect(p?.concerns.join(" ")).toContain("About $48 each, above the agreed $25 per person.");
+  });
+  it("judges the budget by the app's share, never its own arithmetic: no share, no budget verdict", async () => {
+    const ex = (await ai.extractBrief({ brief: CANONICAL, now: NOW, timezone: "UTC" })).output;
+    const r = await ai.proposeOfferings({ extraction: ex, catalogue, agreedBudgetMinor: 2500, budgetUnit: "PER_PERSON", groupSize: 6, payerCount: 5 });
+    const text = r.output.ranked.flatMap((x) => [...x.reasons, ...x.concerns]).join(" ");
+    expect(text).not.toMatch(/agreed|budget/i);
+  });
+  it("still compares the whole booking for an outing that agreed a total", async () => {
+    const ex = (await ai.extractBrief({ brief: CANONICAL, now: NOW, timezone: "UTC" })).output;
+    const r = await ai.proposeOfferings({ extraction: ex, catalogue, agreedBudgetMinor: 15000, budgetUnit: "TOTAL", groupSize: 6, payerCount: 6 });
+    expect(r.output.ranked[0].reasons.join(" ")).toContain("Estimated total is within the agreed budget.");
+    const p = r.output.ranked.find((x) => x.offeringId === "off_p");
+    expect(p?.concerns.join(" ")).toContain("Estimated total exceeds the agreed budget.");
   });
   it("reveal uses the median", async () => {
     const agg: RevealAggregate = { unit: "TOTAL", currency: "USD", voteCount: 3, invitedCount: 4, buckets: [], minMinor: 5000, maxMinor: 15000, medianMinor: 10000 };
     const r = await ai.summarizeReveal({ aggregate: agg, extraction: null });
-    expect(r.output.suggestedTotalMinor).toBe(10000);
+    expect(r.output.suggestedAmountMinor).toBe(10000);
     expect(r.output.headline).toMatch(/^Fixture/);
     // Amounts read like the rest of the app ("$100"), not "100.00 USD".
-    expect(r.output.summary).toContain("$100");
+    expect(r.output.summary).toContain("the median proposed total is $100");
     expect(r.output.summary).not.toContain("USD");
+  });
+  it("reveal says per person when that is what the votes mean", async () => {
+    const agg: RevealAggregate = { unit: "PER_PERSON", currency: "USD", voteCount: 5, invitedCount: 6, buckets: [], minMinor: 1500, maxMinor: 3000, medianMinor: 2000 };
+    const r = await ai.summarizeReveal({ aggregate: agg, extraction: null });
+    expect(r.output.suggestedAmountMinor).toBe(2000);
+    expect(r.output.headline).toBe("Fixture summary: votes ranged $15 to $30 per person");
+    expect(r.output.summary).toContain("the median is $20 per person");
+    expect(r.output.summary).not.toMatch(/total/);
   });
 });
 
@@ -264,8 +290,8 @@ describe("AnthropicOutingsAi (mocked client)", () => {
     expect(p.output.ranked.map((r) => r.offeringId)).toEqual(["off_k"]);
     expect(p.warnings.length).toBe(1);
     const agg: RevealAggregate = { unit: "TOTAL", currency: "USD", voteCount: 3, invitedCount: 3, buckets: [], minMinor: 5000, maxMinor: 10000, medianMinor: 7500 };
-    const rv = await make(reply({ headline: "h", summary: "s", suggestedTotalMinor: 1 })).ai.summarizeReveal({ aggregate: agg, extraction: null });
-    expect(rv.output.suggestedTotalMinor).toBe(7500);
+    const rv = await make(reply({ headline: "h", summary: "s", suggestedAmountMinor: 1 })).ai.summarizeReveal({ aggregate: agg, extraction: null });
+    expect(rv.output.suggestedAmountMinor).toBe(7500);
     const d = await make(reply({ filters: [{ field: "closesToday", op: "eq", value: true }], sort: null, focus: null, explanation: "e" })).ai.dashboardQuery({ question: "q", now: NOW });
     expect(d.output.filters).toHaveLength(1);
   });

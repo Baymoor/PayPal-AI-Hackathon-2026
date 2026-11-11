@@ -1,8 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 import { and, eq } from "drizzle-orm";
-import { aiState, FakeAi } from "./fake-ai";
+import { aiState, FakeAi, resetFakeAi } from "./fake-ai";
 import { actorOf, collectionTimes, createWithInvitees, HOUR, MIN, openCanonical, setupServiceTests } from "./helpers";
 import * as svc from "@/lib/services/outings";
+import { buildOutingView } from "@/lib/services/views";
+import type { ProposalInput } from "@/lib/ai/types";
 import { aiRuns, auditEvents, budgetVotes, consents, jobs, outings, participants, quoteVersions } from "@/lib/db/schema";
 import { hashTerms, PolicyError, type CommitmentTerms } from "@/lib/domain/policy";
 import { hashToken } from "@/lib/auth/tokens";
@@ -134,7 +136,7 @@ describe("budget poker", () => {
     await expectCode(svc.reveal(db, actorOf(f, "Ben")), "FORBIDDEN", 403);
 
     const stored = await svc.reveal(db, org);
-    expect(stored.aggregate).toMatchObject({ unit: "TOTAL", voteCount: 3, invitedCount: 4, minMinor: 10_000, maxMinor: 15_000, medianMinor: 12_345 });
+    expect(stored.aggregate).toMatchObject({ unit: "PER_PERSON", voteCount: 3, invitedCount: 4, minMinor: 10_000, maxMinor: 15_000, medianMinor: 12_345 });
     expect(stored.aggregate.buckets).toEqual([
       { amountMinor: 10_000, count: 1 },
       { amountMinor: 12_345, count: 1 },
@@ -172,7 +174,7 @@ describe("budget poker", () => {
       source: "FIXTURE",
       model: null,
       warnings: [],
-      output: { headline: "Go big", summary: "Everyone should pay $500", suggestedTotalMinor: 50_000 },
+      output: { headline: "Go big", summary: "Everyone should pay $500", suggestedAmountMinor: 50_000 },
     });
     aiState.current = fake;
     const f = await createWithInvitees(db, ["Ben", "Freya"]);
@@ -180,7 +182,7 @@ describe("budget poker", () => {
     await svc.startBudget(db, org);
     for (const [n, a] of [["Alex", 5_000], ["Ben", 7_500], ["Freya", 10_000]] as const) await svc.vote(db, actorOf(f, n), { amountMinor: a });
     const stored = await svc.reveal(db, org);
-    expect(stored.summary?.suggestedTotalMinor).toBe(7_500);
+    expect(stored.summary?.suggestedAmountMinor).toBe(7_500);
     expect(stored.summary?.note).toMatch(/median/);
   });
 
@@ -195,7 +197,65 @@ describe("budget poker", () => {
     await svc.vote(db, actorOf(f, "Ben"), { amountMinor: 10_000_000 });
     const votes = await db.query.budgetVotes.findMany({ where: eq(budgetVotes.outingId, f.outingId) });
     expect(votes).toHaveLength(1);
-    expect(votes[0]).toMatchObject({ participantId: f.ids.Ben, unit: "TOTAL", round: 1 });
+    expect(votes[0]).toMatchObject({ participantId: f.ids.Ben, unit: "PER_PERSON", round: 1 });
+  });
+
+  it("an outing created before per-person voting keeps voting, revealing and ranking on a group total", async () => {
+    const db = getDb();
+    const f = await createWithInvitees(db, ["Ben", "Freya", "Jules"]);
+    const org = actorOf(f);
+    await db.update(outings).set({ budgetUnit: "TOTAL" }).where(eq(outings.id, f.outingId));
+    await svc.startBudget(db, org);
+    for (const [name, amount] of [["Alex", 10_000], ["Ben", 7_500], ["Freya", 15_000]] as const) await svc.vote(db, actorOf(f, name), { amountMinor: amount });
+    const votes = await db.query.budgetVotes.findMany({ where: eq(budgetVotes.outingId, f.outingId) });
+    expect(votes.map((v) => v.unit)).toEqual(["TOTAL", "TOTAL", "TOTAL"]);
+
+    const stored = await svc.reveal(db, org);
+    expect(stored.aggregate).toMatchObject({ unit: "TOTAL", voteCount: 3, minMinor: 7_500, maxMinor: 15_000, medianMinor: 10_000 });
+
+    // The ranker is told the unit, and gets no per-person shares to compare against a total.
+    const fake = resetFakeAi();
+    await svc.agreeBudget(db, org, { amountMinor: 10_000 });
+    const input = fake.calls.find((c) => c.method === "proposeOfferings")!.input as ProposalInput;
+    expect(input).toMatchObject({ agreedBudgetMinor: 10_000, budgetUnit: "TOTAL", groupSize: 4, payerCount: 4 });
+    expect(input.catalogue.every((item) => item.perPersonShareMinor === undefined)).toBe(true);
+  });
+
+  it("ranks against the per-person budget with the app's own share for each offering, and a covered guest raises it", async () => {
+    const db = getDb();
+    const f = await createWithInvitees(db, ["Ben", "Freya", "Jules", "Noor", "Maya"]);
+    const org = actorOf(f);
+    await svc.startBudget(db, org);
+    const shareOf = async (slug: string): Promise<ProposalInput> => {
+      const fake = resetFakeAi();
+      await svc.agreeBudget(db, org, { amountMinor: 2_000 });
+      const input = fake.calls.find((c) => c.method === "proposeOfferings")!.input as ProposalInput;
+      expect(input.catalogue.find((item) => item.offeringId === f.offerings[slug].id)).toBeDefined();
+      return input;
+    };
+    const room = f.offerings["private-karaoke-room"].id;
+    const pottery = f.offerings["pottery-wheel-evening"].id;
+    const share = (input: ProposalInput, id: string) => input.catalogue.find((item) => item.offeringId === id)!.perPersonShareMinor;
+
+    // Six coming, six paying: the $100 room is $16.67 each (rounded up); a $25 seat is $25.
+    const everyone = await shareOf("private-karaoke-room");
+    expect(everyone).toMatchObject({ agreedBudgetMinor: 2_000, budgetUnit: "PER_PERSON", groupSize: 6, payerCount: 6 });
+    expect(share(everyone, room)).toBe(1_667);
+    expect(share(everyone, pottery)).toBe(2_500);
+
+    // Maya covered: five pay for six. The room is $20 each and each seat costs the payers $30.
+    await svc.patchParticipant(db, org, f.ids.Maya, { payerType: "SPONSORED" });
+    const covered = await shareOf("private-karaoke-room");
+    expect(covered).toMatchObject({ groupSize: 6, payerCount: 5 });
+    expect(share(covered, room)).toBe(2_000);
+    expect(share(covered, pottery)).toBe(3_000);
+
+    // The organizer's cards show the same arithmetic, live from the roster.
+    const view = await buildOutingView(db, { outingId: f.outingId, participantId: f.ids.Alex });
+    expect(view.budget).toMatchObject({ unit: "PER_PERSON", proposedBudgetMinor: 2_000 });
+    const card = (id: string) => view.proposal!.candidates.find((c) => c.offeringId === id)!.budget;
+    expect(card(room)).toEqual({ costMinor: 2_000, payers: 5, within: true, overByMinor: 0 });
+    expect(card(pottery)).toEqual({ costMinor: 3_000, payers: 5, within: false, overByMinor: 1_000 });
   });
 });
 

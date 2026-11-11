@@ -6,6 +6,7 @@ import { Card } from "@/components/ui/Card";
 import { AiSourceBadge } from "@/components/ui/Badge";
 import { EmptyState } from "@/components/ui/States";
 import type { OutingActions } from "./api";
+import { budgetCopy } from "./budgetCopy";
 import { ActionErrorBanner, useAction } from "./useAction";
 import { ScreenHeader } from "./Shell";
 
@@ -91,7 +92,7 @@ export function BriefStage({ view, actions }: { view: OutingView; actions: Outin
 
       {canStart ? (
         <Card tone="amber" className="space-y-4">
-          <p className="font-display text-h3 text-ink">What total budget feels comfortable?</p>
+          <p className="font-display text-h3 text-ink">{budgetCopy(view.budget.unit).startPrompt}</p>
           <ActionErrorBanner error={error} />
           <Button
             block

@@ -495,7 +495,7 @@ export class OutingsAiChecks {
       run: async (): Promise<CheckOutcome> => {
         const aggregate = aggregateVotes(REVEAL_VOTES_MINOR, REVEAL_INVITED, "USD", "PER_PERSON");
         const result = await this.ctx.ai.summarizeReveal({ aggregate, extraction: this.karaoke().extraction });
-        const suggested = result.output.suggestedTotalMinor;
+        const suggested = result.output.suggestedAmountMinor;
         return {
           assertions: [
             fromAnthropicAdapter(result),
@@ -509,7 +509,7 @@ export class OutingsAiChecks {
           excerpt: {
             headline: result.output.headline,
             summary: result.output.summary,
-            suggestedTotalMinor: suggested,
+            suggestedAmountMinor: suggested,
             votes: { count: aggregate.voteCount, minMinor: aggregate.minMinor, medianMinor: aggregate.medianMinor, maxMinor: aggregate.maxMinor },
           },
           warnings: result.warnings,
