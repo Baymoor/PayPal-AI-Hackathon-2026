@@ -155,4 +155,4 @@ Mobile pages: single column, 20px gutter, primary CTA full width and anchored at
 - Never show the same amount twice with different meanings without a label (maximum vs estimate vs captured).
 
 ## 7. Illustration and imagery
-No people photos. Invitation hero: navy-to-plum gradient with coral glow, microphone line art, sparkles. Sponsor: cake / gift line icon with confetti dots. Icons: lucide, 2px stroke, 20-24px.
+No people photos. Invitation hero: flat navy band, microphone line art, coral sparkles (no gradient). Sponsor: cake / gift line icon with confetti dots. Icons: lucide, 2px stroke, 20-24px.

@@ -6,7 +6,7 @@ function activityLabel(category: string): string {
 }
 
 /**
- * Navy-to-plum gradient band with a coral glow, naming the activity. Decorative (the details are in the text
+ * Flat navy band with coral line accents, naming the activity. Decorative (the details are in the text
  * below), so it is hidden from assistive tech. The microphone line art appears only for karaoke, so a cinema
  * or padel outing never shows the wrong picture.
  */
@@ -15,18 +15,8 @@ export function InvitationHero({ className, category = "karaoke" }: { className?
   return (
     <div className={cn("relative overflow-hidden", className)} aria-hidden>
       <svg viewBox="0 0 390 180" preserveAspectRatio="xMidYMid slice" className="block h-full w-full" focusable="false">
-        <defs>
-          <linearGradient id="ih-bg" x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0" stopColor="#14213D" />
-            <stop offset="1" stopColor="#4A2358" />
-          </linearGradient>
-          <radialGradient id="ih-glow" cx="0.72" cy="0.35" r="0.55">
-            <stop offset="0" stopColor="#E8604C" stopOpacity="0.55" />
-            <stop offset="1" stopColor="#E8604C" stopOpacity="0" />
-          </radialGradient>
-        </defs>
-        <rect width="390" height="180" fill="url(#ih-bg)" />
-        <rect width="390" height="180" fill="url(#ih-glow)" />
+        {/* One flat brand colour: a navy-to-plum gradient with a coral glow read as generic stock art. */}
+        <rect width="390" height="180" fill="#14213D" />
         {showMicrophone && (
           <>
             <g transform="translate(210 28) rotate(28 40 60)" stroke="#FBF6F1" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" fill="none">

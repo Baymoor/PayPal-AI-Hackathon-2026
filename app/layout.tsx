@@ -1,6 +1,8 @@
 import type { Metadata, Viewport } from "next";
 import { headers } from "next/headers";
 import "@fontsource-variable/fraunces";
+// Italic is used only by the landing page's hand-written margin note; the browser fetches it on demand.
+import "@fontsource-variable/fraunces/wght-italic.css";
 import "@fontsource-variable/inter";
 import "./globals.css";
 
