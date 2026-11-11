@@ -46,6 +46,9 @@ test("karaoke for Maya: plan, vote privately, commit, settle at the deadline, me
     await visitor.page.goto("/");
     await expect(visitor.page.getByRole("heading", { level: 1 })).toBeVisible();
     await shot(visitor.page, "landing", { fullPage: false });
+    await visitor.page.goto("/how-it-works");
+    await expect(visitor.page.getByRole("heading", { level: 1 })).toBeVisible();
+    await shot(visitor.page, "how-it-works");
   });
 
   await test.step("(a) organizer writes the brief and sees what the (sample) AI understood", async () => {
@@ -285,6 +288,15 @@ test("karaoke for Maya: plan, vote privately, commit, settle at the deadline, me
     // AG Studio renders charts asynchronously; wait until no widget is still loading.
     await expect(page.locator("#studio-frame").getByText("Loading...").filter({ visible: true })).toHaveCount(0, { timeout: 30_000 });
     await shot(page, "merchant-dashboard");
+
+    // The Money page: where each authorized dollar went.
+    const loading = page.locator("#studio-frame").getByText("Loading...").filter({ visible: true });
+    await page.getByRole("tab", { name: "Money", exact: true }).click();
+    await expect(page.getByRole("tab", { name: "Money", exact: true })).toHaveAttribute("aria-selected", "true");
+    await expect(loading).toHaveCount(0, { timeout: 30_000 });
+    await shot(page, "merchant-money");
+    await page.getByRole("tab", { name: "Bookings", exact: true }).click();
+    await expect(loading).toHaveCount(0, { timeout: 30_000 });
 
     // Natural-language query becomes read-only filters (FIXTURE parser here, and labelled as such).
     await page.getByRole("button", { name: "Try the example" }).click();
