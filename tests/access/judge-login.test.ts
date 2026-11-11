@@ -144,6 +144,30 @@ describe("POST /api/judge/login", () => {
     expect((await body<{ error: { code: string } }>(locked)).error.code).toBe("RATE_LIMITED");
   });
 
+  it("a burst of concurrent wrong guesses gets no more than the 5 the failure limit allows", async () => {
+    gateOn();
+    const burst = await Promise.all(Array.from({ length: 9 }, (_, i) => login({ username: JUDGE_USERNAME, password: `concurrent-wrong-guess-${i}` })));
+    const statuses = burst.map((res) => res.status);
+    expect(statuses.filter((s) => s === 401)).toHaveLength(5);
+    expect(statuses.filter((s) => s === 429)).toHaveLength(4);
+    for (const res of burst) expect(res.headers.get("set-cookie")).toBeNull();
+    // The bucket is empty now: the right password is refused too.
+    expect((await login({ username: JUDGE_USERNAME, password: JUDGE_PASSWORD })).status).toBe(429);
+  });
+
+  it("correct sign-ins are not charged to the failure bucket, alone or in a burst", async () => {
+    gateOn();
+    const ok = { username: JUDGE_USERNAME, password: JUDGE_PASSWORD };
+    const signIns = await Promise.all([login(ok), login(ok), login(ok), login(ok)]);
+    for (const res of signIns) {
+      expect(res.status).toBe(200);
+      expect(res.headers.get("set-cookie")).toMatch(/^outings_judge=/);
+    }
+    // All 5 wrong guesses are still available afterwards, then the lockout starts.
+    for (let i = 0; i < 5; i++) expect((await login({ username: JUDGE_USERNAME, password: `wrong-after-success-${i}` })).status).toBe(401);
+    expect((await login(ok)).status).toBe(429);
+  });
+
   it("allows about 10 attempts a minute per client", async () => {
     gateOn();
     const ok = { username: JUDGE_USERNAME, password: JUDGE_PASSWORD };

@@ -107,14 +107,13 @@ export function rateLimit(req: Request, route: string, rule: RateLimitRule, nowM
 }
 
 /**
- * True while the caller still has a token for this route, without spending one. For buckets that are only
- * charged on failure (wrong sign-in credentials): check before the attempt, charge with `takeToken` after.
+ * Gives back a token taken with `takeToken`, for buckets that should only be charged on failure
+ * (wrong sign-in credentials). Reserve with `takeToken` BEFORE any await and refund on success: a check
+ * followed by a later charge would let a burst of concurrent requests all pass the check.
  */
-export function hasToken(req: Request, route: string, rule: RateLimitRule, nowMs: number = Date.now()): boolean {
-  const b = buckets().get(`${clientIp(req)}|${route}`);
-  if (!b) return true;
-  const elapsedMin = Math.max(0, nowMs - b.updatedAt) / 60_000;
-  return Math.min(rule.capacity, b.tokens + elapsedMin * rule.refillPerMinute) >= 1;
+export function refundToken(key: string, rule: RateLimitRule): void {
+  const b = buckets().get(key);
+  if (b) b.tokens = Math.min(rule.capacity, b.tokens + 1);
 }
 
 /** Test helper. */
