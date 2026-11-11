@@ -2,7 +2,7 @@
 
 ## Original code
 
-All source code in this repository was written for Outings during the PayPal AI Hackathon 2026 (from 3 November 2026), by the project owner with AI coding assistance (Claude Code in a hosted cloud session: Opus 5.5 as coordinator plus Opus 5.5, Sonnet 5.5 and Fable 5.1 subagents; continued later with Codex). It is released under the MIT License (see `LICENSE`).
+All source code in this repository was written for Outings during the PayPal AI Hackathon 2026 (from 3 November 2026), by the project owner with AI coding assistance (Claude Code in a hosted cloud session: Opus 5.5 as coordinator plus Opus 5.5, Sonnet 5.5 and Fable 5.1 subagents). It is released under the MIT License (see `LICENSE`).
 
 The Next.js project skeleton was generated with `create-next-app@16.4.5` (MIT) and then rewritten.
 

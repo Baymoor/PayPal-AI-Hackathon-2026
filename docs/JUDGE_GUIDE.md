@@ -77,11 +77,11 @@ The services and the settlement engine are the real ones; only the payment provi
 | Piece | Without keys | With keys | Verified |
 |---|---|---|---|
 | Payments | Simulator, labelled "Simulated · not real PayPal" | PayPal sandbox, Orders v2 | **Yes, 7 Nov 2026:** authorize, $10-of-$20 final capture, idempotent replay, void, refund, and one full outing settled through the app ([evidence](evidence/README.md)) |
-| AI | Deterministic parser, labelled "Sample AI text (no model call)" | Claude, structured outputs | Not yet against the real API; tests use a mocked SDK |
-| Deadline, splitting, consent, access | Real code | Real code | 527 automated tests and 8 browser tests ([testing](TESTING.md)) |
+| AI | Deterministic parser, labelled "Sample AI text (no model call)" | Claude, structured outputs | **Yes, 11 Nov 2026**, on the hosted demo: a full `scripts/ai-smoke.ts` run passed 12 of 13 checks, and the one that failed (venue ranking) was fixed and then passed 3 of 3 reruns. The automated tests use a mocked SDK |
+| Deadline, splitting, consent, access | Real code | Real code | 543 automated tests and 8 browser tests ([testing](TESTING.md)) |
 | Demo stories on `/demo` | Simulated, always | Simulated, always | Real services, simulated provider |
 
-Not verified: PayPal webhook signatures against real deliveries, PayPal negative testing, and any hosted deployment. `GET /api/health` shows the active modes without secrets. Limits and threat model: [security and limitations](SECURITY_AND_LIMITATIONS.md).
+Not verified: PayPal webhook signatures against real deliveries, and PayPal negative testing. The hosted demo is live at https://outings.baymoor.dev, and its worker settles outings at the deadline with every browser closed (checked on 10 and 11 Nov 2026). `GET /api/health` shows the active modes without secrets. Limits and threat model: [security and limitations](SECURITY_AND_LIMITATIONS.md).
 
 ## 7. Where the hard parts are
 

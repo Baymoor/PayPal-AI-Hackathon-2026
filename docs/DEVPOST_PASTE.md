@@ -21,10 +21,10 @@ Plan together. Commit individually. Pay only when everyone is in. Friends each a
 Type them one by one so Devpost matches its own tag names:
 
 ```
-next.js, react, typescript, tailwindcss, node.js, postgresql, drizzle-orm, zod, paypal, paypal-rest-api, anthropic, claude, ag-grid, ag-studio, vitest, playwright
+next.js, react, typescript, tailwindcss, node.js, postgresql, drizzle-orm, zod, paypal, paypal-rest-api, anthropic, claude, ag-grid, ag-studio, vitest, playwright, digitalocean, docker, caddy
 ```
 
-Once the hosted demo is live, add the platform it runs on. The deployment session chose a DigitalOcean VPS with Docker Compose and Caddy, so that's `digitalocean, docker, caddy`.
+The last three are the hosted demo's platform: a DigitalOcean server running Docker Compose behind Caddy.
 
 ## Links ("Try it out")
 
@@ -39,18 +39,21 @@ Check that each URL opens in a private window (signed out) before submitting.
 
 ## Image gallery, in this order
 
-The pictures are in `docs/screenshots/`, taken from the production build by the browser tests. Devpost recommends 3:2 for gallery images; crop if a thumbnail cuts badly. For the PayPal sandbox proof, screenshot the result table in [evidence/README.md](evidence/README.md) or your own PayPal sandbox dashboard.
+The pictures are in `docs/gallery/`: nine 2400×1600 PNGs (3:2, each under 1 MB), composed from real captures of the production build. The demo screens in them run on the labelled payment simulator and sample AI text, so no caption below claims real PayPal. For the PayPal sandbox proof, screenshot the result table in [evidence/README.md](evidence/README.md) or your own PayPal sandbox dashboard.
+
+**Thumbnail:** `docs/gallery/thumbnail.png` (the name, the tagline and one invitation screen).
 
 | # | File | Caption to paste |
 |---|---|---|
-| 1 | `landing.png` (also the thumbnail) | Plan together. Commit individually. Pay only when everyone is in. |
-| 2 | `budget-poker.png` | Budget poker: everyone privately answers "What would you personally pay?" The API never returns anyone else's vote. |
-| 3 | `reveal.png` | The reveal shows how many chose each amount, never who. |
-| 4 | `venue-cards.png` | The app turns the agreed $20 into each venue's share: a $100 room is $20 each with 5 paying. |
-| 5 | `waiting.png` | Each payer authorizes a maximum. "$20 authorized · estimated final share $20 · not charged yet." (labelled payment simulator) |
-| 6 | `confirmed.png` | At the deadline the server charges each exact share, or releases every hold. |
-| 7 | `merchant-dashboard.png` | AG Studio, Bookings page: custom Booking Readiness widget, cross-filtering charts, KPIs and grid. |
-| 8 | `merchant-money.png` | AG Studio, Money page: where each authorized dollar went. Holds are never revenue. |
+| 1 | `01-start-with-one-sentence.png` | Start with one sentence. The app reads the plan back and flags what's missing. (Demo shows labelled sample AI text.) |
+| 2 | `02-budget-poker-private-vote.png` | Budget poker: everyone privately answers "What would you personally pay?" A vote is not a payment. |
+| 3 | `03-reveal-amounts-not-names.png` | The reveal shows how many chose each amount, never who. The median becomes the proposed budget. |
+| 4 | `04-pick-a-venue-see-the-split.png` | Pick a venue and see everyone's share: a $100 room with 5 paying is $20 each, and Maya's share is covered. |
+| 5 | `05-invitation-see-your-share.png` | Each guest sees the total, their maximum and who's in before they authorize. |
+| 6 | `06-hold-not-charged.png` | A hold, not a charge: "$20 authorized · not charged yet." (Labelled payment simulator.) |
+| 7 | `07-deadline-exact-share-or-nothing.png` | At the deadline the server charges each exact share, or releases every hold. (Labelled payment simulator.) |
+| 8 | `08-venue-dashboard-ag-studio.png` | The venue's AG Studio dashboard: KPIs, charts that filter each other and a custom Booking Readiness widget. (Demo data.) |
+| 9 | `09-money-page-holds-not-revenue.png` | AG Studio, Money page: where each authorized dollar went. Holds are never revenue. |
 
 ## Limitations (paste as its own section, "Limitations and what is real")
 

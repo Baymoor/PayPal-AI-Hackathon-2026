@@ -44,7 +44,7 @@ Payments go directly to the experience merchant; the organizer never receives th
 | AI | Anthropic Claude with structured outputs, validated by zod; a deterministic stand-in labelled "Sample AI text (no model call)" when no key is set |
 | Merchant UI | AG Studio with AG Grid (Community for the drill-down grid) |
 | Worker | `npm run worker` loop, or an authenticated `POST /api/cron/tick` from any scheduler |
-| Tests | 527 Vitest tests in 44 files, most against a real Postgres database, plus Playwright end-to-end specs (see [TESTING.md](TESTING.md)) |
+| Tests | 543 Vitest tests in 45 files, most against a real Postgres database, plus Playwright end-to-end specs (see [TESTING.md](TESTING.md)) |
 
 The money logic lives in a small pure domain layer (integer minor units, equal split, cap, terms hash, settle-or-cancel decision) so it can be tested exhaustively. Provider calls never run inside a database transaction, and every provider mutation has a durable outbox row with a stable request id.
 
@@ -97,7 +97,7 @@ AG Studio licensing: AG Grid's [6 Nov 2026 post](https://www.ag-grid.com/blog/bu
 - Three independent audits whose confirmed defects were fixed with regression tests in `tests/audit`, `tests/audit2` and `tests/audit3`.
 - Hardening beyond the happy path: rate limiting keyed on `TRUSTED_PROXY_HOPS`, the PayPal payee read from the merchant row, merchant timezone carried in rows, merchant sessions that expire after 12 h, and no organizer cancel after the deadline.
 - A compensation path that can be watched in one click and is covered by a browser test (`tests/e2e/compensation.spec.ts`).
-- Current verified results: 527 Vitest tests (44 files) pass; 8 Playwright end-to-end tests (karaoke settle, holdout cancel, organizer cancel, demo hub, capture-failure compensation, big-group under-capture, dashboard refresh, `/setup` access) pass; eslint and `tsc` clean; `next build` passes. These run in FIXTURE modes. Separately, against the real PayPal sandbox: the adapter passes `scripts/paypal-smoke.ts`, and one full outing settled through the app with three under-captures that PayPal's records confirm.
+- Current verified results: 543 Vitest tests (45 files) pass; 8 Playwright end-to-end tests (karaoke settle, holdout cancel, organizer cancel, demo hub, capture-failure compensation, big-group under-capture, dashboard refresh, `/setup` access) pass; eslint and `tsc` clean; `next build` passes. These run in FIXTURE modes. Separately, against the real PayPal sandbox: the adapter passes `scripts/paypal-smoke.ts`, and one full outing settled through the app with three under-captures that PayPal's records confirm.
 
 ## What we learned
 
@@ -109,7 +109,7 @@ Verify webhooks and negative testing against the PayPal sandbox (`docs/research/
 
 ## Built with
 
-Next.js 16, React 19, TypeScript, Tailwind CSS, Postgres, Drizzle ORM, zod, PayPal REST (Orders v2, Payments v2, webhooks), Anthropic Claude (structured outputs), AG Studio (with two custom widgets), AG Grid, Vitest, Playwright, lucide-react, Fontsource (Fraunces, Inter), Render (deployment blueprint).
+Next.js 16, React 19, TypeScript, Tailwind CSS, Postgres, Drizzle ORM, zod, PayPal REST (Orders v2, Payments v2, webhooks), Anthropic Claude (structured outputs), AG Studio (with two custom widgets), AG Grid, Vitest, Playwright, lucide-react, Fontsource (Fraunces, Inter), DigitalOcean with Docker Compose and Caddy (the hosted demo), Render (an alternative deployment blueprint).
 
 ## AI tool disclosure
 
@@ -120,13 +120,12 @@ Complete and honest, per hackathon rules.
 - **Claude Code** (Anthropic), in a hosted cloud session. A coordinator agent on **Opus 5.5** planned the work and owned the shared contracts. Subagents did the implementation, research, design and audit: **Opus 5.5** (payments adapter, outing services and HTTP API), **Sonnet 5.5** (design mockups, AG Studio and PayPal research, AI module, consumer UI, merchant dashboard, and this documentation), and **Fable 5.1** (settlement engine, and two independent audits: payments/settlement, and privacy/access/consent).
 - **Claude Design** for visual mockups, which the consumer UI was built from. Separate exploratory reference images (`docs/design/reference/D01-D05`) are AI-generated and are reference material, not product screenshots.
 - **Claude Code in the Claude desktop app** on the owner's machine (from 7 Nov 2026): an **Opus 5.5** session coordinated the PayPal sandbox verification, error handling, themed starters and vote amounts, and documentation, with a **Fable 5.1** subagent for the security-sensitive judge mode; a separate owner-steered UI/UX session ran a **Fable 5.1** design critique and used **Claude Design** for the redesign mockups before building them.
-- **OpenAI Codex**, used to continue the work after the cloud session.
 - The project owner directed the work, set the product and financial rules, and is responsible for the submission. No code was copied from third-party repositories; the one reference repository consulted has no licence file and was read only (see [PROVENANCE.md](PROVENANCE.md)).
 
 **Runtime AI in the product**
 
 - **Anthropic Claude** via the app's own key `OUTINGS_ANTHROPIC_API_KEY` (default model `claude-sonnet-5-5`), used for brief extraction (including suggested budget vote amounts), offer ranking, the organizer's plan draft, reveal summaries, and the merchant natural-language filter. Without the key the app runs a deterministic FIXTURE parser, labelled in the UI.
-- Real Claude calls verified: **TODO (not verified: the build environment had no key; the owner runs `scripts/ai-smoke.ts`, then record the result here)**.
+- Real Claude calls verified: **Yes, 11 Nov 2026**, on the hosted demo: a full `scripts/ai-smoke.ts` run passed 12 of 13 checks, and the one that failed (venue ranking) was fixed and then passed 3 of 3 reruns. The owner ran it inside the hosted web container with the app's own key.
 
 **Services**
 

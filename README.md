@@ -8,7 +8,9 @@ Group plans die in the group chat. One friend fronts the money, three people go 
 
 Built for the **PayPal AI Hackathon 2026**. PayPal **sandbox** only: no real money moves.
 
-![Outings landing page](docs/screenshots/landing.png)
+**Live demo:** https://outings.baymoor.dev
+
+![Outings: book it together, pay only if it happens. A phone shows an invitation to a $120 escape room at $30 each.](docs/gallery/thumbnail.png)
 
 **Judges:** the [judge guide](docs/JUDGE_GUIDE.md) walks you through the whole product in about 10 minutes.
 
@@ -40,25 +42,39 @@ flowchart LR
 1. **Brief.** Type the plan in your own words, or pick a starter. Claude pulls out the activity, date, group size and budget.
 2. **Budget poker.** Everyone privately picks what they'd personally pay. The amounts fit the outing, and the API never returns anyone else's vote.
 3. **Reveal.** Opens once 3 in 4 people have voted, and never with fewer than 3 votes. It shows how many chose each amount, never who.
-
-   <img src="docs/screenshots/reveal.png" alt="The reveal: a bar chart of per-person votes and a summary" width="720">
-
 4. **Pick a venue.** Claude ranks the venues. Every card shows your share, and it updates the moment you cover a guest.
-
-   <img src="docs/screenshots/venue-cards.png" alt="Venue cards showing $20 each with 5 paying" width="560">
-
 5. **Commit.** Each payer reviews the exact terms and authorizes their maximum through PayPal. Nothing is charged yet.
 6. **Deadline.** A durable server job, not a browser timer and not the AI, freezes the roster and decides. It charges penny-exact shares, or releases every hold. If a charge fails midway, it releases the rest and refunds what was taken.
 
+The same six steps on screen. Every picture is a real capture of the app; the demo screens run on the labelled payment simulator and sample AI text.
+
 <p>
-  <img src="docs/screenshots/budget-poker.png" alt="Budget poker on a phone" width="230">
-  <img src="docs/screenshots/waiting.png" alt="A $20 hold in place, waiting for the deadline" width="230">
-  <img src="docs/screenshots/confirmed.png" alt="The outing confirmed" width="230">
+  <img src="docs/gallery/01-start-with-one-sentence.png" alt="The brief: one sentence in, and the app reads the plan back and flags what is missing" width="49%">
+  <img src="docs/gallery/02-budget-poker-private-vote.png" alt="Budget poker: a private vote on what you would personally pay" width="49%">
 </p>
+<p>
+  <img src="docs/gallery/03-reveal-amounts-not-names.png" alt="The reveal: how many chose each amount, never who" width="49%">
+  <img src="docs/gallery/04-pick-a-venue-see-the-split.png" alt="Ranked venues with each person's share, and a split preview with Maya's share covered" width="49%">
+</p>
+<p>
+  <img src="docs/gallery/05-invitation-see-your-share.png" alt="The invitation: the total, your maximum and who is in, before you authorize" width="49%">
+  <img src="docs/gallery/06-hold-not-charged.png" alt="A $20 hold in place, with $0 charged so far" width="49%">
+</p>
+
+<img src="docs/gallery/07-deadline-exact-share-or-nothing.png" alt="At the deadline: the booking is confirmed and the exact share captured, or the outing is cancelled and every hold released" width="720">
 
 Venues see every booking and every dollar in an [AG Studio](docs/research/AG_STUDIO.md) dashboard.
 
-![Merchant dashboard](docs/screenshots/merchant-dashboard.png)
+<p>
+  <img src="docs/gallery/08-venue-dashboard-ag-studio.png" alt="The merchant dashboard: KPIs, charts and the Booking Readiness widget" width="49%">
+  <img src="docs/gallery/09-money-page-holds-not-revenue.png" alt="The Money page: captured, refunded and on-hold amounts, with holds never counted as revenue" width="49%">
+</p>
+
+**How AG Studio and AG Grid are used.** The dashboard is one AG Studio report with two pages, Bookings and Money. It has two custom widgets (Booking Readiness and Money flow), KPIs and charts that cross-filter each other, saved views and an AG Grid bookings table. AG Studio's own agent panel answers read-only questions through our server-side Claude proxy.
+
+## How PayPal is used
+
+Each payer approves a PayPal **Orders v2** order with intent `AUTHORIZE` for their own maximum, so PayPal places a hold and charges nothing. At the deadline the server uses **Payments v2** to capture each exact share as a final capture, which makes PayPal release the rest of the hold, or to void every authorization. If one capture fails, the rest are voided and the captured ones refunded. Every call carries a `PayPal-Request-Id`, so a retry can never charge twice.
 
 ## Where AI helps, and where it stops
 
@@ -71,8 +87,8 @@ Claude reads the brief, suggests vote amounts, ranks venues, summarizes the vote
 | Piece | Status |
 |---|---|
 | PayPal Orders v2 (authorize, under-capture, void, refund) | **Verified in the PayPal sandbox**, including one full outing settled through the app ([evidence](docs/evidence/README.md)) |
-| Deadline engine, splitting, consent, access control | Real code in every mode. 527 automated tests, most against a real Postgres, plus 8 browser tests ([testing](docs/TESTING.md)) |
-| Claude | Real API when `OUTINGS_ANTHROPIC_API_KEY` is set. Otherwise a deterministic parser labelled **Sample AI text (no model call)**. Real calls are not yet verified. |
+| Deadline engine, splitting, consent, access control | Real code in every mode. 543 automated tests, most against a real Postgres, plus 8 browser tests ([testing](docs/TESTING.md)) |
+| Claude | Real API when `OUTINGS_ANTHROPIC_API_KEY` is set, as on the live demo. Otherwise a deterministic parser labelled **Sample AI text (no model call)**. **Verified against the real API** on the hosted demo on 11 Nov 2026: a full `scripts/ai-smoke.ts` run passed 12 of 13 checks, and the one that failed (venue ranking) was fixed and then passed 3 of 3 reruns. |
 | Payments without PayPal keys | A simulator labelled **Simulated · not real PayPal** on every screen |
 | Venues | Five fictional Copenhagen venues with a demo catalogue. A confirmed outing means the group's money was collected for the venue, not that a real venue reserved anything. |
 
@@ -97,7 +113,9 @@ Open `/new`, pick a starter, and use the **Acting as** bar to play every person 
 
 ## Built with
 
-Next.js 16 · TypeScript (strict) · Postgres 16 with Drizzle · PayPal Orders v2 and Payments v2 · Claude Sonnet 5.5 (structured outputs) · AG Studio and AG Grid · Vitest and Playwright
+Next.js 16 · TypeScript (strict) · Postgres 16 with Drizzle · PayPal Orders v2 and Payments v2 · Claude Sonnet 5.5 (structured outputs) · AG Studio and AG Grid · Vitest and Playwright · hosted on DigitalOcean with Docker Compose and Caddy
+
+**Tools used to build it:** AI coding help from Claude Code (Anthropic), and Claude Design for the mockups. The full disclosure is in the [submission notes](docs/HACKATHON_SUBMISSION.md#ai-tool-disclosure).
 
 ## Docs
 
