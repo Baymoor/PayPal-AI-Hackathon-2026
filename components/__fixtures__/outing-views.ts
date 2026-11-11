@@ -49,7 +49,7 @@ const candidates: CatalogueCandidateView[] = [
   {
     offeringId: "o-escape", name: "Escape room for six", merchantName: "Locked In", category: "Game", description: "60-minute themed room.",
     location: "Midtown", pricingModel: "FIXED_TOTAL", priceMinor: 18000, currency: "USD", capacity: 6, minAttendees: 4, fit: "STRETCH",
-    reasons: ["Great for a group of six"], concerns: ["About $36 each, above the agreed $20 per person", "Capacity of six is tight"],
+    reasons: ["Great for a group of six"], concerns: ["Capacity of six is tight"],
     budget: { costMinor: 3600, payers: 5, within: false, overByMinor: 1600 },
   },
 ];

@@ -164,12 +164,16 @@ function labelFirstReason(reasons: readonly string[]): string[] {
 
 interface BudgetVerdict {
   within: boolean;
-  text: string;
+  /** The sentence to show, or null when the application shows the comparison itself. */
+  text: string | null;
 }
 
 /**
  * Budget check for one offering, in the unit the group agreed. Against a per-person budget the share is the
  * application's own figure (never worked out here); against a total it is the whole booking.
+ *
+ * A per-person verdict only orders the ranking. It gets no sentence: the venue card recomputes the share from
+ * the live roster, and a sentence frozen here would contradict it as soon as a guest is covered.
  */
 function budgetVerdict(item: CatalogueItemForAi, input: ProposalInput, groupSize: number | null): BudgetVerdict | null {
   const budget = input.agreedBudgetMinor;
@@ -177,8 +181,7 @@ function budgetVerdict(item: CatalogueItemForAi, input: ProposalInput, groupSize
   if (input.budgetUnit === "PER_PERSON") {
     const share = item.perPersonShareMinor ?? null;
     if (share === null) return null;
-    const within = budgetFit(share, budget).kind === "WITHIN";
-    return { within, text: `About ${formatMoney(share)} each, ${within ? "within" : "above"} the agreed ${formatMoney(budget)} per person.` };
+    return { within: budgetFit(share, budget).kind === "WITHIN", text: null };
   }
   if (groupSize === null) return null;
   const within = budgetFit(bookingTotalMinor(item, groupSize), budget).kind === "WITHIN";
@@ -296,10 +299,8 @@ export class FixtureOutingsAi implements OutingsAi {
         } else concerns.push(`Group of ${n} is outside ${item.minAttendees}-${item.capacity}.`);
       }
       const verdict = budgetVerdict(item, input, n);
-      if (verdict?.within) {
-        score += 2;
-        reasons.push(verdict.text);
-      } else if (verdict) concerns.push(verdict.text);
+      if (verdict?.within) score += 2;
+      if (verdict?.text) (verdict.within ? reasons : concerns).push(verdict.text);
       if (input.extraction.prefersFixedTotal && item.pricingModel === "FIXED_TOTAL") {
         score += 1;
         reasons.push("Fixed total, so more attendees lower each share.");

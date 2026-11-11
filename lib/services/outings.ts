@@ -47,7 +47,7 @@ import {
   validateBudgetOptions,
   type BudgetOptionsBasis,
 } from "../domain/budget-options";
-import { budgetFit, comparableCostMinor, headcountOf, perPersonShareMinor, type BudgetFit, type Headcount } from "../domain/budget-fit";
+import { budgetFit, comparableCostMinor, headcountOf, perPersonShareMinor, type Headcount } from "../domain/budget-fit";
 import {
   MIN_VOTES_FOR_REVEAL,
   type AttendanceState,
@@ -741,11 +741,6 @@ function withPerPersonShares(catalogue: CatalogueItemForAi[], headcount: Headcou
   return catalogue.map((c) => ({ ...c, perPersonShareMinor: headcount ? perPersonShareMinor(c, headcount) : null }));
 }
 
-function overBudgetConcern(fit: BudgetFit, unit: BudgetUnit): string {
-  if (unit !== "PER_PERSON") return "Above the agreed budget.";
-  return `About ${formatMoney(fit.costMinor)} each, above the agreed ${formatMoney(fit.budgetMinor)} per person.`;
-}
-
 /** Deterministic, clearly-labelled ranking used only when the AI call failed. */
 function deterministicProposal(
   catalogue: ReturnType<typeof toCatalogueForAi>,
@@ -760,7 +755,8 @@ function deterministicProposal(
       const fit = budgetFit(comparableCostMinor(c, headcount, budget.unit), budget.amountMinor);
       // Only a fixed total can be shared, so a per-attendee offering is never more than a stretch.
       const within = fixed && fit.kind === "WITHIN";
-      const concerns = fit.kind === "OVER" ? [overBudgetConcern(fit, budget.unit)] : [];
+      // A per-person comparison is shown live on the venue card (services/views.ts), so no sentence is frozen here for it.
+      const concerns = fit.kind === "OVER" && budget.unit === "TOTAL" ? ["Above the agreed budget."] : [];
       if (!fixed) concerns.push("Priced per attendee, so the total grows with each person who joins.");
       return {
         offeringId: c.offeringId,

@@ -150,10 +150,21 @@ describe("fixture dashboard + ranker + reveal", () => {
     const r = await ai.proposeOfferings({ extraction: ex, catalogue: withShares, agreedBudgetMinor: 2500, budgetUnit: "PER_PERSON", groupSize: 6, payerCount: 5 });
     expect(r.output.ranked[0].offeringId).toBe("off_k");
     expect(r.output.ranked[0].reasons[0]).toMatch(/^Fixture ranker/);
-    expect(r.output.ranked[0].reasons.join(" ")).toContain("About $24 each, within the agreed $25 per person.");
     const p = r.output.ranked.find((x) => x.offeringId === "off_p");
     expect(p?.concerns.join(" ")).toMatch(/total grows/);
-    expect(p?.concerns.join(" ")).toContain("About $48 each, above the agreed $25 per person.");
+    // No budget sentence: the venue card shows the share from the live roster, and frozen text would contradict it.
+    const text = r.output.ranked.flatMap((x) => [...x.reasons, ...x.concerns]).join(" ");
+    expect(text).not.toMatch(/agreed|budget|\$/i);
+  });
+  it("ranks an offering within the per-person budget ahead of one above it", async () => {
+    const ex = (await ai.extractBrief({ brief: CANONICAL, now: NOW, timezone: "UTC" })).output;
+    // Identical rooms apart from the share; ties break by id, so only the budget can put off_b first.
+    const rooms = [
+      { ...catalogue[0], offeringId: "off_a", perPersonShareMinor: 3000 },
+      { ...catalogue[0], offeringId: "off_b", perPersonShareMinor: 2000 },
+    ];
+    const r = await ai.proposeOfferings({ extraction: ex, catalogue: rooms, agreedBudgetMinor: 2000, budgetUnit: "PER_PERSON", groupSize: 6, payerCount: 5 });
+    expect(r.output.ranked.map((x) => x.offeringId)).toEqual(["off_b", "off_a"]);
   });
   it("judges the budget by the app's share, never its own arithmetic: no share, no budget verdict", async () => {
     const ex = (await ai.extractBrief({ brief: CANONICAL, now: NOW, timezone: "UTC" })).output;
@@ -371,6 +382,7 @@ describe("suggested budget-vote amounts", () => {
     expect(request.messages[0].content).toMatch(/People coming: 6\. People paying: 5\. Agreed budget PER PERSON[^:]*: 2000\./);
     expect(request.messages[0].content).toMatch(/"perPersonShareMinor":2000/);
     expect(request.system).toMatch(/Never work out a share yourself/);
+    expect(request.system).toMatch(/Do not state a share, or whether an offering is within the budget/);
   });
 
   it("keeps the whole-group wording, without shares, for an outing that agreed a total", async () => {

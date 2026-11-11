@@ -33,7 +33,7 @@ Task: rank up to 5 offerings from the provided catalogue for the brief.
 - offeringId MUST be copied exactly from the catalogue. Never invent one.
 - fit is GREAT, GOOD or STRETCH. Give 1-3 short reasons and up to 3 concerns.
 - The message says whether the agreed budget is PER PERSON (what each payer is willing to pay) or a TOTAL for the whole group. Never convert one into the other.
-- For a PER PERSON budget each catalogue item carries perPersonShareMinor: what one payer would pay, computed by the application as the booking total divided by the people paying (a guest whose share is covered raises it). Judge budget fit by comparing perPersonShareMinor with the agreed budget; when it is null, say the share is not known yet. Never work out a share yourself.
+- For a PER PERSON budget each catalogue item carries perPersonShareMinor: what one payer would pay, computed by the application as the booking total divided by the people paying (a guest whose share is covered raises it). Use perPersonShareMinor against the agreed budget only to choose fit and order. Do not state a share, or whether an offering is within the budget, in reasons or concerns: the application shows that next to your ranking and keeps it current when the roster changes. Never work out a share yourself.
 - For PER_ATTENDEE pricing, the total grows with attendees: say so in a concern.
 - You only rank and explain; prices and totals are computed by the application, not by you.`;
 
