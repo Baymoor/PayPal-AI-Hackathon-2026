@@ -48,6 +48,7 @@ import {
   type BudgetOptionsBasis,
 } from "../domain/budget-options";
 import { budgetFit, comparableCostMinor, headcountOf, perPersonShareMinor, type Headcount } from "../domain/budget-fit";
+import { canRevealVotes, votesNeededToReveal } from "../domain/budget-reveal";
 import {
   MIN_VOTES_FOR_REVEAL,
   type AttendanceState,
@@ -620,18 +621,32 @@ export function aggregateVotes(amounts: readonly number[], invitedCount: number,
   };
 }
 
-async function computeAggregate(tx: DbOrTx, outing: Outing): Promise<RevealAggregate | null> {
+/** The current round's aggregate, or null with the counts that explain why it may not be revealed yet. */
+type RevealReadiness = { aggregate: RevealAggregate; voteCount: number; needed: number } | { aggregate: null; voteCount: number; needed: number };
+
+async function computeAggregate(tx: DbOrTx, outing: Outing): Promise<RevealReadiness> {
   const rows = await tx
     .select({ amountMinor: budgetVotes.amountMinor })
     .from(budgetVotes)
     .where(and(eq(budgetVotes.outingId, outing.id), eq(budgetVotes.round, outing.budgetRound), eq(budgetVotes.unit, outing.budgetUnit)));
-  if (rows.length < MIN_VOTES_FOR_REVEAL) return null;
   const roster = await loadRoster(tx, outing.id);
-  return aggregateVotes(
+  const partySize = roster.filter(isActiveParticipant).length;
+  // 75% of the party, never below the privacy floor (lib/domain/budget-reveal.ts).
+  const needed = votesNeededToReveal(partySize);
+  if (!canRevealVotes(rows.length, partySize)) return { aggregate: null, voteCount: rows.length, needed };
+  const aggregate = aggregateVotes(
     rows.map((r) => r.amountMinor),
-    roster.filter(isActiveParticipant).length,
+    partySize,
     outing.currency,
     outing.budgetUnit,
+  );
+  return { aggregate, voteCount: rows.length, needed };
+}
+
+function notEnoughVotes(readiness: RevealReadiness): ServiceError {
+  return conflict(
+    "NOT_ENOUGH_VOTES",
+    `The reveal unlocks at ${readiness.needed} votes (${readiness.voteCount} so far): 75% of the group, and never fewer than ${MIN_VOTES_FOR_REVEAL} so no single vote is exposed`,
   );
 }
 
@@ -641,11 +656,9 @@ export async function reveal(db: Db, actor: ParticipantActor, now: Date = new Da
     const { outing } = await begin(tx, actor, { organizer: true });
     requireStatus(outing, ["BUDGETING"], "Budget voting is not open");
     if (outing.budgetRevealedAt) throw conflict("ALREADY_REVEALED", "This round has already been revealed");
-    const aggregate = await computeAggregate(tx, outing);
-    if (!aggregate) {
-      throw conflict("NOT_ENOUGH_VOTES", `At least ${MIN_VOTES_FOR_REVEAL} votes are needed so no single vote is exposed`);
-    }
-    return { aggregate, extraction: storedExtraction(outing)?.extraction ?? null };
+    const readiness = await computeAggregate(tx, outing);
+    if (!readiness.aggregate) throw notEnoughVotes(readiness);
+    return { aggregate: readiness.aggregate, extraction: storedExtraction(outing)?.extraction ?? null };
   });
 
   // The AI sees the aggregate only (no names, no per-person votes).
@@ -656,8 +669,9 @@ export async function reveal(db: Db, actor: ParticipantActor, now: Date = new Da
     requireStatus(outing, ["BUDGETING"], "Budget voting is not open");
     if (outing.budgetRevealedAt) throw conflict("ALREADY_REVEALED", "This round has already been revealed");
     // Recompute under the lock: votes are serialized on the same row lock.
-    const aggregate = await computeAggregate(tx, outing);
-    if (!aggregate) throw conflict("NOT_ENOUGH_VOTES", `At least ${MIN_VOTES_FOR_REVEAL} votes are needed`);
+    const readiness = await computeAggregate(tx, outing);
+    if (!readiness.aggregate) throw notEnoughVotes(readiness);
+    const aggregate = readiness.aggregate;
 
     let summary: StoredReveal["summary"] = null;
     if (call.ok) {

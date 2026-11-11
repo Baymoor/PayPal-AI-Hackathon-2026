@@ -91,7 +91,7 @@ function base(over: DeepPartial<OutingView> = {}): OutingView {
     viewer: { participantId: "p2", displayName: "Ben", role: "INVITEE", payerType: "PAYER", required: true, attendance: "PENDING", isOrganizer: false },
     brief,
     budget: {
-      round: 1, unit: "PER_PERSON", options: OPTIONS, myVoteMinor: null, votedCount: 3, invitedCount: 6, revealed: false, canReveal: false,
+      round: 1, unit: "PER_PERSON", options: OPTIONS, myVoteMinor: null, votedCount: 3, invitedCount: 6, revealed: false, votesNeeded: 5, canReveal: false,
       aggregate: null, aiSummary: null, proposedBudgetMinor: null,
     },
     proposal: null,
@@ -172,8 +172,9 @@ export const FIXTURES: Record<string, { label: string; view: OutingView }> = {
     label: "Budget poker — organizer, can reveal, invite",
     view: base({
       viewer: organizer,
-      budget: { myVoteMinor: 2000, votedCount: 4, canReveal: true },
-      roster: { people: people((i) => ({ hasVoted: i <= 3 })) },
+      // 5 of 6 voted: 75% of the group, so the reveal is open.
+      budget: { myVoteMinor: 2000, votedCount: 5, canReveal: true },
+      roster: { people: people((i) => ({ hasVoted: i <= 4 })) },
       organizer: { can: { ...orgCanNone, addInvitees: true, reveal: true } },
     }),
   },

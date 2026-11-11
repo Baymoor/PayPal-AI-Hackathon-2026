@@ -26,8 +26,8 @@ const getDb = setupServiceTests();
 
 const CANONICAL = "A karaoke night for Maya's birthday. Six of us, Friday evening. We want a private room and to cover Maya's share.";
 const NOW = new Date("2026-11-04T12:00:00Z"); // Wednesday 13:00 in Copenhagen
-/** Per-person votes; the median, $20, is agreed. */
-const VOTES = { Alex: 2_000, Ben: 2_000, Freya: 1_500, Jules: 3_000 } as const;
+/** Per-person votes from 5 of 6 (the 75% the reveal needs); the median, $20, is agreed. */
+const VOTES = { Alex: 2_000, Ben: 2_000, Freya: 1_500, Jules: 3_000, Noor: 2_000 } as const;
 
 async function expectCode(p: Promise<unknown>, code: string, status: number) {
   const err = await p.then(

@@ -39,7 +39,7 @@ Judge mode (demo mode only) lets you play every person without invitation links 
 2. **Invite.** Start budget poker, then tap names under **Demo friends** (or type them). Invitation links are still created and still work.
 3. **Vote.** Each person says what they would personally pay, and the amounts fit the outing: padel offers $8 to $30 each, wine tasting $25 to $100 each. Vote, then use the **Acting as** bar: press **Switch** next to the next person and follow its **Next:** line. The bar shows who has voted, never the amount.
    ![Budget poker](screenshots/budget-poker.png)
-4. **Reveal.** Back as the organizer, reveal once 3 people have voted. You see only how many votes each amount got, the range and the median; no names. Agree the suggested budget, pick another, or run another round.
+4. **Reveal.** Back as the organizer, reveal once 3 in 4 people have voted (never fewer than 3; the button says how many are needed). You see only how many votes each amount got, the range and the median; no names. Agree the suggested budget, pick another, or run another round.
    ![Reveal](screenshots/reveal.png)
 5. **Pick and open.** The AI ranks the venues against the brief and the budget (with sample AI text, the starter's own venue comes first). Optionally cover a guest of honour, then open commitments with a deadline 1 minute to 48 hours away.
    ![Sponsor and open](screenshots/sponsor.png)

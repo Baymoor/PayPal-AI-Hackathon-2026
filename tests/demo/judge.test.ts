@@ -6,6 +6,7 @@ import { describe, expect, it } from "vitest";
 import type { OutingView, PersonView } from "@/lib/contracts/views";
 import type { OutingStatus } from "@/lib/domain/types";
 import { describeTodo, judgeBoard, todoFor } from "@/lib/demo/judge";
+import { votesNeededToReveal } from "@/lib/domain/budget-reveal";
 
 type PersonOverride = Partial<PersonView> & { displayName: string };
 
@@ -64,6 +65,7 @@ function view(input: { status: OutingStatus; people: PersonOverride[]; viewer?: 
       votedCount: budgeting ? people.filter((p) => p.hasVoted).length : 0,
       invitedCount: people.length,
       revealed: input.revealed ?? false,
+      votesNeeded: votesNeededToReveal(people.length),
       canReveal: false,
       aggregate: null,
       aiSummary: null,
@@ -107,10 +109,20 @@ describe("judgeBoard", () => {
     expect(asBen.nextStep).toBe("Next: you (Ben) can vote");
   });
 
-  it("BUDGETING: the organizer can reveal at 3 votes, even while others still owe a vote", () => {
+  it("BUDGETING: the organizer can reveal at 3 of 4 votes (75%), even while someone still owes a vote", () => {
     const b = judgeBoard(view({ status: "BUDGETING", people: [{ displayName: "Alex", hasVoted: true }, { displayName: "Ben", hasVoted: true }, { displayName: "Freya", hasVoted: true }, { displayName: "Noor" }] }));
     expect(b.acting.todo && describeTodo(b.acting.todo)).toBe("can reveal the votes");
     expect(b.nextStep).toBe("Next: you (Alex) can reveal the votes");
+  });
+
+  it("BUDGETING: in a group of 6 the reveal waits for 5 votes (75%), so 4 votes still point at someone who owes one", () => {
+    const six = ["Alex", "Ben", "Freya", "Jules", "Noor", "Maya"];
+    const b = judgeBoard(view({ status: "BUDGETING", people: six.map((displayName, i) => ({ displayName, hasVoted: i < 4 })) }));
+    expect(b.acting.todo).toBeNull();
+    expect(b.nextStep).toBe("Next: switch to Noor and vote");
+
+    const five = judgeBoard(view({ status: "BUDGETING", people: six.map((displayName, i) => ({ displayName, hasVoted: i < 5 })) }));
+    expect(five.acting.todo && describeTodo(five.acting.todo)).toBe("can reveal the votes");
   });
 
   it("BUDGETING: below 3 votes with everyone voted, the organizer must invite more people", () => {

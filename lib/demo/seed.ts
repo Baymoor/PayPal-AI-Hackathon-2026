@@ -911,7 +911,7 @@ export async function seedDemo(db: Db, opts: { now?: Date; secret?: string } = {
     });
   }
 
-  /* 2. Budget poker demo: BUDGETING, 4 of 6 voted (reveal possible). */
+  /* 2. Budget poker demo: BUDGETING, 5 of 6 voted (75% of the group, so the reveal is open; Gus can still vote). */
   await seedOuting(
     db,
     {
@@ -926,7 +926,7 @@ export async function seedDemo(db: Db, opts: { now?: Date; secret?: string } = {
         { key: "emil", name: "Emil", voteMinor: 2_000 },
         { key: "farah", name: "Farah", voteMinor: 3_000 },
         { key: "gus", name: "Gus" },
-        { key: "hedda", name: "Hedda" },
+        { key: "hedda", name: "Hedda", voteMinor: 2_000 },
       ],
     },
     secret,

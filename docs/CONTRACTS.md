@@ -56,7 +56,7 @@ Participant (cookie `outings_p`):
 | `POST /api/outings/:id/start-budget` | organizer | DRAFT → BUDGETING |
 | `POST /api/outings/:id/invitees` `{names[], required?}` | organizer | adds invitees (≤ capacity once known; only optional during COLLECTING) → `{invites:[{participantId, displayName, link}]}` (links shown once) |
 | `POST /api/outings/:id/budget/vote` `{amountMinor}` | participant | upsert own vote for current round (BUDGETING, not revealed) |
-| `POST /api/outings/:id/budget/reveal` | organizer | needs ≥ 3 votes; stores aggregate + AI summary |
+| `POST /api/outings/:id/budget/reveal` | organizer | needs 75% of the group to have voted, at least 3 votes; stores aggregate + AI summary |
 | `POST /api/outings/:id/budget/round` | organizer | new budget round (clears reveal) |
 | `POST /api/outings/:id/budget/agree` `{amountMinor}` | organizer | sets the proposed budget in the outing's unit: per person, or a group total on outings created before per-person voting (not a payment), → PROPOSED, AI ranks catalogue |
 | `POST /api/outings/:id/select` `{offeringId}` | organizer | choose offering (preview) |

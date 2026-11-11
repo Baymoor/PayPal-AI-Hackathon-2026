@@ -35,7 +35,8 @@ import { notFound } from "../http";
 import { budgetFit, comparableCostMinor, type Headcount } from "../domain/budget-fit";
 import { ceilDiv, estimatedShare } from "../domain/money";
 import type { CommitmentTerms } from "../domain/policy";
-import { MIN_VOTES_FOR_REVEAL, type BudgetUnit, type OutingStatus, type PaymentStatus } from "../domain/types";
+import { type BudgetUnit, type OutingStatus, type PaymentStatus } from "../domain/types";
+import { canRevealVotes, votesNeededToReveal } from "../domain/budget-reveal";
 import type {
   CandidateBudgetView,
   CatalogueCandidateView,
@@ -263,6 +264,8 @@ export async function buildOutingView(
   const committed = committedParticipantIds(people, attempts, quote);
   const active = people.filter(isActiveParticipant);
   const activePayers = active.filter((p) => p.payerType === "PAYER");
+  // Same rule the reveal endpoint enforces: 75% of the party, never below the privacy floor.
+  const revealOpen = outing.status === "BUDGETING" && !outing.budgetRevealedAt && canRevealVotes(voters.size, active.length);
   const terms = quote ? parseTerms(quote) : null;
   const requiredIds = terms ? new Set(terms.requiredParticipantIds) : new Set(people.filter((p) => p.required).map((p) => p.id));
   const payersAuthorized = people.filter((p) => p.payerType === "PAYER" && committed.has(p.id)).length;
@@ -434,7 +437,8 @@ export async function buildOutingView(
       votedCount: voters.size,
       invitedCount: active.length,
       revealed,
-      canReveal: isOrganizer && outing.status === "BUDGETING" && !outing.budgetRevealedAt && voters.size >= MIN_VOTES_FOR_REVEAL,
+      votesNeeded: votesNeededToReveal(active.length),
+      canReveal: isOrganizer && revealOpen,
       aggregate: revealed ? reveal!.aggregate : null,
       aiSummary:
         revealed && reveal!.summary
@@ -481,7 +485,7 @@ export async function buildOutingView(
           can: {
             startBudget: outing.status === "DRAFT",
             addInvitees: pre || windowOpen,
-            reveal: outing.status === "BUDGETING" && !outing.budgetRevealedAt && voters.size >= MIN_VOTES_FOR_REVEAL,
+            reveal: revealOpen,
             newRound: outing.status === "BUDGETING" || outing.status === "PROPOSED",
             agreeBudget: outing.status === "BUDGETING",
             propose: outing.status === "BUDGETING" || outing.status === "PROPOSED",

@@ -163,7 +163,9 @@ export interface OutingView {
     votedCount: number;
     invitedCount: number;
     revealed: boolean;
-    /** Organizer-only flag: enough votes (>= 3) to reveal without exposing anyone. */
+    /** Votes needed before the reveal unlocks: 75% of `invitedCount` rounded up, never below 3 (lib/domain/budget-reveal.ts). */
+    votesNeeded: number;
+    /** Organizer-only flag: `votedCount` has reached `votesNeeded`, so the spread can be shown without exposing anyone. */
     canReveal: boolean;
     /** Aggregate only; null until revealed. */
     aggregate: RevealAggregate | null;

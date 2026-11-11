@@ -1,4 +1,4 @@
-/** POST /api/outings/:id/budget/reveal (organizer): needs >= 3 votes; stores the aggregate only + AI summary. */
+/** POST /api/outings/:id/budget/reveal (organizer): needs 75% of the group to have voted (at least 3 votes, lib/domain/budget-reveal.ts); stores the aggregate only + AI summary. */
 import { getDb } from "@/lib/db/client";
 import { assertSameOrigin, handle, json } from "@/lib/http";
 import { requireOrganizer } from "@/lib/services/access";

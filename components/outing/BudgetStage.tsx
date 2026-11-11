@@ -129,7 +129,8 @@ export function BudgetStage({ view, actions }: { view: OutingView; actions: Outi
         <Card tone="blush" className="space-y-3">
           <h2 className="text-h3">Reveal the group&apos;s budget</h2>
           <p className="text-ink-muted">
-            Reveal shows how many people chose each amount, never who. It needs at least 3 votes.
+            Reveal shows how many people chose each amount, never who. It opens once {budget.votesNeeded} of the{" "}
+            {budget.invitedCount} people have voted: three in four of the group, and never fewer than 3.
           </p>
           <Button
             block
@@ -137,7 +138,7 @@ export function BudgetStage({ view, actions }: { view: OutingView; actions: Outi
             loading={pending === "reveal"}
             loadingLabel="Revealing…"
             disabled={!(org.reveal && budget.canReveal)}
-            disabledReason={`Reveal unlocks at 3 votes (${budget.votedCount} so far).`}
+            disabledReason={`Reveal unlocks at ${budget.votesNeeded} votes (${budget.votedCount} so far).`}
             onClick={() => run("reveal", async () => { await actions.reveal(); await actions.refresh(); })}
           >
             <Eye className="size-5" aria-hidden />

@@ -136,8 +136,8 @@ export async function openCanonical(db: Db, now = new Date(), opts: { offeringSl
   const f = await createWithInvitees(db, ["Ben", "Freya", "Jules", "Noor", "Maya"], now);
   const org = actorOf(f);
   await svc.startBudget(db, org, now);
-  // Per-person votes: what each would personally pay. The median, $20, is agreed.
-  for (const [name, amount] of [["Alex", 2_000], ["Ben", 2_000], ["Freya", 1_500], ["Jules", 3_000]] as const) {
+  // Per-person votes: what each would personally pay. Five of six is the 75% the reveal needs; the median, $20, is agreed.
+  for (const [name, amount] of [["Alex", 2_000], ["Ben", 2_000], ["Freya", 1_500], ["Jules", 3_000], ["Noor", 2_000]] as const) {
     await svc.vote(db, actorOf(f, name), { amountMinor: amount }, now);
   }
   await svc.reveal(db, org, now);

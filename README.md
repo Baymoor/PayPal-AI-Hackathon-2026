@@ -39,7 +39,7 @@ flowchart LR
 
 1. **Brief.** Type the plan in your own words, or pick a starter. Claude pulls out the activity, date, group size and budget.
 2. **Budget poker.** Everyone privately picks what they'd personally pay. The amounts fit the outing, and the API never returns anyone else's vote.
-3. **Reveal.** Needs at least 3 votes. It shows how many chose each amount, never who.
+3. **Reveal.** Opens once 3 in 4 people have voted, and never with fewer than 3 votes. It shows how many chose each amount, never who.
 
    <img src="docs/screenshots/reveal.png" alt="The reveal: a bar chart of per-person votes and a summary" width="720">
 

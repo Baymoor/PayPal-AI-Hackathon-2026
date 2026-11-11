@@ -21,7 +21,7 @@ Friends turn a group plan into an approved, fairly shared booking. AI translates
 
 - Question: "What would you personally pay for this outing?" Five per-person amounts sized to the outing (AI-suggested from the brief, validated by the server, with a deterministic fallback ladder; $10, $15, $20, $30, $40 when nothing better is known), Custom (PER_PERSON unit; never mix per-person and total amounts in one summary). The app turns the agreed amount into a comparison with each offering: share = booking total / people paying. A fixed total is divided by the people paying; a per-attendee price is multiplied by the people coming first, so a covered guest raises the share under both. (Owner-approved change, 10 Nov 2026. Outings created before it voted on a TOTAL and keep that unit and wording.)
 - Votes are private to the voter until reveal — **enforced by the API**, not CSS.
-- Reveal shows an **aggregate distribution** (no names), only with ≥ 3 votes.
+- Reveal shows an **aggregate distribution** (no names), only once 75% of the party has voted (rounded up) and never with fewer than 3 votes. Owner rule, 11 Nov 2026.
 - A vote/proposal is **not** a payment authorization, merchant price or binding acceptance. A majority cannot authorize someone else's money. AI may summarize; the organizer chooses a merchant-supported quote; everyone reviews their own terms.
 
 ## 3. Deadline policy ALL_REQUIRED

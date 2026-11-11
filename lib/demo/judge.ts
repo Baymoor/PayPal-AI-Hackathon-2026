@@ -56,7 +56,8 @@ function organizerTodoWhileBudgeting(view: OutingView, person: PersonView): Judg
   const { budget, roster } = view;
   if (budget.revealed) return todo("AGREE_BUDGET", "can", "agree a budget");
   if (!person.hasVoted) return todo("VOTE", "needs", "vote");
-  if (budget.votedCount >= MIN_VOTES_FOR_REVEAL) return todo("REVEAL", "can", "reveal the votes");
+  // 75% of the group, never below the privacy floor: the server sends the threshold so this never drifts.
+  if (budget.votedCount >= budget.votesNeeded) return todo("REVEAL", "can", "reveal the votes");
   // Everyone invited has voted but the reveal minimum protects individual votes: more people are needed.
   const everyoneVoted = roster.people.every((p) => p.hasVoted);
   if (everyoneVoted) return todo("INVITE_MORE_VOTERS", "needs", `invite more people, ${MIN_VOTES_FOR_REVEAL} votes are needed to reveal`);

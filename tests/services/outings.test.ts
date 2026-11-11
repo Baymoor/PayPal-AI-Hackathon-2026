@@ -121,7 +121,7 @@ describe("create -> budget -> reveal -> agree -> select -> sponsor -> open -> co
 });
 
 describe("budget poker", () => {
-  it("requires >= 3 votes to reveal and stores an aggregate without names", async () => {
+  it("requires >= 3 votes (and 75% of the group) to reveal and stores an aggregate without names", async () => {
     const db = getDb();
     const f = await createWithInvitees(db, ["Ben", "Freya", "Jules"]);
     const org = actorOf(f);
@@ -165,6 +165,26 @@ describe("budget poker", () => {
     const audit = await db.query.auditEvents.findMany({ where: eq(auditEvents.outingId, f.outingId) });
     const auditJson = JSON.stringify(audit.map((a) => a.data));
     for (const amount of ["7500", "12345", "15000", "5000"]) expect(auditJson).not.toContain(amount);
+  });
+
+  it("waits for 75% of the group before the reveal: 5 of 6 here, enforced by the API and mirrored in the view", async () => {
+    const db = getDb();
+    const f = await createWithInvitees(db, ["Ben", "Freya", "Jules", "Noor", "Maya"]);
+    const org = actorOf(f);
+    await svc.startBudget(db, org);
+    for (const name of ["Alex", "Ben", "Freya", "Jules"] as const) await svc.vote(db, actorOf(f, name), { amountMinor: 2_000 });
+
+    // 4 votes clear the old floor of 3, but not 75% of 6.
+    await expectCode(svc.reveal(db, org), "NOT_ENOUGH_VOTES", 409);
+    const waiting = await buildOutingView(db, { outingId: f.outingId, participantId: f.organizerId });
+    expect(waiting.budget).toMatchObject({ votedCount: 4, invitedCount: 6, votesNeeded: 5, canReveal: false });
+    expect(waiting.organizer?.can.reveal).toBe(false);
+
+    await svc.vote(db, actorOf(f, "Noor"), { amountMinor: 3_000 });
+    const ready = await buildOutingView(db, { outingId: f.outingId, participantId: f.organizerId });
+    expect(ready.budget).toMatchObject({ votedCount: 5, votesNeeded: 5, canReveal: true });
+    const stored = await svc.reveal(db, org);
+    expect(stored.aggregate).toMatchObject({ voteCount: 5, invitedCount: 6 });
   });
 
   it("falls back to the median when the AI suggests a total outside the vote range", async () => {

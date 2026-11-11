@@ -41,7 +41,7 @@ test("demo hub: reset, persona switching and every seeded stage", async ({ page 
     await expect(page.getByRole("button", { name: "Reveal", exact: true })).toBeEnabled();
     await openAs(page, "Friday game night", "Gus");
     await expect(page.getByRole("button", { name: /Submit my/ })).toBeVisible();
-    await expect(page.getByText("4 of 6 voted")).toBeVisible();
+    await expect(page.getByText("5 of 6 voted")).toBeVisible();
   });
 
   await test.step("history: confirmed, cancelled, refund pending", async () => {
