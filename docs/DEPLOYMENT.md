@@ -9,7 +9,7 @@ The hosted demo runs on **one DigitalOcean server in New York** (US East, betwee
 | `worker` | `npm run worker`: settles due deadlines every 5 s, with every browser closed. No external scheduler is needed. |
 | `caddy` | HTTPS with an automatic Let's Encrypt certificate, in front of `web`. |
 
-**Cost:** $12/month plus VAT for a Basic droplet (2 GB RAM, 1 vCPU, 50 GB), billed by the hour. It must stay up through **15 Dec 2026**. Claude API usage is the only other cost, capped by a Console spend limit (step 5). PayPal is sandbox only.
+**Cost:** $12/month plus VAT for a Basic droplet (2 GB RAM, 1 vCPU, 50 GB), billed by the hour. It must stay up through **21 Dec 2026**. Claude API usage is the only other cost, capped by a Console spend limit (step 5). PayPal is sandbox only.
 
 **Memory on 2 GB.** Measured with the demo loaded:
 
@@ -102,7 +102,7 @@ Fill in these lines. Values go without quotes, with one exception: wrap a passwo
 | `PAYPAL_CLIENT_ID`, `PAYPAL_CLIENT_SECRET` | [developer.paypal.com](https://developer.paypal.com/dashboard/applications/sandbox) → **Apps & Credentials** (Sandbox) → your app |
 | `PAYPAL_MERCHANT_ID` | developer.paypal.com → **Testing Tools → Sandbox Accounts** → your Business account → Account ID |
 | `OUTINGS_ANTHROPIC_API_KEY` | A key from a Claude Console workspace with a spend limit (below) |
-| `AG_STUDIO_LICENSE_KEY` | Leave empty (AG Studio trial mode) unless AG Grid supplies a key for judging |
+| `AG_STUDIO_LICENSE_KEY` | Leave empty (AG Studio trial mode, as on the live demo today) unless AG Grid supplies a key for judging |
 | `JUDGE_PASSWORD` | Make one up (at least 16 characters) and give it to the judges privately, never in the repo. Setting it switches the judge sign-in on: only signed-in judges can create outings, use the AG Studio assistant or reach Claude through the venue's filter. Empty = no sign-in, everyone can. |
 | `JUDGE_USERNAME` | Optional. Defaults to `judge`. |
 
@@ -115,7 +115,7 @@ Fill in these lines. Values go without quotes, with one exception: wrap a passwo
 When the limit is reached, Claude calls fail and the app says so plainly; it never labels fallback output as Claude:
 
 - the brief shows "could not be read automatically"
-- the venue shortlist falls back to the rule-based ranking, labelled Fixture
+- the venue shortlist falls back to a rule-based ranking (capacity and budget fit), labelled "Sample AI text (no model call)"
 - plan drafting and the dashboard question report that the AI could not answer, and change nothing
 
 The per-visitor rate limits (`lib/rate-limit.ts`) still apply underneath.
@@ -148,6 +148,8 @@ After any change to `/etc/outings/app.env`, run `deploy.sh` again to apply it. C
 
 ## 7. PayPal webhook
 
+**Not done on the live demo yet:** its `/api/health` shows `"webhookVerification":false`, so every delivery there is rejected. Nothing depends on it: settlement runs on the worker, and unknown payment outcomes are reconciled by reading PayPal directly.
+
 1. developer.paypal.com → **Apps & Credentials** (Sandbox) → your app → **Sandbox Webhooks → Add Webhook**.
 2. URL: `https://<site>/api/webhooks/paypal`. Events: all **Checkout order**, **Payment authorization** and **Payment capture** events. Save.
 3. Copy the **Webhook ID** into `PAYPAL_WEBHOOK_ID=` in `/etc/outings/app.env`, then run `deploy.sh`. `/api/health` now shows `"webhookVerification":true`.
@@ -172,7 +174,7 @@ Expect `"status":"CANCELLED"` and `"cleanup":"COMPLETE"`, with every hold voided
 
 For the happy path, create a `settle-soon` scenario on `/demo` and commit as Noor. Then close the browser before the deadline and check it with the same `curl`; it should be `CONFIRMED`.
 
-## Running it until 15 Dec
+## Running it until 21 Dec
 
 All commands run on the server as root. `c` is short for the Compose command:
 
@@ -192,7 +194,7 @@ cd /opt/outings && alias c='docker compose -f deploy/vps/compose.yaml --env-file
 - **Restoring a backup** into the running database: `gunzip -c /var/backups/outings/outings-<date>.sql.gz | docker exec -i outings-db-1 psql -U outings -d outings`.
   - The dumps are plain SQL without `DROP` statements, so restore into an empty database: stop `web` and `worker`, then recreate the `db` volume first.
 - **Reboots:** containers restart on their own.
-- **After 15 Dec 2026:**
+- **After 21 Dec 2026:**
   - To reuse the server for other projects, stop Outings with `c down`. That keeps its database volume; `c down -v` also deletes the data.
   - To stop billing, go to DigitalOcean → the droplet → **Destroy**.
 - **Hosting several projects later:** build images on GitHub Actions and push them to GHCR, so the server only pulls and never builds. That avoids the 2 GB build squeeze. The trade-off: the package must be made public (one-way), or the server needs a read token.
@@ -252,6 +254,6 @@ The image includes devDependencies because `db:migrate` and `worker` run through
 ## Safety
 
 - Sandbox only: the PayPal base URL is hard-coded to `api-m.sandbox.paypal.com`.
-- The hosted demo runs in judge mode (`DEMO_FIXTURES_ENABLED=true`). Anyone in an outing can act as anyone else in it, the merchant dashboard has a one-click demo sign-in (it does not open `/setup`, which needs `MERCHANT_DASHBOARD_PASSWORD`), and anyone can reset the demo outings (a reset keeps any `/demo` story started in the last 15 minutes). Never put real personal data or live credentials on it.
+- The hosted demo runs in judge mode (`DEMO_FIXTURES_ENABLED=true`). Anyone in an outing can act as anyone else in it, the merchant dashboard has a one-click demo sign-in (it does not open `/setup`, which needs `MERCHANT_DASHBOARD_PASSWORD`), and anyone can reset the demo outings (a reset keeps any `/demo` story started recently). Never put real personal data or live credentials on it.
 - Demo outings always use the payment simulator and the sample AI, so anonymous visitors cost nothing. Creating an outing with real Claude and PayPal sandbox needs the judge sign-in once `JUDGE_PASSWORD` is set.
 - Never enable live credentials or paid add-ons without the owner's explicit decision.

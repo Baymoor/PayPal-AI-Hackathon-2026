@@ -3,9 +3,11 @@
 Scope: server-side adapter for Orders v2 (intent `AUTHORIZE`) + Payments v2 (capture / void / refund / reauthorize) + webhooks, plus the browser approval step.
 Written 2026-11-03.
 
+Note, 12 Nov 2026: this is pre-build research, kept as written. Some items tagged UNVERIFIED below were answered in the PayPal sandbox on 7 Nov 2026. Each one now carries an inline pointer to section 14, and section 14 wins where the two differ.
+
 ## 0. How to read the evidence tags
 
-This container could not reach `developer.paypal.com`, `docs.paypal.ai`, or `api-m.sandbox.paypal.com` (DNS or proxy 403). Evidence is therefore graded:
+The cloud container this was written in could not reach `developer.paypal.com`, `docs.paypal.ai`, or `api-m.sandbox.paypal.com` (DNS or proxy 403). Evidence is therefore graded:
 
 | Tag | Meaning |
 |---|---|
@@ -14,7 +16,7 @@ This container could not reach `developer.paypal.com`, `docs.paypal.ai`, or `api
 | **[SEARCH]** | A WebSearch summary of a `developer.paypal.com` page. The page itself was not read. Medium confidence. The page URL is cited so a human can confirm. |
 | **UNVERIFIED** | From general knowledge only, or sources conflict. Test in sandbox before relying on it. |
 
-Spec files are mirrored locally (not in the repo) at `/tmp/claude-0/-home-user-PayPal-AI-Hackathon-2026/cab8f0b0-0b5e-515a-91e8-7b10f49795bf/scratchpad/paypal/`.
+The spec files were mirrored in that container's scratch folder, which no longer exists. They are not in the repo; fetch them again from the raw URLs.
 Raw URLs: `https://raw.githubusercontent.com/paypal/paypal-rest-api-specifications/main/openapi/{checkout_orders_v2,payments_payment_v2,notifications_webhooks_v1}.json`.
 
 Base URLs: sandbox API `https://api-m.sandbox.paypal.com`; buyer-facing sandbox site `https://www.sandbox.paypal.com`; live API `https://api-m.paypal.com` ([SEARCH] https://developer.paypal.com/api/rest/requests/, and the paypaldev sandbox README [fetched] https://github.com/paypaldev/getting-started-with-paypal-sandbox).
@@ -135,7 +137,7 @@ const url = links.find(l => l.rel === "payer-action" || l.rel === "approve")?.hr
 ```
 The sandbox host for these links is `https://www.sandbox.paypal.com/checkoutnow?token=<id>` (host swap per environment; the spec examples show the live host).
 
-Order `status` after create is `CREATED` (or `PAYER_ACTION_REQUIRED` when a payer-action link is returned) [SPEC enum; which one applies to which response is UNVERIFIED, so branch on links, not status]. After buyer approval the order is `APPROVED`. After authorize the order is `COMPLETED` (there is no `AUTHORIZED` order status in the enum). The `links` doc: "The API caller has 6 hours ... from the time the order is created, to redirect your payer. Once redirected, the API caller has 6 hours for the payer to approve the order and either authorize or capture the order." [SPEC]
+Order `status` after create is `CREATED` (or `PAYER_ACTION_REQUIRED` when a payer-action link is returned) [SPEC enum; which one applies to which response was UNVERIFIED when written, so branch on links, not status. **Sandbox 7 Nov: `PAYER_ACTION_REQUIRED`**, section 14 item 3]. After buyer approval the order is `APPROVED`. After authorize the order is `COMPLETED` (there is no `AUTHORIZED` order status in the enum). The `links` doc: "The API caller has 6 hours ... from the time the order is created, to redirect your payer. Once redirected, the API caller has 6 hours for the payer to approve the order and either authorize or capture the order." [SPEC]
 
 ---
 
@@ -309,12 +311,12 @@ Handling: `COMPLETED` = money moved. `PENDING` = not final; wait for `PAYMENT.CA
 ### Capturing LESS than authorized, with `final_capture: true`
 - Supported: yes, partial capture is the documented purpose of `amount` ("To capture a portion of the full authorized amount, specify an amount"). The delay-capture guide gives "Authorize $100, capture $60 -> $60 captured, $40 remains available" [SEARCH] https://developer.paypal.com/checkout/delay-capture.
 - What happens to the remainder with `final_capture: true`:
-  - The v2 spec only says that no further captures are allowed. It does NOT say the remainder is automatically voided. UNVERIFIED for v2.
+  - The v2 spec only says that no further captures are allowed. It does NOT say the remainder is automatically voided. UNVERIFIED for v2 when written. **Sandbox 7 Nov: PayPal releases the remainder itself, no void needed** (section 14 item 1).
   - The legacy DoCapture NVP / SOAP docs state that on the final capture "any remaining amount of the original authorized transaction is automatically voided" [SEARCH] https://developer.paypal.com/api/nvp-soap/do-capture-nvp/. The v1 REST `is_final_capture` flag was described as releasing all remaining held funds [SEARCH] https://developer.paypal.com/api/deprecated/payments/v1/authorization-capture.
   - The delay-capture guide says an unused remainder "can be voided or left to expire" [SEARCH].
-  - **Plan**: send `final_capture: true` on the final capture (this is the right intent), then GET the authorization afterwards. Log the status. If it is still `PARTIALLY_CAPTURED` and not `CAPTURED` / `VOIDED`, issue an explicit `void` of the remainder (void on a partially captured authorization is allowed: the spec says only that you cannot void an authorization that "has been fully captured"). Treat a "nothing to void" 422 there as success. Confirm in sandbox and update this doc.
-  - The resulting authorization `status` after a final partial capture is UNVERIFIED (`PARTIALLY_CAPTURED` vs `CAPTURED`). v1 doc said `CAPTURED` only if the amount equals the authorized amount [SEARCH].
-- Partial capture account setting: [SEARCH] https://developer.paypal.com/checkout/delay-capture states "For PayPal payment authorizations, you must enable partial capture on your PayPal account", but it was not possible to see where that toggle is (possibly legacy). The v2 spec itself lists no account-capability error for partial capture. UNVERIFIED: if sandbox partial capture fails with `PERMISSION_DENIED` / `NOT_AUTHORIZED`, check the business sandbox account's settings and the REST app's feature checkboxes in the Developer Dashboard.
+  - **Plan**: send `final_capture: true` on the final capture (this is the right intent), then GET the authorization afterwards. Log the status. If it is still `PARTIALLY_CAPTURED` and not `CAPTURED` / `VOIDED`, issue an explicit `void` of the remainder (void on a partially captured authorization is allowed: the spec says only that you cannot void an authorization that "has been fully captured"). Treat a "nothing to void" 422 there as success. Confirm in sandbox and update this doc. **Sandbox 7 Nov: confirmed, the authorization reads `CAPTURED` and the explicit void is not needed** (section 14 item 1).
+  - The resulting authorization `status` after a final partial capture was UNVERIFIED when written (`PARTIALLY_CAPTURED` vs `CAPTURED`). **Sandbox 7 Nov: `CAPTURED`** (section 14 item 1). v1 doc said `CAPTURED` only if the amount equals the authorized amount [SEARCH].
+- Partial capture account setting: [SEARCH] https://developer.paypal.com/checkout/delay-capture states "For PayPal payment authorizations, you must enable partial capture on your PayPal account", but it was not possible to see where that toggle is (possibly legacy). The v2 spec itself lists no account-capability error for partial capture. UNVERIFIED when written: if sandbox partial capture fails with `PERMISSION_DENIED` / `NOT_AUTHORIZED`, check the business sandbox account's settings and the REST app's feature checkboxes in the Developer Dashboard. **Sandbox 7 Nov: no setting was needed** for the default sandbox Business account (section 14 item 2).
 - Multiple captures: each needs a distinct `invoice_id`, and a later capture after `final_capture: true` fails. [SEARCH] https://developer.paypal.com/checkout/delay-capture. For us: exactly one capture per authorization, `final_capture: true`.
 
 ### Capturing MORE than authorized
@@ -470,7 +472,7 @@ Body shape [SPEC]:
 | `DUPLICATE_INVOICE_ID` | [SEARCH] used in the official negative-testing example against order capture. |
 | `TRANSACTION_REFUSED`, `INTERNAL_SERVER_ERROR` | [SEARCH] sample code lists them as capture mock codes. |
 | `ORDER_NOT_APPROVED`, `ORDER_ALREADY_AUTHORIZED`, `ORDER_ALREADY_CAPTURED`, `ORDER_EXPIRED` | UNVERIFIED (memory; docs not reachable). |
-| `AUTHORIZATION_VOIDED` | UNVERIFIED. |
+| `AUTHORIZATION_VOIDED` | UNVERIFIED when written. **Sandbox 7 Nov: confirmed**, HTTP 422 on capture after void (section 14 item 6). |
 | `PERMISSION_DENIED` / `NOT_AUTHORIZED` | UNVERIFIED. |
 | `DUPLICATE_REQUEST` | UNVERIFIED. |
 | `CANNOT_BE_VOIDED` | Not in the v2 spec; use `PREVIOUSLY_CAPTURED`. |
@@ -555,7 +557,7 @@ Verified from official source [SDK] github.com/paypal/paypal-js:
 
 ### (c) Server-only redirect (no browser SDK)
 - Create the order server-side with `experience_context.return_url` / `cancel_url`, take the `payer-action` (or `approve`) link, and send the browser there: `https://www.sandbox.paypal.com/checkoutnow?token=<ORDER_ID>`. [SPEC] link shape.
-- After approval PayPal redirects to `return_url?token=<ORDER_ID>&PayerID=<payer_id>` (query names `token` and `PayerID` are the long-standing convention; UNVERIFIED in the v2 spec). Your return route (Route Handler) calls `POST /authorize` with the `token` as order id, then redirects the user to the outing page.
+- After approval PayPal redirects to `return_url?token=<ORDER_ID>&PayerID=<payer_id>` (query names `token` and `PayerID` are the long-standing convention; UNVERIFIED in the v2 spec. **Sandbox 7 Nov: `token` confirmed**, `PayerID` not recorded, section 14 item 4). Your return route (Route Handler) calls `POST /authorize` with the `token` as order id, then redirects the user to the outing page.
 - Cancel: `cancel_url?token=<ORDER_ID>`.
 - The spec warns that without `return_url` a non-SDK flow breaks ("We're sorry, Things don't appear to be working at the moment" after approval).
 - Official support: this is the documented Orders v2 redirect pattern. No JS dependency, no CSP/popup issues, survives popup blockers.
@@ -574,6 +576,8 @@ Next.js implementation sketch (server-side only; re-read `node_modules/next/dist
 - `GET /api/paypal/return?token=...`: authorize, store authorization id + expiration, redirect.
 - `GET /api/paypal/cancel?token=...`: mark cancelled, redirect.
 - Cron / server action at the deadline: capture / void / refund.
+
+As built, the routes differ from this sketch: `POST /api/outings/:id/payments` creates the order, PayPal sends the buyer back to `GET /api/payments/paypal/return` or `GET /api/payments/paypal/cancel`, and the deadline work runs in the worker (`npm run worker`) or through `POST /api/cron/tick`.
 
 ---
 

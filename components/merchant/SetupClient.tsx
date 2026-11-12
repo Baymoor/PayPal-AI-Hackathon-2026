@@ -144,7 +144,7 @@ export function SetupClient({ summary, vars, cronUrl, webhookUrl }: { summary: S
 
         <section className="m-card" aria-labelledby="todo-h">
           <h2 className="m-h2" id="todo-h">Next tasks</h2>
-          <p className="m-sub">From docs/HANDOFF_TO_CODEX.md section 6.</p>
+          <p className="m-sub">The owner&apos;s checklist for proving the real services.</p>
           <ol style={{ paddingLeft: 20, display: "grid", gap: 8 }}>
             <li><strong>Prove PayPal sandbox.</strong> Create the sandbox app and two Personal buyers, set the credentials, then run <code>npx tsx scripts/paypal-smoke.ts</code> (add <code>--mock-decline</code> for the decline path). Commit the redacted evidence.</li>
             <li><strong>Prove real Claude.</strong> Set the key, run <code>npx tsx scripts/ai-smoke.ts</code>, commit the evidence, create one outing at /new.</li>

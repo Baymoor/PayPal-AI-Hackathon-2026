@@ -70,7 +70,7 @@ On `/demo`, **Watch a deadline settle** creates a fresh karaoke outing ($100 roo
 
 The stories need no sign-in. They always use the payment simulator and sample AI text, even on the live demo where PayPal sandbox and Claude keys are set, so nobody spends real API calls on them. The services and the settlement engine are the real ones; only the payment provider is the simulator, with failures injected on purpose. **Run the deadline now** runs the same worker as the scheduler and can't settle early: the deadline is checked against the database clock.
 
-**Reset demo data** re-seeds the standard demo outings but leaves any story started in the last 15 minutes, so you never cut short another judge's run. Older runs are cleaned up.
+**Reset demo data** re-seeds the standard demo outings but leaves any story started recently, so you never cut short another judge's run. Older runs are cleaned up.
 
 ## 5. The venue's dashboard
 
@@ -87,10 +87,10 @@ The stories need no sign-in. They always use the payment simulator and sample AI
 |---|---|---|---|
 | Payments | Simulator, labelled "Simulated · not real PayPal" | PayPal sandbox, Orders v2 | **Yes, 7 Nov 2026:** authorize, $10-of-$20 final capture, idempotent replay, void, refund, and one full outing settled through the app ([evidence](evidence/README.md)) |
 | AI | Deterministic parser, labelled "Sample AI text (no model call)" | Claude, structured outputs, on outings you create (demo outings stay on the sample parser) | **Yes, 11 Nov 2026**, on the hosted demo: a full `scripts/ai-smoke.ts` run passed 12 of 13 checks, and the one that failed (venue ranking) was fixed and then passed 3 of 3 reruns. The automated tests use a mocked SDK |
-| Deadline, splitting, consent, access | Real code | Real code | 580 automated tests and 9 browser tests ([testing](TESTING.md)) |
+| Deadline, splitting, consent, access | Real code | Real code | 584 automated tests and 9 browser tests ([testing](TESTING.md)) |
 | Demo outings and stories on `/demo` | Simulated payments and sample AI, always | Simulated payments and sample AI, always | Real services, simulated provider |
 
-Not verified: PayPal webhook signatures against real deliveries, and PayPal negative testing. The hosted demo is live at https://outings.baymoor.dev, and its worker settles outings at the deadline with every browser closed (checked on 10 and 11 Nov 2026). `GET /api/health` shows the active modes without secrets. Limits and threat model: [security and limitations](SECURITY_AND_LIMITATIONS.md).
+Not verified: PayPal webhook signatures against real deliveries (webhooks are not configured on the live server, so `/api/health` shows `"webhookVerification":false`), and PayPal negative testing. The hosted demo is live at https://outings.baymoor.dev, and its worker settles outings at the deadline with every browser closed (checked on 10 and 11 Nov 2026). `GET /api/health` shows the active modes without secrets. Limits and threat model: [security and limitations](SECURITY_AND_LIMITATIONS.md).
 
 ## 7. Where the hard parts are
 

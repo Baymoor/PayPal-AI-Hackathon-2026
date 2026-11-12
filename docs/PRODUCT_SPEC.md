@@ -1,6 +1,8 @@
-# Outings — product and financial specification (condensed)
+# Outings: product and financial specification (condensed)
 
-Condensed from the authoritative build brief (CLAUDE_BUILD_BRIEF.md, 4 Nov 2026, kept by the project owner). Where this file and the mockups disagree, **this file wins**. Working name, not a cleared brand. Independent PayPal AI Hackathon project using PayPal **sandbox** payments; never call it "PayPal Outings".
+The rules the build follows. Condensed from the owner's build brief (CLAUDE_BUILD_BRIEF.md, 4 Nov 2026, kept by the project owner). Where this file and the mockups disagree, **this file wins**.
+
+Working name, not a cleared brand. An independent PayPal AI Hackathon project on PayPal **sandbox** payments. Never call it "PayPal Outings".
 
 ## 1. Product
 
@@ -19,9 +21,12 @@ Friends turn a group plan into an approved, fairly shared booking. AI translates
 
 ## 2. Budget poker
 
-- Question: "What would you personally pay for this outing?" Five per-person amounts sized to the outing (AI-suggested from the brief, validated by the server, with a deterministic fallback ladder; $10, $15, $20, $30, $40 when nothing better is known), Custom (PER_PERSON unit; never mix per-person and total amounts in one summary). The app turns the agreed amount into a comparison with each offering: share = booking total / people paying. A fixed total is divided by the people paying; a per-attendee price is multiplied by the people coming first, so a covered guest raises the share under both. (Owner-approved change, 10 Nov 2026. Outings created before it voted on a TOTAL and keep that unit and wording.)
-- Votes are private to the voter until reveal — **enforced by the API**, not CSS.
-- Reveal shows an **aggregate distribution** (no names), only once 75% of the party has voted (rounded up) and never with fewer than 3 votes. Owner rule, 11 Nov 2026.
+- Question: "What would you personally pay for this outing?"
+- Choices: five per-person amounts sized to the outing, plus Custom. The amounts are AI-suggested from the brief, validated by the server, with a deterministic fallback ladder ($10, $15, $20, $30, $40 when nothing better is known).
+- Unit: PER_PERSON. Never mix per-person and total amounts in one summary. (Owner-approved change, 10 Nov 2026. Outings created before it voted on a TOTAL and keep that unit and wording.)
+- The app compares the agreed amount with each offering: share = booking total / people paying. A fixed total is divided by the people paying. A per-attendee price is multiplied by the people coming first. So a covered guest raises the share under both.
+- Votes are private to the voter until reveal, **enforced by the API**, not CSS.
+- Reveal shows an **aggregate distribution** (no names), only once 75% of the party has voted (rounded up) and never with fewer than 3 votes. Owner rule, 11 Nov 2026. The suggested amount is the median, unless Claude proposes another amount inside the vote range. The organizer can ask for another round ("Vote again").
 - A vote/proposal is **not** a payment authorization, merchant price or binding acceptance. A majority cannot authorize someone else's money. AI may summarize; the organizer chooses a merchant-supported quote; everyone reviews their own terms.
 
 ## 3. Deadline policy ALL_REQUIRED
@@ -57,7 +62,9 @@ Integer minor units, USD only. `base = floor(total/N)`, `remainder = total % N`;
 
 ## 7. PayPal
 
-One sandbox Business merchant, distinct Personal sandbox buyers. Server-only OAuth. Orders v2 intent AUTHORIZE → buyer approval (redirect to PayPal `payer-action`) → server authorize → verify → at deadline capture allocated amount with `final_capture=true`, or void; refund captures on partial failure. Commitment window ≤ 48 h. `PayPal-Request-Id` on every mutation; timeouts are UNKNOWN and reconciled before retry; webhooks signature-verified and deduplicated by event id. PayPal has no atomic group capture: on a failure mid-way → stop, void the rest, refund completed captures, show recovery. Prove under-capture ($20 auth, $10 capture) in the real sandbox; if unsupported, document reauthorization fallback — never disguise a refund as a lower capture. See docs/research/PAYPAL.md.
+One sandbox Business merchant, distinct Personal sandbox buyers. Server-only OAuth. Orders v2 intent AUTHORIZE → buyer approval (redirect to PayPal `payer-action`) → server authorize → verify → at deadline capture allocated amount with `final_capture=true`, or void; refund captures on partial failure. Commitment window ≤ 48 h. `PayPal-Request-Id` on every mutation; timeouts are UNKNOWN and reconciled before retry; webhooks signature-verified and deduplicated by event id. PayPal has no atomic group capture: on a failure mid-way → stop, void the rest, refund completed captures, show recovery. Prove under-capture ($20 auth, $10 capture) in the real sandbox; if unsupported, document reauthorization fallback, and never disguise a refund as a lower capture. See docs/research/PAYPAL.md.
+
+Status, 12 Nov 2026: under-capture was proven in the sandbox on 7 Nov ($10 captured from a $20 hold, the rest released by PayPal, no reauthorization needed). Webhook verification is built and tested against a mocked PayPal, but no webhook is configured on the live demo.
 
 Lifecycle: `DRAFT → BUDGETING → PROPOSED → COLLECTING → SETTLING → CONFIRMED`; `COLLECTING → CANCELLING → CANCELLED`; `SETTLING → COMPENSATING → CANCELLED`. Booking status is separate from payment clean-up (`VOID_PENDING`, `REFUND_PENDING`, `NEEDS_ATTENTION`, `COMPLETE`).
 
@@ -67,8 +74,8 @@ Participants see only their invitation and the permitted group view; merchants o
 
 ## 9. AI
 
-Real product AI uses structured output to extract preferences, date windows, budget units, capacity needs, uncertainties; grounded in our catalogue; identifies fixed-cost activities when more attendees should lower the share. AI summarizes the aggregate reveal and explains deterministic results. Schemas validated; invented inventory/amounts rejected; pasted chats are data, not instructions. Dashboard flow: "Show outings closing today with missing required participants." Missing API key → clearly labelled FIXTURE mode; never present canned answers as model output.
+Real product AI uses structured output to extract preferences, date windows, budget units, capacity needs, uncertainties; grounded in our catalogue; identifies fixed-cost activities when more attendees should lower the share. AI summarizes the aggregate reveal and explains deterministic results. Schemas validated; invented inventory/amounts rejected; pasted chats are data, not instructions. Dashboard flow: "Show outings closing today with missing required participants." Missing API key → clearly labelled FIXTURE mode ("Sample AI text (no model call)" on screen); never present canned answers as model output. Demo outings (the seeded ones and every `/demo` story) always use the sample AI and the payment simulator, even when keys are set.
 
 ## 10. Hackathon rules that affect the build
 
-Public repo with root LICENSE (MIT), runnable demo through 15 Dec 2026, honest labelling of fixture vs sandbox vs AI, English, YouTube video < 3 min, Devpost submission by 12 Nov 2026 21:00 CET (target 11 Nov).
+Public repo with root LICENSE (MIT), runnable demo through 21 Dec 2026, honest labelling of fixture vs sandbox vs AI, English, YouTube video < 3 min, Devpost submission by 12 Nov 2026 21:00 CET.

@@ -1,12 +1,12 @@
 # Testing
 
-580 Vitest tests in 47 files (most against a real Postgres) and 9 Playwright browser tests pin the money, consent and access rules; the real PayPal sandbox is checked by two scripts, and real Claude by a smoke script run on the hosted demo.
+584 Vitest tests in 48 files (most against a real Postgres) and 9 Playwright browser tests pin the money, consent and access rules. Two scripts checked the real PayPal sandbox, and a smoke script checked real Claude on the live demo.
 
 Related: [README](../README.md) · [judge guide](JUDGE_GUIDE.md) · [architecture invariants](ARCHITECTURE.md) · [security and limitations](SECURITY_AND_LIMITATIONS.md) · [PayPal sandbox evidence](evidence/README.md)
 
 ## Run it
 
-You need Node 22.12+ and an empty Postgres 16 database; the defaults below match CI.
+You need Node 22.12+ and Postgres 16. The defaults below match CI.
 
 ```bash
 # Postgres 16 with an empty outings_test database (same as CI)
@@ -15,20 +15,22 @@ docker run -d --name outings-test-db -p 5432:5432 -e POSTGRES_USER=outings \
 
 npm ci
 npm run typecheck && npm run lint
-npm test                                  # all 46 Vitest files
+npm test                                  # all 47 Vitest files
 npx vitest run tests/settlement           # one folder; add -t "fragment" for one test
 
+# Browser tests wipe their database, so they get their own
+docker exec outings-test-db createdb -U outings outings_e2e
 npx playwright install chromium           # once
-E2E_DATABASE_URL=postgres://outings:outings@localhost:5432/outings_test npm run test:e2e
+E2E_DATABASE_URL=postgres://outings:outings@localhost:5432/outings_e2e npm run test:e2e
 ```
 
-- Vitest reads `TEST_DATABASE_URL` from the shell (default `postgres://outings:outings@localhost:5432/outings_test`), never from `.env.local`. Each integration file calls `useTestDb()` ([db.ts](../tests/helpers/db.ts)), which migrates and truncates every table before each test; files run serially ([vitest.config.ts](../vitest.config.ts)).
-- `npm run test:e2e` builds the app, serves it on port 3400 in FIXTURE modes with PayPal and Anthropic keys blanked, and **truncates and re-seeds** `E2E_DATABASE_URL` (else `DATABASE_URL`, else the `outings` database) ([playwright.config.ts](../playwright.config.ts), [env.ts](../tests/e2e/env.ts)).
-- CI ([ci.yml](../.github/workflows/ci.yml)) runs migrate, typecheck, lint, Vitest and `next build` on Postgres 16; it does not run Playwright.
+- **Vitest** reads `TEST_DATABASE_URL` from the shell (default `postgres://outings:outings@localhost:5432/outings_test`), never from `.env.local`. Each integration file calls `useTestDb()` ([db.ts](../tests/helpers/db.ts)), which migrates and truncates every table before each test. Files run one at a time ([vitest.config.ts](../vitest.config.ts)).
+- **Playwright** (`npm run test:e2e`) builds the app and serves it on port 3400 in FIXTURE modes (simulated payments, sample AI), with PayPal and Anthropic keys blanked. A second server on port 3500 runs the same build with the judge sign-in switched on. It **truncates and re-seeds** `E2E_DATABASE_URL` (else `DATABASE_URL`, else the `outings` database), so never point it at a database you care about, or at the Vitest one ([playwright.config.ts](../playwright.config.ts), [env.ts](../tests/e2e/env.ts)).
+- **CI** ([ci.yml](../.github/workflows/ci.yml)) runs migrate, typecheck, lint, Vitest and `next build` on Postgres 16. It does not run Playwright.
 
 ## What is tested where
 
-Each row is a risk, the files that pin it, and one test name to find with your editor's search or `grep -rnF`.
+Each row is a risk, the files that pin it, and a test name you can find with your editor's search or `grep -rnF`.
 
 | Risk | Test files | Example test |
 |---|---|---|
@@ -58,18 +60,18 @@ Each row is a risk, the files that pin it, and one test name to find with your e
 
 ## Latest results
 
-Vitest and Playwright last ran on 11 and 12 Nov 2026 on the owner's Windows 11 machine with Postgres 16 in Docker, in FIXTURE modes; the PayPal scripts ran on 7 Nov 2026 against the real sandbox.
+Vitest and Playwright last ran on 11 and 12 Nov 2026 on the owner's Windows 11 machine, with Postgres 16 in Docker, in FIXTURE modes. The PayPal scripts ran on 7 Nov 2026 against the real sandbox.
 
 | Check | Result |
 |---|---|
 | `tsc --noEmit`, `eslint` | Clean |
-| Vitest | 580 tests in 47 files pass |
+| Vitest | 584 tests in 48 files pass |
 | Playwright (production build, Chromium) | 9/9 pass: karaoke settle, holdout cancel, organizer cancel, demo hub, capture-failure compensation, big-group under-capture, dashboard refresh keeps AG Studio, `/setup` access, judge sign-in |
 | PayPal adapter, real sandbox ([paypal-smoke.ts](../scripts/paypal-smoke.ts)) | All expectations met: authorize, $10-of-$20 final capture, capture replay idempotent, void then capture refused with `AUTHORIZATION_VOIDED`, capture, refund ([evidence](evidence/README.md)) |
 | One full outing through the app, real sandbox ([paypal-verify-outing.ts](../scripts/paypal-verify-outing.ts)) | Three participants, three $50 holds (all approved with one sandbox buyer account), $33.34 / $33.33 / $33.33 captured at the deadline; PayPal's records match the app's (`allMatch: true`) |
-| Real Claude ([ai-smoke.ts](../scripts/ai-smoke.ts)) | Run on the hosted demo on 11 Nov 2026: a full run passed 12 of 13 checks; the one that failed (venue ranking) was fixed and then passed 3 of 3 reruns. The Vitest AI tests use a mocked SDK |
-| PayPal webhook signatures from real deliveries | **Not run.** Tested against a mocked PayPal only |
+| Real Claude ([ai-smoke.ts](../scripts/ai-smoke.ts)) | Run on the live demo on 11 Nov 2026: a full run passed 12 of 13 checks. The one that failed (venue ranking) was fixed and then passed 3 of 3 reruns. The output files of that run were not committed. The Vitest AI tests use a mocked SDK |
+| PayPal webhook signatures from real deliveries | **Not run.** Tested against a mocked PayPal only. Webhooks are not configured on the live server (`/api/health` shows `webhookVerification:false`) |
 | PayPal negative testing (`PayPal-Mock-Response`) | **Not run** |
-| Hosted deployment | Live at https://outings.baymoor.dev (DigitalOcean, Docker Compose, Caddy). Checked by hand on 10 and 11 Nov 2026: health endpoint, pages, and a demo deadline settled by the worker with every browser closed |
+| Live demo | https://outings.baymoor.dev (DigitalOcean, Docker Compose, Caddy). Checked by hand on 10 and 11 Nov 2026: health endpoint, pages, and a demo deadline settled by the worker with every browser closed |
 
 Next: [what the PayPal evidence files contain](evidence/README.md), or [the limits this does not cover](SECURITY_AND_LIMITATIONS.md).

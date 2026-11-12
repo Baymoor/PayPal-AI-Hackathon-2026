@@ -345,7 +345,7 @@ import type {
 } from 'ag-studio';
 import { AgStudio, createWidgets, type AgRegistry, type AgWidgetDefinition } from 'ag-studio-react';
 
-// State (what lives in AgReportState) — note the literal `type`.
+// State (what lives in AgReportState): note the literal `type`.
 interface ReadinessWidget extends AgWidgetData<
   {
     outing: AgWidgetFieldReference[];      // category: outings.title
@@ -488,7 +488,7 @@ Facts from `ag-studio` source (`studio/license/*`, bundle lines ~58300-58720) an
   (`license: "PRO-AI"` in the bundle). A key covering a lower tier than a registered module produces an
   "Incompatible License Key" error + watermark.
 - **No key:** Studio still runs with **all features unlocked** ("All AG Studio features are unlocked for trial").
-  It logs a boxed `console.error` ("License Key Not Found ... email info@ag-grid.com for a trial license key")
+  It logs a boxed `console.error` ("License Key Not Found", plus AG Grid's contact address for a trial licence key)
   and shows a watermark overlay element (`.ag-studio-watermark`) with the text **"For Trial Use Only"**
   (it fades after ~5 s: the element gets an opacity-zero class immediately and is hidden after 5 000 ms).
   `isDisplayWatermark` is false on `localhost` unless the force-watermark flag is set, so you
@@ -505,6 +505,7 @@ Facts from `ag-studio` source (`studio/license/*`, bundle lines ~58300-58720) an
   Never register `AllEnterpriseModule` in our own grids unless we also hold an AG Grid Enterprise key.
 - For the hackathon: the sponsor boilerplate documents `AG_STUDIO` in `.env.local` as optional, so
   a demo without a key works but logs the console error and (off-localhost) shows the trial watermark. Ask the sponsors for the hackathon key.
+  *Status 12 Nov 2026: no key yet; the live demo runs AG Studio in trial mode.*
 
 ---
 
@@ -883,7 +884,9 @@ Facts and alternatives:
 ## 10. Unverified items (summary)
 
 1. Runtime behaviour in a browser (no browser run): Strict Mode double mount, watermark appearance, CSS layer interplay.
+   *Status 12 Nov 2026: the dashboard now runs in real browsers on the live demo, and [merchant-refresh.spec.ts](../../tests/e2e/merchant-refresh.spec.ts) drives it in Playwright. The three points above were not checked one by one.*
 2. Anthropic acceptance of Studio's JSON-Schema tool definitions (need a one-time sanitiser test of all 16 tool schemas).
+   *Status 12 Nov 2026: partly answered. The real-Claude `scripts/ai-smoke.ts` run on the hosted demo on 11 Nov passed both `studio.*` checks (`studio.read-only-agent`, `studio.terminator-retry`); only venue ranking failed in that run. The app forwards only Studio's read-only view, query and filter tools, so the other tool schemas were never sent.*
 3. `ai`/`formatShape` requirements for AI-created custom widgets.
 4. Overriding the built-in `grid` widget with a React cell renderer (`createCellRenderer`) - types exist, example not compiled.
 5. Dark-mode theme helper and `themeCssLayer` usage.
