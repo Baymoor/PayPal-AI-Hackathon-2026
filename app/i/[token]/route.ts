@@ -47,7 +47,10 @@ export async function GET(req: Request, ctx: { params: Promise<{ token: string }
   return new Response(null, {
     status: 303,
     headers: {
-      location: new URL(`/o/${participant.outingId}`, req.url).toString(),
+      // Relative on purpose: behind a reverse proxy, `next start` builds req.url from its own host and port
+      // (https://localhost:3000), so an absolute URL sent invitees to a dead address. Browsers resolve this
+      // against the public URL they actually opened, like the PayPal return route does.
+      location: `/o/${participant.outingId}`,
       "set-cookie": participantCookie(session),
       "cache-control": "no-store",
       "referrer-policy": "no-referrer",

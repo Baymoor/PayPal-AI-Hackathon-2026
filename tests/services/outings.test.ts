@@ -315,6 +315,27 @@ describe("proposal and selection", () => {
     await svc.selectOffering(db, org, { offeringId: f.offerings["private-karaoke-room"].id });
   });
 
+  it("falls back to the labelled rule-based shortlist when every AI-ranked venue is dropped", async () => {
+    const db = getDb();
+    const f = await createWithInvitees(db, ["Ben", "Freya", "Jules"]);
+    const fake = new FakeAi("ANTHROPIC", "claude-test");
+    fake.proposeOfferings = async () => ({
+      source: "ANTHROPIC",
+      model: "claude-test",
+      warnings: [],
+      output: { ranked: [{ offeringId: crypto.randomUUID(), fit: "GREAT", reasons: ["Invented venue"], concerns: [] }], note: "ok" },
+    });
+    aiState.current = fake;
+    const org = actorOf(f);
+    await svc.startBudget(db, org);
+    const stored = await svc.agreeBudget(db, org, { amountMinor: 3_000 });
+    // Not stranded with nothing to pick, and honestly not labelled as model output.
+    expect(stored.ranked.length).toBeGreaterThan(0);
+    expect(stored.source).toBe("FIXTURE");
+    expect(stored.model).toBeNull();
+    expect(stored.warnings.join(" ")).toMatch(/rule-based shortlist/);
+  });
+
   it("enforces capacity for invitees once an offering is selected", async () => {
     const db = getDb();
     const f = await createWithInvitees(db, ["Ben", "Freya", "Jules"]);

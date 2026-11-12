@@ -105,7 +105,8 @@ describe("participant sessions", () => {
     const token = invites[0].link.split("/i/")[1];
     const open = await inviteRoute.GET(request(`/i/${token}`), params({ token }));
     expect(open.status).toBe(303);
-    expect(open.headers.get("location")).toBe(`http://localhost:3000/o/${outingId}`);
+    // Relative, so it never leaks the server's internal host (behind Caddy that was https://localhost:3000).
+    expect(open.headers.get("location")).toBe(`/o/${outingId}`);
     expect(open.headers.get("referrer-policy")).toBe("no-referrer");
     const benCookie = cookiePair(open.headers.get("set-cookie")!);
 

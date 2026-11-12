@@ -332,6 +332,13 @@ export function CommitStage({
   const r = view.roster;
   const hasAuth = !!pay && ["AUTHORIZED", "CAPTURE_PENDING", "CAPTURED"].includes(pay.status);
   const gone = view.viewer.attendance === "DECLINED" || view.viewer.attendance === "WITHDRAWN";
+  // Consented but no hold (an abandoned or cancelled PayPal approval): the server answers Decline with
+  // USE_WITHDRAW, so the same link withdraws instead.
+  const leaveByWithdraw = !view.me.can.decline && view.me.can.withdraw;
+  // "No hold was placed" is only true before PayPal authorized anything. UNKNOWN or a voided mismatch may
+  // still hold money, so those get the neutral release copy instead.
+  const noHoldYet =
+    !pay || pay.status === "CREATED" || pay.status === "APPROVAL_PENDING" || (pay.status === "FAILED" && pay.authorizedMinor === 0);
 
   if (!q) {
     return (
@@ -471,26 +478,44 @@ export function CommitStage({
         </StatusBanner>
       )}
 
-      {!gone && (view.me.can.decline || view.me.can.withdraw) && !reviewing && !hasAuth && (
+      {/* The organizer leaves through "Cancel outing" in OrganizerTools, never through this link. */}
+      {!gone && (view.me.can.decline || (leaveByWithdraw && !view.viewer.isOrganizer)) && !reviewing && !hasAuth && (
         <div className="text-center">
           {!declineConfirm ? (
             <Button variant="link" onClick={() => setDeclineConfirm(true)}>
-              Decline invitation
+              {leaveByWithdraw ? "Leave this outing" : "Decline invitation"}
             </Button>
           ) : (
             <Card tone="blush" className="space-y-3 text-left">
-              <p className="font-semibold">Decline this invitation?</p>
+              <p className="font-semibold">{leaveByWithdraw ? "Leave this outing?" : "Decline this invitation?"}</p>
+              {leaveByWithdraw && (
+                <p className="text-small text-ink-muted">
+                  {noHoldYet
+                    ? "You approved the terms, but no hold was placed, so there is nothing to release."
+                    : fixtureHold(view)
+                      ? "Any simulated hold is released. No real money is involved."
+                      : "If PayPal placed a hold, it is released. That can take a few days to show in your account."}
+                </p>
+              )}
               {view.viewer.required && (
-                <p className="text-small text-ink-muted">You&apos;re a required guest, so declining cancels the outing for everyone.</p>
+                <p className="text-small text-ink-muted">
+                  You&apos;re a required guest, so {leaveByWithdraw ? "leaving" : "declining"} cancels the outing for everyone.
+                </p>
               )}
               <div className="flex flex-wrap gap-3">
                 <Button
                   variant="danger"
-                  loading={pending === "decline"}
-                  loadingLabel="Declining…"
-                  onClick={() => run("decline", async () => { await actions.respond("DECLINE"); await actions.refresh(); })}
+                  loading={pending === "decline" || pending === "withdraw"}
+                  loadingLabel={leaveByWithdraw ? "Leaving…" : "Declining…"}
+                  // After consenting (e.g. cancelling at PayPal), the server only accepts Withdraw, not Decline.
+                  // The action key picks the matching money note if the call fails.
+                  onClick={() => run(leaveByWithdraw ? "withdraw" : "decline", async () => {
+                    if (leaveByWithdraw) await actions.withdraw();
+                    else await actions.respond("DECLINE");
+                    await actions.refresh();
+                  })}
                 >
-                  Yes, decline
+                  {leaveByWithdraw ? "Yes, leave" : "Yes, decline"}
                 </Button>
                 <Button variant="secondary" onClick={() => setDeclineConfirm(false)}>
                   Keep my place

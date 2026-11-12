@@ -854,6 +854,14 @@ export async function agreeBudget(
       ranked.push(r);
     }
     proposal = { ranked, note: parsed.data.note };
+    // A valid answer whose every item was dropped would strand the outing with nothing to pick:
+    // show the labelled rule-based shortlist instead, honestly marked as not from the model.
+    if (ranked.length === 0) {
+      warnings.push("The AI shortlist had no venue that exists and fits the group, so the rule-based shortlist is shown.");
+      source = "FIXTURE";
+      model = null;
+      proposal = deterministicProposal(catalogue, budget, headcount ?? pre.roster, pre.groupSize);
+    }
   } else {
     source = "FIXTURE";
     model = null;
@@ -882,7 +890,10 @@ export async function agreeBudget(
     };
     if (outing.status === "BUDGETING") await transition(tx, outing, "PROPOSED", now, extra);
     else await touch(tx, outing, now, extra);
-    await recordAiRun(tx, { outingId: outing.id, purpose: "CATALOGUE_PROPOSAL", call, output: { ranked: proposal.ranked, note: proposal.note } });
+    // When the rule-based list replaced the model's answer, log what the model actually said, so the run's
+    // source and model never sit next to output the model did not produce.
+    const loggedOutput = source === "FIXTURE" && call.ok ? call.result.output : { ranked: proposal.ranked, note: proposal.note };
+    await recordAiRun(tx, { outingId: outing.id, purpose: "CATALOGUE_PROPOSAL", call, output: loggedOutput });
     await recordAudit(tx, {
       outingId: outing.id,
       actor: actorOf(me.id),

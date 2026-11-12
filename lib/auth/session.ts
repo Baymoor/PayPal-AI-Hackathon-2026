@@ -16,7 +16,8 @@ import { safeEqual } from "./tokens";
 export const PARTICIPANT_COOKIE = "outings_p";
 export const MERCHANT_COOKIE = "outings_m";
 const MAX_AGE_SECONDS = 60 * 60 * 24 * 30;
-const MAX_OUTINGS_PER_SESSION = 20;
+/** 30 uuid pairs keep the signed cookie near 3.2 KB, safely under the 4 KB browser limit. */
+export const MAX_OUTINGS_PER_SESSION = 30;
 /** Merchant sessions last 12 h: enforced here from `iat`, not only by the cookie's Max-Age. */
 export const MERCHANT_SESSION_MAX_AGE_SECONDS = 60 * 60 * 12;
 /** Tolerated clock skew for an `iat` slightly in the future. */
@@ -113,7 +114,11 @@ export function merchantSessionFromCookieValue(raw: string | undefined, nowSec: 
 }
 
 export function withOuting(session: ParticipantSession, outingId: string, participantId: string): ParticipantSession {
-  const entries = Object.entries({ ...session.outings, [outingId]: participantId });
+  // Least recently used first out: re-setting a key would keep its original position, so drop it and
+  // append it again. An outing is refreshed whenever its invite link is re-opened or a persona is switched
+  // in it (merely viewing /o/<id> does not rewrite the cookie).
+  const others = Object.entries(session.outings).filter(([id]) => id !== outingId);
+  const entries = [...others, [outingId, participantId] as const];
   return { v: 1, outings: Object.fromEntries(entries.slice(-MAX_OUTINGS_PER_SESSION)) };
 }
 

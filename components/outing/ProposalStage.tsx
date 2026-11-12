@@ -446,8 +446,25 @@ export function ProposalStage({ view, actions }: { view: OutingView; actions: Ou
               <p className="text-small text-ink-muted">Demo catalogue. Prices and availability are sample data.</p>
             )}
             {!proposal || proposal.candidates.length === 0 ? (
-              <EmptyState icon={<Info className="size-6" />} title="No options yet">
-                We couldn&apos;t find a venue that fits this plan. Try another budget round.
+              <EmptyState
+                icon={<Info className="size-6" />}
+                title="No options yet"
+                action={
+                  // Without this the outing had no way out of this screen (the API allows a new round here).
+                  view.organizer.can.newRound ? (
+                    <Button
+                      variant="secondary"
+                      loading={pending === "round"}
+                      loadingLabel="Starting…"
+                      onClick={() => run("round", async () => { await actions.newRound(); await actions.refresh(); })}
+                    >
+                      Vote again
+                    </Button>
+                  ) : undefined
+                }
+              >
+                No venue in the demo catalogue fits {view.roster.attendeeCount} people. Guests who can&apos;t come can decline, then
+                vote again.
               </EmptyState>
             ) : (
               <div role="radiogroup" aria-label="Catalogue options" className="space-y-3">
